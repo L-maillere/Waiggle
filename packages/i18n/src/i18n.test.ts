@@ -1,16 +1,25 @@
+// Tests du paquet de traductions.
+// Vitest fournit trois briques : `describe` regroupe des tests, `it` décrit un comportement
+// attendu, `expect(valeur)` vérifie ce comportement (toBe, toEqual…).
 import { describe, expect, it } from 'vitest'
 import { defaultLanguage, parseAcceptLanguage, resolveLanguage, resources } from './index'
 
+// Un arbre de traductions : chaque valeur est soit un texte, soit un sous-arbre.
 type Tree = { [key: string]: string | Tree }
 
+// Aplatit l'arbre en une liste « chemin → texte », par exemple :
+// { home: { title: 'Bienvenue' } }  →  { 'home.title': 'Bienvenue' }
+// C'est plus simple à comparer d'une langue à l'autre.
 const flatten = (tree: Tree, prefix = ''): Record<string, string> =>
   Object.entries(tree).reduce<Record<string, string>>((acc, [key, value]) => {
     const path = prefix ? `${prefix}.${key}` : key
     if (typeof value === 'string') acc[path] = value
-    else Object.assign(acc, flatten(value, path))
+    else Object.assign(acc, flatten(value, path)) // sous-arbre : on descend d'un niveau
     return acc
   }, {})
 
+// Extrait les paramètres d'un texte : 'Bienvenue sur {{appName}}' → ['appName'].
+// Si l'anglais oubliait {{appName}}, le nom de l'appli disparaîtrait de l'écran.
 const placeholders = (text: string) =>
   [...text.matchAll(/{{\s*(\w+)\s*}}/g)].map((m) => m[1]).sort()
 
@@ -24,6 +33,7 @@ describe('translations', () => {
 
   it('has no empty text', () => {
     for (const [key, text] of [...Object.entries(fr), ...Object.entries(en)]) {
+      // Le second argument d'expect est le message affiché si le test échoue.
       expect(text.trim(), `empty text for ${key}`).not.toBe('')
     }
   })
@@ -62,6 +72,8 @@ describe('resolveLanguage', () => {
 })
 
 describe('parseAcceptLanguage', () => {
+  // L'en-tête Accept-Language est envoyé par chaque navigateur, par exemple :
+  // "en-US,en;q=0.9,fr;q=0.8" = « anglais américain, sinon anglais (90 %), sinon français (80 %) ».
   it('returns nothing for a missing or empty header', () => {
     expect(parseAcceptLanguage(undefined)).toEqual([])
     expect(parseAcceptLanguage('')).toEqual([])

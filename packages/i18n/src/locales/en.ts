@@ -1,5 +1,7 @@
 import type { Translation } from '../types'
 
+// Textes anglais. Le type `Translation` (calqué sur le français) oblige à fournir exactement
+// les mêmes clés : en oublier une ou en ajouter une de trop empêche la compilation.
 export const en: Translation = {
   common: {
     appName: 'Ruche',

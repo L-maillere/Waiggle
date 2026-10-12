@@ -1,3 +1,5 @@
+# Intégration continue : GitHub lance ces vérifications à chaque envoi sur main
+# et sur chaque pull request. Une pull request n'est fusionnée que si tout est vert.
 name: CI
 
 on:
@@ -5,41 +7,46 @@ on:
     branches: [main]
   pull_request:
 
+# Droits minimaux : la CI peut lire le code, rien de plus.
 permissions:
   contents: read
 
+# Si on pousse deux fois de suite, la vérification précédente est annulée.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  # Lint, types, tests et construction de l'API et de l'appli web.
   check:
     name: Lint, types, tests, build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v4 # version de pnpm lue dans package.json
       - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - run: pnpm install --frozen-lockfile # échoue si pnpm-lock.yaml n'est pas à jour
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
 
+  # Cherche des secrets (mots de passe, clés) oubliés dans tout l'historique Git.
   secrets:
     name: Secret scan
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
         with:
-          fetch-depth: 0
+          fetch-depth: 0 # tout l'historique, pas seulement le dernier commit
       - uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  # Signale les failles connues dans les dépendances (exceptions justifiées dans pnpm-workspace.yaml).
   audit:
     name: Dependency audit
     runs-on: ubuntu-latest
@@ -51,6 +58,7 @@ jobs:
           node-version-file: .nvmrc
       - run: pnpm audit --audit-level high
 
+  # Vérifie que l'image Docker de l'API se construit.
   docker:
     name: API image builds
     runs-on: ubuntu-latest

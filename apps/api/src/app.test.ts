@@ -2,6 +2,9 @@ import { ErrorResponse, HealthResponse } from '@ruche/contracts'
 import { describe, expect, it } from 'vitest'
 import { createApp } from './app'
 
+// Tests d'intégration de l'API : on envoie de vraies requêtes HTTP à l'application,
+// mais en mémoire (app.request), sans ouvrir de port réseau. C'est rapide et fiable.
+// `async`/`await` : la réponse arrive de façon asynchrone, on attend qu'elle soit là.
 const app = createApp({ version: '9.9.9' })
 
 describe('GET /health', () => {

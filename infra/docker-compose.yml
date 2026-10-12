@@ -1,15 +1,20 @@
+# Les services qui font tourner Ruche sur un serveur, chacun dans son conteneur.
+# Lancement : docker compose -f infra/docker-compose.yml up --build
+# Les valeurs ${...} viennent du fichier infra/.env (modèle : infra/.env.example).
 name: ruche
 
 services:
+  # Base de données PostgreSQL, avec l'extension pgvector pour la future recherche sémantique.
   db:
     image: pgvector/pgvector:pg17
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-ruche}
       POSTGRES_USER: ${POSTGRES_USER:-ruche}
+      # « :? » arrête tout avec ce message si le mot de passe n'est pas défini.
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Définir POSTGRES_PASSWORD dans infra/.env}
     volumes:
-      - db-data:/var/lib/postgresql/data
+      - db-data:/var/lib/postgresql/data # les données survivent au redémarrage du conteneur
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
@@ -18,6 +23,7 @@ services:
     networks:
       - backend
 
+  # L'API, construite à partir du Dockerfile du dépôt.
   api:
     build:
       context: ..
@@ -29,11 +35,12 @@ services:
       APP_VERSION: ${APP_VERSION:-dev}
     depends_on:
       db:
-        condition: service_healthy
+        condition: service_healthy # attend que la base réponde avant de démarrer
     networks:
       - backend
       - web
 
+  # Caddy : la porte d'entrée. Il gère le HTTPS (certificats automatiques) et transmet à l'API.
   caddy:
     image: caddy:2
     restart: unless-stopped
@@ -54,7 +61,7 @@ services:
       - web
 
 networks:
-  # The database is only reachable by the API, never from outside.
+  # Réseau interne : la base n'est joignable que par l'API, jamais depuis Internet.
   backend:
     internal: true
   web:

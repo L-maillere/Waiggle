@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { loadEnv } from './env'
 
+// On passe de fausses variables d'environnement à loadEnv : pas besoin de toucher au vrai système.
 describe('loadEnv', () => {
   it('uses safe defaults for local development', () => {
     expect(loadEnv({})).toEqual({ port: 3000, nodeEnv: 'development' })

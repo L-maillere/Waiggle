@@ -1,11 +1,12 @@
-// Provisional palette until the visual identity is defined.
+// Couleurs provisoires, en attendant l'identité visuelle définitive.
+// Deux jeux : clair et sombre. L'écran choisit selon le réglage du téléphone.
 export const palette = {
   light: {
     background: '#FFFBF2',
     surface: '#FFFFFF',
     text: '#1F1A12',
-    muted: '#6B5E4A',
-    accent: '#B87A00',
+    muted: '#6B5E4A', // texte secondaire
+    accent: '#B87A00', // couleur « miel » pour ce qui est actif ou sélectionné
     accentSoft: '#FCEFD2',
     border: '#EADFC8',
   },
@@ -20,4 +21,5 @@ export const palette = {
   },
 } as const
 
+// Le type d'un jeu de couleurs, déduit de l'objet ci-dessus (clair ou sombre).
 export type Colors = (typeof palette)[keyof typeof palette]

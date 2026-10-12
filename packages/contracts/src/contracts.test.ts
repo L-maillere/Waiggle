@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { ErrorResponse, HealthResponse } from './index'
 
+// `parse` renvoie la donnée si elle est valide et lève une erreur sinon.
+// `safeParse` ne lève jamais d'erreur : il renvoie { success: true/false, ... }.
+
 describe('HealthResponse', () => {
   it('accepts a healthy response with a version', () => {
     expect(HealthResponse.parse({ status: 'ok', version: '0.1.0' })).toEqual({
