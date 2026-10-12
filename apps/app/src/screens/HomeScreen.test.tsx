@@ -58,4 +58,13 @@ describe('HomeScreen', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Mon compte' }))
     expect(mockPush).toHaveBeenCalledWith('/account')
   })
+
+  it('invites a signed-in member to publish a project', async () => {
+    mockSession({ user: { name: 'Léa' } })
+    await renderWithI18n(<HomeScreen />)
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Publier un projet' }))
+
+    expect(mockPush).toHaveBeenCalledWith('/projects/new')
+  })
 })

@@ -86,6 +86,23 @@ const isClean = (
   return visible || !needsVisible
 }
 
+/** Vrai si le texte ne contient aucun caractère interdit (pour une adresse, par exemple). */
+export const isCleanText = (text: string, { lineBreaks = false }: { lineBreaks?: boolean } = {}) =>
+  isClean(text, { lineBreaks, needsVisible: false })
+
+/**
+ * Retire les caractères interdits d'un texte destiné à être affiché. Sert pour ce qui n'a pas pu
+ * être vérifié à l'enregistrement : par exemple « &#x202E; » dans du Markdown, une écriture
+ * détournée du caractère qui retourne le texte, que l'affichage retransforme en vrai caractère.
+ */
+export const removeForbiddenCharacters = (text: string) =>
+  Array.from(text)
+    .filter((char) => {
+      const code = char.codePointAt(0) ?? 0
+      return LINE_BREAKS.has(code) || !isForbidden(code)
+    })
+    .join('')
+
 const message = 'contains forbidden characters'
 
 /** Un nom affiché : 1 à 80 caractères, sur une ligne. */
@@ -113,3 +130,10 @@ export const ShortLabel = (max: number) =>
     .min(1)
     .max(max)
     .refine((text) => isClean(text, { lineBreaks: false, needsVisible: true }), { message })
+
+/** Retire les doublons sans tenir compte des majuscules : ['Claude', 'claude'] → ['Claude']. */
+export const uniqueIgnoringCase = (items: string[]) =>
+  items.filter(
+    (item, index) =>
+      items.findIndex((other) => other.toLowerCase() === item.toLowerCase()) === index,
+  )

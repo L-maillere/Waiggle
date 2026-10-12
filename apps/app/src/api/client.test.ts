@@ -2,7 +2,7 @@
 // on vérifie ce que l'appli envoie, et comment elle comprend les réponses.
 import { Me } from '@ruche/contracts'
 import { leaMe } from '../testing/fixtures'
-import { apiFetch, request } from './client'
+import { apiFetch, request, requestWithoutBody } from './client'
 
 jest.mock('../accounts/auth-client', () => ({
   authClient: { getCookie: jest.fn().mockResolvedValue('ruche.session_token=abc') },
@@ -55,5 +55,25 @@ describe('request', () => {
     fetchMock.mockResolvedValue(json({ id: 'u1' }))
 
     expect(await request('/v1/me', {}, Me)).toEqual({ ok: false, error: 'internal' })
+  })
+})
+
+describe('requestWithoutBody', () => {
+  it('succeeds on an empty answer, such as a deletion', async () => {
+    fetchMock.mockResolvedValue(new Response(null, { status: 204 }))
+
+    expect(await requestWithoutBody('/v1/projects/1', { method: 'DELETE' })).toEqual({
+      ok: true,
+      data: null,
+    })
+  })
+
+  it('turns a refusal into the matching message', async () => {
+    fetchMock.mockResolvedValue(json({}, 404))
+
+    expect(await requestWithoutBody('/v1/projects/1', { method: 'DELETE' })).toEqual({
+      ok: false,
+      error: 'notFound',
+    })
   })
 })

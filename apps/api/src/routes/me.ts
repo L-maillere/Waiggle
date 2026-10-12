@@ -11,6 +11,7 @@ import { errorBody, languageOf } from '../errors'
 import { processAvatar } from '../media/avatar'
 import type { FileStorage } from '../media/storage'
 import { loadMe } from '../profile/me'
+import { loadProjectsOf } from '../projects/load'
 import { memberCounterKeys, type RateLimiter, type RateRule } from '../rate-limit'
 import type { AppEnv } from '../types'
 import { createRouter, errorResponse } from './router'
@@ -236,12 +237,16 @@ export const meRoutes = ({ db, storage, limiter, publicApiUrl }: Deps) => {
       .from(schema.session)
       .where(eq(schema.session.userId, user.id))
 
+    // Tous ses projets, privés compris (c'est lui qui regarde).
+    const projects = await loadProjectsOf(db, user.id, user.id, publicApiUrl)
+
     // Content-Disposition: attachment → le navigateur propose d'enregistrer le fichier.
     c.header('Content-Disposition', 'attachment; filename="ruche-export.json"')
     return c.json(
       {
         exportedAt: new Date().toISOString(),
         user: me,
+        projects,
         loginMethods: loginMethods.map((m) => ({ ...m, createdAt: m.createdAt.toISOString() })),
         sessions: sessions.map((s) => ({
           ...s,

@@ -49,6 +49,8 @@ export const createRateLimiter = (db: Database, clock: () => number = Date.now):
 export const memberCounterKeys = (userId: string) => ({
   profile: `profile:${userId}`,
   avatar: `avatar:${userId}`,
+  projectCreate: `project-create:${userId}`,
+  projectChange: `project-change:${userId}`,
 })
 
 /**

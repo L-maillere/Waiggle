@@ -17,6 +17,7 @@ import type { FileStorage } from './media/storage'
 import { createRateLimiter } from './rate-limit'
 import { meRoutes } from './routes/me'
 import { mediaRoutes } from './routes/media'
+import { projectRoutes } from './routes/projects'
 import { sameOriginWrites } from './security/same-origin'
 import type { AppEnv } from './types'
 
@@ -89,15 +90,27 @@ export const createApp = ({ version, auth, db, storage, appUrl, publicApiUrl }: 
     }),
   )
 
-  // Taille maximale des requêtes ordinaires (du JSON de quelques lignes) : 16 Ko. Vérifiée avant
-  // tout le reste, y compris la session : personne, même anonyme, ne peut faire lire au serveur une
-  // requête géante. Seul l'envoi d'avatar a sa propre limite, plus grande (voir routes/me.ts).
-  const limitBody = bodyLimit({
-    maxSize: 16 * 1024,
-    onError: (c) => c.json(errorBody(languageOf(c), 'payload_too_large'), 413),
+  // Taille maximale du corps des requêtes, vérifiée avant tout le reste, y compris la session :
+  // personne, même anonyme, ne peut faire lire au serveur une requête géante.
+  // - 16 Ko pour les requêtes ordinaires (du JSON de quelques lignes) ;
+  // - 256 Ko pour les projets (description de 10 000 caractères et 5 prompts de 4 000, jusqu'à
+  //   4 octets par caractère) ;
+  // - l'envoi d'avatar a sa propre limite, plus grande (voir routes/me.ts).
+  const limitBody = (maxSize: number) =>
+    bodyLimit({
+      maxSize,
+      onError: (c) => c.json(errorBody(languageOf(c), 'payload_too_large'), 413),
+    })
+  const small = limitBody(16 * 1024)
+  const projects = limitBody(256 * 1024)
+  app.use('/api/auth/*', small)
+  app.use('/v1/*', (c, next) => {
+    if (c.req.path === '/v1/me/avatar') return next()
+    if (c.req.path === '/v1/projects' || c.req.path.startsWith('/v1/projects/')) {
+      return projects(c, next)
+    }
+    return small(c, next)
   })
-  app.use('/api/auth/*', limitBody)
-  app.use('/v1/*', (c, next) => (c.req.path === '/v1/me/avatar' ? next() : limitBody(c, next)))
 
   // Toutes les routes de Better Auth (inscription, connexion, vérification…) sous /api/auth/.
   // c.req.raw est la requête HTTP standard, que Better Auth sait traiter seul.
@@ -121,6 +134,7 @@ export const createApp = ({ version, auth, db, storage, appUrl, publicApiUrl }: 
   // Les routes du membre connecté et le service des images, rangés dans leurs propres fichiers.
   const limiter = createRateLimiter(db)
   app.route('/', meRoutes({ db, storage, limiter, publicApiUrl }))
+  app.route('/', projectRoutes({ db, limiter, publicApiUrl }))
   app.route('/', mediaRoutes(storage))
 
   // La documentation de l'API, générée à partir des routes déclarées, servie en JSON.

@@ -111,6 +111,47 @@ Règles ajoutées pendant la réalisation, surtout après la relecture de sécur
 **Modifier ou supprimer**
 - Seul l'auteur peut modifier ou supprimer son projet ; toute tentative d'un autre membre est refusée
 
+### Précisions (tranche 3) — validées le 12/10/2026
+
+Décisions de Louis :
+- **Visuel et lien de démo** : toujours facultatifs. Sans lien, le projet affiche « Pas encore de
+  démo ».
+- **« Public » veut dire « visible par les membres connectés »** : il faut un compte pour voir un
+  projet, la page d'un membre ou une étiquette. Rien n'est visible sans compte, ni indexé par les
+  moteurs de recherche.
+- **Description longue** en Markdown, assainie à l'affichage.
+- **Temps passé** : par tranches (moins d'une heure, une soirée, un week-end, quelques semaines,
+  plusieurs mois).
+
+Règles détaillées :
+- **Textes** : titre de 1 à 80 caractères ; pitch d'une ligne, de 1 à 140 caractères ; description
+  de 10 000 caractères au plus ; 15 outils ou modèles au plus (40 caractères chacun, doublons
+  retirés) ; 5 prompts clés au plus (4 000 caractères chacun, affichés tels quels). Les caractères
+  invisibles sont refusés partout, comme en tranche 2.
+- **Statut** par défaut : idée. **Visibilité** par défaut : public. Un projet privé sert aussi de
+  brouillon.
+- **Lien de démo** : `https://` uniquement. Sont refusés `localhost`, les noms sans point, les noms
+  en `.local`, `.internal`, `.home.arpa` ou `.localhost`, et toute adresse IP privée, locale ou
+  réservée. Le serveur n'ouvre jamais ce lien. Un clic passe par une page d'avertissement
+  (« Tu quittes Ruche pour… »), comme tous les liens externes.
+- **Visuels** : de 0 à 6 par projet, en JPEG, PNG ou WebP de 5 Mo au plus. Ils sont ré-encodés en
+  WebP de 1 600 px au plus, sans métadonnées. Le premier sert de couverture, et l'ordre est
+  modifiable.
+- **Étiquettes** : « Claude », « claude » et « CLAUDE » mènent à la même page. Une page d'étiquette
+  ne montre que les projets publics.
+- **Droits** : seul l'auteur modifie ou supprime son projet. Pour un projet public, un autre membre
+  reçoit « refusé » ; pour un projet privé, « introuvable » (il n'apprend même pas qu'il existe).
+- **Suppression** immédiate et définitive, après confirmation. Les visuels sont effacés, et tout
+  disparaît avec le compte. L'export des données inclut les projets.
+- **Anti-abus**, par membre : 20 créations de projet par jour, 60 modifications par heure, 30 envois
+  de visuel par heure.
+- **Listes** : les 50 projets les plus récents, sans pagination pour l'instant (elle arrivera avec
+  le fil, en tranche 4).
+- **Fil des abonnés** : le projet y apparaîtra avec la tranche 4. Dans cette tranche, il apparaît
+  sur la page de son auteur et sur les pages de ses étiquettes.
+- **Réalisation en deux étapes** : 3a pour le projet lui-même, 3b pour les visuels, la page d'un
+  membre et les étiquettes.
+
 ## Tranche 4 — Suivre et le fil
 
 **Suivre**

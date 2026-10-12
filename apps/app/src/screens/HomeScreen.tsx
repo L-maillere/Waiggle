@@ -32,7 +32,12 @@ export function HomeScreen() {
           <>
             <Text style={styles.greeting}>{t('home.greeting', { name: session.user.name })}</Text>
             <Text style={styles.soon}>{t('home.comingSoon')}</Text>
-            <Button label={t('home.account')} onPress={() => router.push('/account')} />
+            <Button label={t('home.publish')} onPress={() => router.push('/projects/new')} />
+            <Button
+              label={t('home.account')}
+              variant="secondary"
+              onPress={() => router.push('/account')}
+            />
           </>
         ) : (
           <>
