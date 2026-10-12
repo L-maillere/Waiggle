@@ -21,6 +21,16 @@ RUN pnpm install --offline --frozen-lockfile --filter @ruche/api...
 # Assemble tout le serveur en un seul fichier dist/index.js (voir le script "build").
 RUN pnpm --filter @ruche/api build
 
+# Exception : sharp (traitement des images) contient du code compilé pour chaque système, qu'on ne
+# peut pas glisser dans dist/index.js. On l'installe à part, à la version exacte fixée dans
+# apps/api/package.json, avec le binaire précompilé pour ce système (Alpine).
+# --ignore-scripts : aucun script d'installation n'est exécuté (protection de la chaîne d'approvisionnement).
+WORKDIR /runtime
+# Le package.json indique aussi à Node que dist/index.js utilise la syntaxe moderne des modules (ESM).
+RUN echo '{"private":true,"type":"module"}' > package.json \
+  && npm install --omit=dev --ignore-scripts --no-audit --no-fund \
+    "sharp@$(node -p "require('/repo/apps/api/package.json').dependencies.sharp")"
+
 # --- Étape 2 : exécution ---
 # On repart d'une image vide : ni code source, ni outils de build, ni dépendances de dev.
 FROM node:24-alpine
@@ -30,6 +40,12 @@ ENV NODE_ENV=production
 ENV MIGRATIONS_DIR=/app/migrations
 COPY --from=build --chown=node:node /repo/apps/api/dist ./dist
 COPY --from=build --chown=node:node /repo/packages/db/migrations ./migrations
+COPY --from=build --chown=node:node /runtime/package.json ./package.json
+COPY --from=build --chown=node:node /runtime/node_modules ./node_modules
+# Dossier des fichiers envoyés par les membres (avatars). Un volume Docker y est monté
+# (voir infra/docker-compose.yml) pour qu'ils survivent aux mises à jour du conteneur.
+ENV MEDIA_DIR=/app/media
+RUN mkdir -p /app/media && chown node:node /app/media
 # Le serveur tourne avec un utilisateur sans privilèges, jamais en root.
 USER node
 EXPOSE 3000

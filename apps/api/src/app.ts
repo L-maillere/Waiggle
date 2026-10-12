@@ -2,10 +2,11 @@
 // On la fabrique avec une fonction (createApp) plutôt qu'au chargement du fichier :
 // les tests peuvent ainsi créer leur propre instance, sans démarrer de vrai serveur.
 import { createRoute, OpenAPIHono } from '@hono/zod-openapi'
-import { HealthResponse } from '@ruche/contracts'
+import { type ErrorCode, HealthResponse } from '@ruche/contracts'
 import type { Database } from '@ruche/db'
 import { parseAcceptLanguage, resolveLanguage } from '@ruche/i18n'
 import { cors } from 'hono/cors'
+import { HTTPException } from 'hono/http-exception'
 import { secureHeaders } from 'hono/secure-headers'
 import type { Auth } from './auth/auth'
 import { sessionMiddleware } from './auth/session'
@@ -14,6 +15,7 @@ import type { FileStorage } from './media/storage'
 import { createRateLimiter } from './rate-limit'
 import { meRoutes } from './routes/me'
 import { mediaRoutes } from './routes/media'
+import { sameOriginWrites } from './security/same-origin'
 import type { AppEnv } from './types'
 
 export type AppOptions = {
@@ -41,6 +43,18 @@ const healthRoute = createRoute({
     },
   },
 })
+
+// Code HTTP d'un refus → code d'erreur de notre API. Partial<Record<…>> : un dictionnaire où
+// certains codes HTTP seulement ont une entrée ; les autres refus sont des données invalides.
+const codeByStatus: Partial<Record<number, ErrorCode>> = {
+  401: 'unauthorized',
+  403: 'forbidden',
+  404: 'not_found',
+  413: 'payload_too_large',
+  415: 'unsupported_media_type',
+  429: 'rate_limited',
+}
+const codeForStatus = (status: number): ErrorCode => codeByStatus[status] ?? 'validation'
 
 export const createApp = ({ version, auth, db, storage, appUrl, publicApiUrl }: AppOptions) => {
   const app = new OpenAPIHono<AppEnv>()
@@ -75,7 +89,10 @@ export const createApp = ({ version, auth, db, storage, appUrl, publicApiUrl }: 
   // c.req.raw est la requête HTTP standard, que Better Auth sait traiter seul.
   app.on(['GET', 'POST'], '/api/auth/*', (c) => auth.handler(c.req.raw))
 
-  // Sur nos propres routes /v1/…, on retrouve le membre connecté avant d'exécuter la route.
+  // Sur nos propres routes /v1/… : d'abord refuser les modifications venues d'un autre site
+  // (voir security/same-origin.ts ; Better Auth fait la même vérification sur /api/auth/…),
+  // puis retrouver le membre connecté.
+  app.use('/v1/*', sameOriginWrites([appUrl, publicApiUrl]))
   app.use('/v1/*', sessionMiddleware(auth))
 
   // La route de santé : `as const` garantit que status vaut exactement 'ok', comme l'exige le schéma.
@@ -99,12 +116,18 @@ export const createApp = ({ version, auth, db, storage, appUrl, publicApiUrl }: 
     return c.json(errorBody(language, 'not_found'), 404)
   })
 
-  // Toute erreur imprévue : on la note dans les logs du serveur, mais on ne renvoie au client
-  // qu'un message générique. Les détails techniques pourraient aider un attaquant.
+  // Les erreurs. Deux familles :
+  // - les refus prévus, levés par Hono lui-même (HTTPException), par exemple une requête dont le
+  //   corps n'est pas du JSON : on garde leur code (400…) avec notre message traduit ;
+  // - les erreurs imprévues : notées dans les logs du serveur, mais le client ne reçoit qu'un message
+  //   générique. Les détails techniques pourraient aider un attaquant.
   app.onError((err, c) => {
-    console.error(err)
     const language = languageOf(c)
     c.header('Content-Language', language)
+    if (err instanceof HTTPException && err.status < 500) {
+      return c.json(errorBody(language, codeForStatus(err.status)), err.status)
+    }
+    console.error(err)
     return c.json(errorBody(language, 'internal'), 500)
   })
 

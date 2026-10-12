@@ -33,7 +33,11 @@ const updateMeRoute = createRoute({
   path: '/v1/me',
   summary: 'Update my profile and language',
   // La requête doit respecter ProfileUpdate ; sinon le routeur répond 400 avant même la route.
-  request: { body: { content: { 'application/json': { schema: ProfileUpdate } } } },
+  // required: true : un corps JSON est obligatoire. Sans cette option, une requête envoyée dans un
+  // autre format (text/plain…) passait sans être vérifiée.
+  request: {
+    body: { required: true, content: { 'application/json': { schema: ProfileUpdate } } },
+  },
   responses: {
     200: meResponse,
     400: errorResponse('Invalid data.'),

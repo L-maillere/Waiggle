@@ -9,6 +9,7 @@ const errorMessages = {
   not_found: 'notFound',
   validation: 'validation',
   unauthorized: 'unauthorized',
+  forbidden: 'forbidden',
   rate_limited: 'rateLimited',
   payload_too_large: 'payloadTooLarge',
   unsupported_media_type: 'unsupportedMediaType',

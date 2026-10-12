@@ -6,6 +6,7 @@
 export type ApiErrorKey =
   | 'validation'
   | 'unauthorized'
+  | 'forbidden'
   | 'notFound'
   | 'payloadTooLarge'
   | 'unsupportedMediaType'
@@ -20,6 +21,7 @@ export type ApiResult<T> = { ok: true; data: T } | { ok: false; error: ApiErrorK
 const byStatus: Record<number, ApiErrorKey> = {
   400: 'validation',
   401: 'unauthorized',
+  403: 'forbidden',
   404: 'notFound',
   413: 'payloadTooLarge',
   415: 'unsupportedMediaType',

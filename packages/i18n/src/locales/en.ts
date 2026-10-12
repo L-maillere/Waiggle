@@ -126,6 +126,7 @@ export const en: Translation = {
     notFound: 'This page does not exist.',
     validation: 'Some information is invalid.',
     unauthorized: 'Sign in to continue.',
+    forbidden: 'This action is not allowed.',
     rateLimited: 'Too many requests. Try again in a few minutes.',
     payloadTooLarge: 'This file is too large.',
     unsupportedMediaType: 'This type of file is not accepted.',

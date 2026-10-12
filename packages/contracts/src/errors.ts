@@ -6,6 +6,7 @@ export const ErrorCode = z.enum([
   'not_found',
   'validation',
   'unauthorized',
+  'forbidden',
   'rate_limited',
   'payload_too_large',
   'unsupported_media_type',

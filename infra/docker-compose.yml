@@ -42,6 +42,10 @@ services:
       BREVO_API_KEY: ${BREVO_API_KEY:-}
       MAIL_FROM_EMAIL: ${MAIL_FROM_EMAIL:-no-reply@example.com}
       MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Ruche}
+      MEDIA_DIR: /app/media
+    volumes:
+      # Les avatars des membres. À sauvegarder avec la base de données.
+      - media-data:/app/media
     depends_on:
       db:
         condition: service_healthy # attend que la base réponde avant de démarrer
@@ -77,5 +81,6 @@ networks:
 
 volumes:
   db-data:
+  media-data:
   caddy-data:
   caddy-config:

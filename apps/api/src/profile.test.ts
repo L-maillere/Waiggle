@@ -89,6 +89,19 @@ describe('completing my profile', () => {
     expect(res.headers.get('retry-after')).toBeTruthy()
   })
 
+  it('refuses a change that is not sent as JSON, without crashing', async () => {
+    // Bug trouvé en testant l'image de production : ce cas renvoyait une erreur 500.
+    const res = await ctx.request('/v1/me', {
+      method: 'PATCH',
+      headers: { cookie, 'content-type': 'text/plain' },
+      body: JSON.stringify({ bio: 'Coucou' }),
+    })
+
+    // 415 : « format non pris en charge ».
+    expect(res.status).toBe(415)
+    expect(ErrorResponse.parse(await res.json()).error.code).toBe('unsupported_media_type')
+  })
+
   it('cannot be bypassed through the generic Better Auth route', async () => {
     // Cette route permettrait de mettre une image hébergée n'importe où comme avatar :
     // elle est désactivée, tout passe par nos routes contrôlées.
@@ -215,5 +228,43 @@ describe('serving images', () => {
 
     expect(traversal.status).toBe(404)
     expect(unknown.status).toBe(404)
+  })
+})
+
+describe('requests coming from another website', () => {
+  // Attaque « CSRF » : une page piégée pousse le navigateur de Léa, connecté à Ruche, à envoyer
+  // une requête à notre API. Le navigateur y joint le cookie de Léa… et l'en-tête Origin, qui
+  // trahit la page d'où vient la requête.
+  const evil = { origin: 'https://evil.example' }
+
+  it('cannot change my avatar, even with my session cookie', async () => {
+    const res = await ctx.request('/v1/me/avatar', {
+      method: 'POST',
+      headers: { cookie, ...evil },
+      body: avatarForm(await photoWithGps()),
+    })
+
+    expect(res.status).toBe(403)
+    expect(ErrorResponse.parse(await res.json()).error.code).toBe('forbidden')
+    expect((await getMe()).avatarUrl).toBeNull()
+  })
+
+  it('cannot change my profile', async () => {
+    const res = await patchMe({ bio: 'Piraté' }, evil)
+
+    expect(res.status).toBe(403)
+    expect((await getMe()).bio).toBe('')
+  })
+
+  it('still accepts the mobile app, which sends no Origin header', async () => {
+    // ctx.app.request : sans les en-têtes ajoutés par ctx.request (dont Origin).
+    const res = await ctx.app.request('/v1/me', {
+      method: 'PATCH',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ bio: 'Depuis mon téléphone' }),
+    })
+
+    expect(res.status).toBe(200)
+    expect((await getMe()).bio).toBe('Depuis mon téléphone')
   })
 })

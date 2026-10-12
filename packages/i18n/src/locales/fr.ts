@@ -126,6 +126,7 @@ export const fr = {
     notFound: "Cette page n'existe pas.",
     validation: 'Certaines informations sont invalides.',
     unauthorized: 'Connecte-toi pour continuer.',
+    forbidden: 'Cette action n’est pas autorisée.',
     rateLimited: 'Trop de demandes. Réessaie dans quelques minutes.',
     payloadTooLarge: 'Ce fichier est trop lourd.',
     unsupportedMediaType: 'Ce type de fichier n’est pas accepté.',
