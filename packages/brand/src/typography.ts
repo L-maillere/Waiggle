@@ -29,6 +29,7 @@ type TextStyle = {
  * plutôt qu'une taille : pour agrandir tous les titres de projet, on change une seule ligne.
  */
 export const textStyles = {
+  hero: { family: 'display', size: 76, lineHeight: 80, weight: 700, tracking: -0.05 }, // le logo d'accueil
   display: { family: 'display', size: 44, lineHeight: 48, weight: 700, tracking: -0.045 }, // grand titre (ordinateur)
   title1: { family: 'display', size: 38, lineHeight: 40, weight: 700, tracking: -0.04 }, // nom sur un profil
   title2: { family: 'display', size: 34, lineHeight: 38, weight: 700, tracking: -0.035 }, // titre d'un projet

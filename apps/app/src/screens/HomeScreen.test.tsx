@@ -21,14 +21,20 @@ describe('HomeScreen', () => {
   it('welcomes the visitor in French by default', async () => {
     await renderWithI18n(<HomeScreen />)
 
-    expect(screen.getByText(`Bienvenue sur ${appName}`)).toBeTruthy()
-    expect(screen.getByText('Le fil arrive bientôt.')).toBeTruthy()
+    // Le logo sert de titre à la page : les lecteurs d'écran l'annoncent avec la phrase d'accueil.
+    expect(screen.getByRole('header', { name: `Bienvenue sur ${appName}` })).toBeTruthy()
+    expect(screen.getByText('Montre à tes proches ce que tu construis avec l’IA.')).toBeTruthy()
+    expect(
+      screen.getByText(
+        'Les projets et les profils ne sont visibles que par les membres connectés.',
+      ),
+    ).toBeTruthy()
   })
 
   it('welcomes the visitor in English when that is their language', async () => {
     await renderWithI18n(<HomeScreen />, 'en')
 
-    expect(screen.getByText(`Welcome to ${appName}`)).toBeTruthy()
+    expect(screen.getByRole('header', { name: `Welcome to ${appName}` })).toBeTruthy()
   })
 
   it('lets the visitor switch language', async () => {
@@ -36,7 +42,7 @@ describe('HomeScreen', () => {
 
     await fireEvent.press(screen.getByRole('radio', { name: 'English' }))
 
-    expect(screen.getByText(`Welcome to ${appName}`)).toBeTruthy()
+    expect(screen.getByRole('header', { name: `Welcome to ${appName}` })).toBeTruthy()
     expect(screen.getByRole('radio', { name: 'English', checked: true })).toBeTruthy()
   })
 
@@ -44,7 +50,7 @@ describe('HomeScreen', () => {
     await renderWithI18n(<HomeScreen />)
 
     await fireEvent.press(screen.getByRole('button', { name: 'Créer un compte' }))
-    await fireEvent.press(screen.getByRole('button', { name: 'Se connecter' }))
+    await fireEvent.press(screen.getByRole('button', { name: 'J’ai déjà un compte' }))
 
     expect(mockPush).toHaveBeenNthCalledWith(1, '/sign-up')
     expect(mockPush).toHaveBeenNthCalledWith(2, '/sign-in')
@@ -55,6 +61,7 @@ describe('HomeScreen', () => {
     await renderWithI18n(<HomeScreen />)
 
     expect(screen.getByText('Bonjour Léa !')).toBeTruthy()
+    expect(screen.getByText('Le fil arrive bientôt.')).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Créer un compte' })).toBeNull()
     await fireEvent.press(screen.getByRole('button', { name: 'Mon compte' }))
     expect(mockPush).toHaveBeenCalledWith('/account')

@@ -1,5 +1,7 @@
 import { fireEvent, screen } from '@testing-library/react-native'
-import { deleteAccount, signOut } from '../accounts/api'
+import { signOut } from '../accounts/api'
+import { getMe } from '../profile/api'
+import { leaMe } from '../testing/fixtures'
 import { mockSession, renderWithI18n } from '../testing/render'
 import { AccountScreen } from './AccountScreen'
 
@@ -8,7 +10,6 @@ jest.mock('../profile/api', () => ({ getMe: jest.fn(), updateProfile: jest.fn() 
 jest.mock('../accounts/api', () => ({
   useSession: jest.fn(),
   signOut: jest.fn(),
-  deleteAccount: jest.fn(),
   downloadMyData: jest.fn(),
 }))
 const mockReplace = jest.fn()
@@ -19,9 +20,10 @@ const lea = { user: { name: 'Léa', email: 'lea@example.com' } }
 
 beforeEach(() => {
   mockSession(lea)
-  jest.mocked(deleteAccount).mockReset()
+  jest.mocked(getMe).mockResolvedValue(leaMe)
   jest.mocked(signOut).mockReset()
   mockReplace.mockReset()
+  mockPush.mockReset()
 })
 
 describe('AccountScreen', () => {
@@ -57,34 +59,20 @@ describe('AccountScreen', () => {
     expect(mockReplace).toHaveBeenCalledWith('/')
   })
 
-  it('keeps the account and says so when the password is wrong', async () => {
-    jest.mocked(deleteAccount).mockResolvedValue({ ok: false, error: 'wrongPassword' })
+  it('lets the member choose the appearance of this device', async () => {
     await renderWithI18n(<AccountScreen />)
+    expect(screen.getByRole('radio', { name: 'Automatique', checked: true })).toBeTruthy()
 
-    await fireEvent.changeText(screen.getByLabelText('Confirme avec ton mot de passe'), 'nope')
-    await fireEvent.press(screen.getByRole('button', { name: 'Supprimer définitivement' }))
+    await fireEvent.press(screen.getByRole('radio', { name: 'Nuit' }))
 
-    expect(deleteAccount).toHaveBeenCalledWith('nope')
-    expect(screen.getByText('Mot de passe incorrect.')).toBeTruthy()
-    expect(mockReplace).not.toHaveBeenCalled()
+    expect(screen.getByRole('radio', { name: 'Nuit', checked: true })).toBeTruthy()
   })
 
-  it('deletes the account once the password is confirmed, then goes home', async () => {
-    jest.mocked(deleteAccount).mockResolvedValue({ ok: true })
+  it('leads to the page that deletes the account', async () => {
     await renderWithI18n(<AccountScreen />)
 
-    await fireEvent.changeText(
-      screen.getByLabelText('Confirme avec ton mot de passe'),
-      'correct-horse-battery',
-    )
-    await fireEvent.press(screen.getByRole('button', { name: 'Supprimer définitivement' }))
+    await fireEvent.press(screen.getByRole('button', { name: 'Supprimer mon compte' }))
 
-    expect(mockReplace).toHaveBeenCalledWith('/')
-  })
-
-  it('cannot delete without typing the password first', async () => {
-    await renderWithI18n(<AccountScreen />)
-
-    expect(screen.getByRole('button', { name: 'Supprimer définitivement' })).toBeDisabled()
+    expect(mockPush).toHaveBeenCalledWith('/account/delete')
   })
 })

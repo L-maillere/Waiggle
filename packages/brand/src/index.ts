@@ -13,7 +13,7 @@ export {
 } from './colors'
 export { contrastRatio, parseColor } from './contrast'
 export { type DurationName, durations, pressScale, type SpringName, springs } from './motion'
-export { appName } from './name'
+export { appName, sourceUrl } from './name'
 export { type ShadowName, shadows } from './shadows'
 export { borders, layout, type Radius, radii, type Space, space } from './shape'
 export {

@@ -22,21 +22,33 @@ import { Button } from '../ui/Button'
 import { Choices } from '../ui/Choices'
 import { CodeBlock } from '../ui/CodeBlock'
 import { Columns } from '../ui/Columns'
+import { Constellation } from '../ui/Constellation'
+import { Dialog } from '../ui/Dialog'
+import { Disclosure } from '../ui/Disclosure'
+import { HoneyMeter } from '../ui/HoneyMeter'
 import { Icon } from '../ui/Icon'
 import { IconButton } from '../ui/IconButton'
+import { Emblem, Honeycomb, PortalRings } from '../ui/Illustrations'
 import { type IconName, iconPaths } from '../ui/icons.generated'
 import { LanguageSwitcher } from '../ui/LanguageSwitcher'
+import { ListGroup, ListRow } from '../ui/ListGroup'
 import { Markdown } from '../ui/Markdown'
 import { Notice } from '../ui/Notice'
+import { ProjectCard } from '../ui/ProjectCard'
+import { ProjectCover } from '../ui/ProjectCover'
 import { Screen } from '../ui/Screen'
 import { Segmented } from '../ui/Segmented'
-import { Stack } from '../ui/Stack'
+import { SheetHeader } from '../ui/SheetHeader'
+import { Row, Stack } from '../ui/Stack'
 import { StatusPill } from '../ui/StatusPill'
+import { StepNumber } from '../ui/StepNumber'
 import { Surface } from '../ui/Surface'
 import { Switch } from '../ui/Switch'
 import { Tag } from '../ui/Tag'
+import { TagInput } from '../ui/TagInput'
 import { Text } from '../ui/Text'
 import { FieldGroup, TextField } from '../ui/TextField'
+import { TextLink } from '../ui/TextLink'
 import type { Appearance } from '../ui/theme/appearance'
 import { useTheme } from '../ui/theme/ThemeProvider'
 import { Wordmark } from '../ui/Wordmark'
@@ -52,6 +64,7 @@ const samples = {
 
 export function CatalogueScreen() {
   const { i18n } = useTranslation()
+  const [dialog, setDialog] = useState(false)
   const { appearance, setAppearance } = useTheme()
   const l = labels[i18n.language === 'en' ? 'en' : 'fr']
 
@@ -205,6 +218,78 @@ export function CatalogueScreen() {
         <CodeBlock>{l.prompt}</CodeBlock>
       </Section>
 
+      <Section title={l.lists}>
+        <ListGroup title={l.languageTitle} footer={l.languageHint} radio>
+          <ListRow label="Français" selected onPress={() => {}} />
+          <ListRow label="English" selected={false} onPress={() => {}} />
+        </ListGroup>
+        <ListGroup title={l.dataTitle}>
+          <ListRow icon="user" label={l.profileRow} detail="Léa Moreau" />
+          <ListRow label={l.download} trailing="download-simple" onPress={() => {}} />
+          <ListRow label={l.signOut} trailing="sign-out" onPress={() => {}} />
+          <ListRow label={l.deleteAccount} tone="danger" trailing="trash" onPress={() => {}} />
+        </ListGroup>
+      </Section>
+
+      <Section title={l.forms}>
+        <SheetHeader
+          title={l.newProject}
+          cancel={{ label: l.cancel, onPress: () => {} }}
+          action={{ label: l.publish, onPress: () => {} }}
+        />
+        <TagSample l={l} />
+        <HoneyMeter value={9} max={12} label={l.meter} />
+        <Disclosure title={l.recipe} hint={l.recipeHint}>
+          <Text tone="secondary">{l.plain}</Text>
+        </Disclosure>
+        <Row gap="md" align="start">
+          <StepNumber value={1} />
+          <Stack grow>
+            <Text>{l.step}</Text>
+          </Stack>
+        </Row>
+        <Row gap="sm" wrap>
+          <TextLink label={l.createAccount} onPress={() => {}} />
+          <TextLink label={l.cancel} onPress={() => {}} role="button" />
+        </Row>
+        <Button label={l.openDialog} variant="secondary" onPress={() => setDialog(true)} />
+        <Dialog
+          visible={dialog}
+          title={l.dialogTitle}
+          message={l.dialogBody}
+          onDismiss={() => setDialog(false)}
+        >
+          <Button label={l.confirmDelete} variant="confirm" onPress={() => setDialog(false)} />
+          <Button label={l.cancel} variant="secondary" onPress={() => setDialog(false)} />
+        </Dialog>
+      </Section>
+
+      <Section title={l.projects}>
+        <Columns
+          main={<ProjectCover title={l.sampleTitle} height={260} />}
+          side={
+            <ProjectCard
+              title={l.sampleTitle}
+              pitch={l.samplePitch}
+              author={{ name: 'Léa Moreau', avatarUrl: null }}
+              when={l.now}
+              status={{ label: l.statuses.testable, strong: true }}
+              tryIt={{ label: l.tryIt, onPress: () => {} }}
+              height={420}
+            />
+          }
+        />
+      </Section>
+
+      <Section title={l.illustrations}>
+        <Stack direction="row" gap="lg" wrap align="center">
+          <Emblem icon="envelope-simple" />
+          <PortalRings />
+          <Honeycomb />
+        </Stack>
+        <Constellation height={260} />
+      </Section>
+
       <Section title={l.icons}>
         <Icons />
       </Section>
@@ -323,6 +408,20 @@ function Fields({ l }: { l: Labels }) {
         </FieldGroup>
       }
       side={<TextField label={l.demoField} value={url} onChangeText={setUrl} error={l.demoError} />}
+    />
+  )
+}
+
+function TagSample({ l }: { l: Labels }) {
+  const [tools, setTools] = useState(['Claude', 'Expo', 'Supabase'])
+  return (
+    <TagInput
+      label={l.toolsField}
+      values={tools}
+      onChange={setTools}
+      placeholder={l.toolsPlaceholder}
+      removeLabel={(item) => `${l.remove} ${item}`}
+      limit="15"
     />
   )
 }

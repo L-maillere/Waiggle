@@ -7,9 +7,11 @@ import { useRouter } from 'expo-router'
 import { useTranslation } from 'react-i18next'
 import { Linking } from 'react-native'
 import { Button } from '../ui/Button'
+import { Icon } from '../ui/Icon'
+import { PortalRings } from '../ui/Illustrations'
 import { Notice } from '../ui/Notice'
 import { Screen } from '../ui/Screen'
-import { Stack } from '../ui/Stack'
+import { Row, Stack } from '../ui/Stack'
 import { Surface } from '../ui/Surface'
 import { Text } from '../ui/Text'
 import { useHydrated } from '../ui/theme/hydration'
@@ -41,8 +43,18 @@ export function LeavingScreen({ url }: { url: string | undefined }) {
   }
 
   return (
-    <Screen title={t('leaving.title')}>
-      <Text tone="secondary">{t('leaving.body')}</Text>
+    <Screen>
+      {/* La porte vers l'extérieur : des anneaux de lumière autour d'une flèche. */}
+      <PortalRings />
+      <Stack gap="xs" align="center">
+        <Text variant="callout" weight={600} tone="secondary" accessibilityRole="header">
+          {t('leaving.title')}
+        </Text>
+        {/* Le nom du site, en grand : c'est lui qu'on doit reconnaître (ou pas). */}
+        <Text variant="title2" align="center">
+          {target.host}
+        </Text>
+      </Stack>
       <Stack gap="sm">
         <Text variant="caption" weight={600} tone="muted">
           {t('leaving.destination')}
@@ -53,8 +65,20 @@ export function LeavingScreen({ url }: { url: string | undefined }) {
           <Text selectable>{target.href}</Text>
         </Surface>
       </Stack>
+      <Surface variant="grouped" padding="lg">
+        <Row gap="md" align="start">
+          <Icon name="key" size={22} tone="amber" />
+          <Stack gap="xs" grow>
+            <Text weight={700}>{t('leaving.safety')}</Text>
+            <Text variant="callout" tone="secondary">
+              {t('leaving.body')}
+            </Text>
+          </Stack>
+        </Row>
+      </Surface>
       <Button
         label={t('leaving.continue', { host: target.host })}
+        icon="arrow-up-right"
         onPress={() => void Linking.openURL(target.href)}
       />
       <Button label={t('leaving.back')} variant="secondary" onPress={() => router.back()} />

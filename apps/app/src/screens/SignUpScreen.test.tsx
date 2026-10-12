@@ -25,6 +25,33 @@ beforeEach(() => {
 })
 
 describe('SignUpScreen', () => {
+  it('counts down the characters the password still needs', async () => {
+    await renderWithI18n(<SignUpScreen />)
+    expect(screen.getByLabelText('Encore 12 caractères')).toBeTruthy()
+
+    await fireEvent.changeText(screen.getByLabelText('Mot de passe'), 'abeilles-d')
+    expect(screen.getByLabelText('Encore 2 caractères')).toBeTruthy()
+
+    await fireEvent.changeText(screen.getByLabelText('Mot de passe'), 'abeilles-dor')
+    expect(screen.getByLabelText('C’est bon, ton mot de passe est assez long.')).toBeTruthy()
+  })
+
+  it('shows the password on request, then hides it again', async () => {
+    await renderWithI18n(<SignUpScreen />)
+    const field = screen.getByLabelText('Mot de passe')
+    expect(field.props.secureTextEntry).toBe(true)
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Afficher le mot de passe' }))
+    const shown = screen.getByLabelText('Mot de passe')
+    expect(shown.props.secureTextEntry).toBe(false)
+    // Même affiché, il ne part ni au correcteur orthographique ni au dictionnaire du clavier.
+    expect(shown.props.autoCorrect).toBe(false)
+    expect(shown.props.spellCheck).toBe(false)
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Masquer le mot de passe' }))
+    expect(screen.getByLabelText('Mot de passe').props.secureTextEntry).toBe(true)
+  })
+
   it('explains the problem and sends nothing when the password is too short', async () => {
     await renderWithI18n(<SignUpScreen />)
 

@@ -31,7 +31,9 @@ describe('ProfileScreen', () => {
     // findBy… attend que l'élément apparaisse (le profil arrive de l'API de façon asynchrone).
     expect(await screen.findByDisplayValue('Léa')).toBeTruthy()
     expect(screen.getByDisplayValue('Je bricole des agents IA le week-end.')).toBeTruthy()
-    expect(screen.getByDisplayValue('Claude, Cursor')).toBeTruthy()
+    // Les outils favoris sont des pastilles, chacune avec son bouton pour la retirer.
+    expect(screen.getByText('Claude')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Retirer Cursor' })).toBeTruthy()
   })
 
   it('saves the edited profile', async () => {
@@ -42,7 +44,8 @@ describe('ProfileScreen', () => {
     await screen.findByDisplayValue('Léa')
 
     await fireEvent.changeText(screen.getByLabelText('Bio'), 'Nouvelle bio')
-    await fireEvent.changeText(screen.getByLabelText('Outils favoris'), 'Claude,  Midjourney , ')
+    await fireEvent.press(screen.getByRole('button', { name: 'Retirer Cursor' }))
+    await fireEvent.changeText(screen.getByLabelText('Outils favoris'), ' Midjourney , ')
     await fireEvent.press(screen.getByRole('button', { name: 'Enregistrer' }))
 
     expect(updateProfile).toHaveBeenCalledWith({

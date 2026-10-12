@@ -1,6 +1,6 @@
 // Page : avertissement avant d'ouvrir un site extérieur (« /out?url=… »).
 import { useLocalSearchParams } from 'expo-router'
-import { firstParam } from '../src/navigation'
+import { firstParam } from '../src/navigation/params'
 import { LeavingScreen } from '../src/screens/LeavingScreen'
 
 export default function OutPage() {

@@ -1,5 +1,7 @@
 // Écran d'inscription : prénom, e-mail, mot de passe. Après envoi, le membre doit cliquer sur le
 // lien reçu par e-mail avant de pouvoir se connecter.
+
+import { sourceUrl } from '@ruche/brand'
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, SignUpRequest } from '@ruche/contracts'
 import { useRouter } from 'expo-router'
 import { useState } from 'react'
@@ -7,10 +9,15 @@ import { useTranslation } from 'react-i18next'
 import { signUp } from '../accounts/api'
 import type { AuthErrorKey } from '../accounts/errors'
 import { type FieldErrors, fieldErrorsFrom } from '../accounts/validation'
+import { useOpenOutside } from '../navigation/links'
 import { Button } from '../ui/Button'
+import { HoneyMeter } from '../ui/HoneyMeter'
 import { Notice } from '../ui/Notice'
 import { Screen } from '../ui/Screen'
-import { TextField } from '../ui/TextField'
+import { Row, Stack } from '../ui/Stack'
+import { FieldGroup, TextField } from '../ui/TextField'
+import { TextLink } from '../ui/TextLink'
+import { WelcomeHero } from '../ui/WelcomeHero'
 
 // Paramètres des messages qui citent les longueurs de mot de passe.
 const lengths = { min: PASSWORD_MIN_LENGTH, max: PASSWORD_MAX_LENGTH }
@@ -18,6 +25,7 @@ const lengths = { min: PASSWORD_MIN_LENGTH, max: PASSWORD_MAX_LENGTH }
 export function SignUpScreen() {
   const { t, i18n } = useTranslation()
   const router = useRouter()
+  const openOutside = useOpenOutside()
 
   // useState garde une valeur qui change (ce que tape le membre) et redessine l'écran à chaque
   // changement. Il renvoie la valeur et la fonction pour la modifier.
@@ -52,39 +60,68 @@ export function SignUpScreen() {
   const fieldMessage = (key: FieldErrors[keyof FieldErrors]) =>
     key ? t(`auth.errors.${key}`, lengths) : undefined
 
+  const missing = Math.max(0, PASSWORD_MIN_LENGTH - Array.from(password).length)
+
   return (
-    <Screen title={t('auth.signUp.title')}>
-      <TextField
-        label={t('auth.fields.name')}
-        value={name}
-        onChangeText={setName}
-        autoComplete="name"
-        error={fieldMessage(fieldErrors.name)}
-      />
-      <TextField
-        label={t('auth.fields.email')}
-        value={email}
-        onChangeText={setEmail}
-        autoComplete="email"
-        keyboardType="email-address"
-        error={fieldMessage(fieldErrors.email)}
-      />
-      <TextField
-        label={t('auth.fields.password')}
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry // masque les caractères tapés
-        autoComplete="new-password" // les gestionnaires de mots de passe proposent d'en générer un
-        hint={t('auth.fields.passwordHint', lengths)}
-        error={fieldMessage(fieldErrors.password)}
-      />
+    <Screen
+      title={t('auth.signUp.title')}
+      subtitle={t('auth.signUp.subtitle')}
+      onBack={() => (router.canGoBack() ? router.back() : router.replace('/'))}
+      hero={
+        <WelcomeHero
+          tagline={t('home.tagline')}
+          source={{
+            note: t('home.openSource'),
+            link: t('home.seeCode'),
+            onPress: () => openOutside(sourceUrl),
+          }}
+        />
+      }
+    >
       {error ? <Notice message={t(`auth.errors.${error}`, lengths)} /> : null}
+      <FieldGroup>
+        <TextField
+          label={t('auth.fields.name')}
+          value={name}
+          onChangeText={setName}
+          autoComplete="name"
+          autoCapitalize="words"
+          error={fieldMessage(fieldErrors.name)}
+        />
+        <TextField
+          label={t('auth.fields.email')}
+          value={email}
+          onChangeText={setEmail}
+          autoComplete="email"
+          keyboardType="email-address"
+          error={fieldMessage(fieldErrors.email)}
+        />
+      </FieldGroup>
+      <Stack gap="md">
+        <TextField
+          label={t('auth.fields.password')}
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry // masque les caractères tapés (un bouton permet de les afficher)
+          autoComplete="new-password" // les gestionnaires de mots de passe proposent d'en générer un
+          aside={t('auth.fields.passwordMin', lengths)}
+          error={fieldMessage(fieldErrors.password)}
+        />
+        {/* Une alvéole par caractère exigé : on voit d'un coup d'œil ce qu'il reste à taper. */}
+        <HoneyMeter
+          value={Array.from(password).length}
+          max={PASSWORD_MIN_LENGTH}
+          label={
+            missing > 0
+              ? t('auth.passwordMeter.remaining', { count: missing })
+              : t('auth.passwordMeter.done')
+          }
+        />
+      </Stack>
       <Button label={t('auth.signUp.submit')} onPress={submit} loading={loading} />
-      <Button
-        label={t('auth.signUp.switch')}
-        variant="secondary"
-        onPress={() => router.push('/sign-in')}
-      />
+      <Row justify="center">
+        <TextLink label={t('auth.signUp.haveAccount')} onPress={() => router.replace('/sign-in')} />
+      </Row>
     </Screen>
   )
 }

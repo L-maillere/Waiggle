@@ -3,3 +3,6 @@
 // (et le champ "name" de apps/app/app.json, que les téléphones affichent sous l'icône).
 // « Ruche » reste le nom de code du dépôt et des paquets (@ruche/...) : les membres ne le voient pas.
 export const appName = 'Waiggle'
+
+// Le code source de l'appli, public (licence AGPL) : l'appli le signale à ses membres.
+export const sourceUrl = 'https://github.com/L-maillere/ruche'
