@@ -43,7 +43,7 @@ describe('AccountScreen', () => {
   it('offers to choose the language', async () => {
     await renderWithI18n(<AccountScreen />)
 
-    expect(screen.getByRole('button', { name: 'English' })).toBeTruthy()
+    expect(screen.getByRole('radio', { name: 'English' })).toBeTruthy()
     expect(screen.getByText('Tes e-mails te sont aussi envoyés dans cette langue.')).toBeTruthy()
   })
 

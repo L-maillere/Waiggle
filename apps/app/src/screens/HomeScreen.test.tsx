@@ -1,6 +1,7 @@
 // Test de l'écran d'accueil avec Testing Library : on affiche l'écran en mémoire,
 // puis on le manipule comme le ferait un utilisateur (lire un texte, appuyer sur un bouton).
 // On cherche les éléments par ce que l'utilisateur voit (texte, rôle), pas par leur code interne.
+import { appName } from '@ruche/brand'
 import { fireEvent, screen } from '@testing-library/react-native'
 import { mockSession, renderWithI18n } from '../testing/render'
 import { HomeScreen } from './HomeScreen'
@@ -20,23 +21,23 @@ describe('HomeScreen', () => {
   it('welcomes the visitor in French by default', async () => {
     await renderWithI18n(<HomeScreen />)
 
-    expect(screen.getByText('Bienvenue sur Ruche')).toBeTruthy()
+    expect(screen.getByText(`Bienvenue sur ${appName}`)).toBeTruthy()
     expect(screen.getByText('Le fil arrive bientôt.')).toBeTruthy()
   })
 
   it('welcomes the visitor in English when that is their language', async () => {
     await renderWithI18n(<HomeScreen />, 'en')
 
-    expect(screen.getByText('Welcome to Ruche')).toBeTruthy()
+    expect(screen.getByText(`Welcome to ${appName}`)).toBeTruthy()
   })
 
   it('lets the visitor switch language', async () => {
     await renderWithI18n(<HomeScreen />)
 
-    await fireEvent.press(screen.getByRole('button', { name: 'English' }))
+    await fireEvent.press(screen.getByRole('radio', { name: 'English' }))
 
-    expect(screen.getByText('Welcome to Ruche')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'English', selected: true })).toBeTruthy()
+    expect(screen.getByText(`Welcome to ${appName}`)).toBeTruthy()
+    expect(screen.getByRole('radio', { name: 'English', checked: true })).toBeTruthy()
   })
 
   it('invites a visitor to create an account or sign in', async () => {

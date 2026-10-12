@@ -1,10 +1,13 @@
 // Une question à choix unique (statut, visibilité…) : une rangée de pastilles dont une seule est
-// cochée. Les lecteurs d'écran l'annoncent comme un groupe de boutons radio, ce qui permet aussi aux
-// tests de retrouver chaque choix par son nom : getByRole('radio', { name: 'Testable' }).
-import { Pressable, StyleSheet, Text, View } from 'react-native'
-import { useColors } from '../theme'
+// cochée, en miel. Les lecteurs d'écran l'annoncent comme un groupe de boutons radio, ce qui permet
+// aussi aux tests de retrouver chaque choix par son nom : getByRole('radio', { name: 'Testable' }).
+import { borders, radii, space } from '@ruche/brand'
+import { Pressable, View } from 'react-native'
+import { Icon, type IconName } from './Icon'
+import { Text } from './Text'
+import { useTheme } from './theme/ThemeProvider'
 
-type Option<T extends string> = { value: T; label: string }
+type Option<T extends string> = { value: T; label: string; icon?: IconName }
 
 // <T extends string> : un composant « générique ». T est le type des valeurs possibles
 // ('idea' | 'building' | …) : TypeScript vérifie que les options et la valeur choisie concordent.
@@ -16,11 +19,17 @@ type Props<T extends string> = {
 }
 
 export function Choices<T extends string>({ label, options, value, onChange }: Props<T>) {
-  const c = useColors()
+  const { colors } = useTheme()
   return (
-    <View style={styles.field}>
-      <Text style={[styles.label, { color: c.text }]}>{label}</Text>
-      <View accessibilityRole="radiogroup" accessibilityLabel={label} style={styles.row}>
+    <View style={{ gap: space.sm }}>
+      <Text variant="caption" weight={600} tone="muted">
+        {label}
+      </Text>
+      <View
+        accessibilityRole="radiogroup"
+        accessibilityLabel={label}
+        style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm }}
+      >
         {options.map((option) => {
           const checked = option.value === value
           return (
@@ -30,14 +39,29 @@ export function Choices<T extends string>({ label, options, value, onChange }: P
               accessibilityLabel={option.label}
               accessibilityState={{ checked }}
               onPress={() => onChange(option.value)}
-              style={[
-                styles.chip,
-                { borderColor: checked ? c.accent : c.border },
-                checked && { backgroundColor: c.accentSoft },
-              ]}
+              style={({ pressed }) => ({
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: space.xs,
+                minHeight: 40,
+                paddingHorizontal: space.lg,
+                borderRadius: radii.pill,
+                borderWidth: borders.strong,
+                borderColor: checked ? colors.honey : colors.outline,
+                backgroundColor: checked
+                  ? colors.honey
+                  : pressed
+                    ? colors.honeySoft
+                    : colors.surface,
+              })}
             >
+              {option.icon ? (
+                <Icon name={option.icon} size={18} tone={checked ? 'onHoney' : 'muted'} />
+              ) : null}
               <Text
-                style={[styles.text, { color: checked ? c.text : c.muted }, checked && styles.bold]}
+                variant="callout"
+                weight={checked ? 700 : 500}
+                tone={checked ? 'onHoney' : 'default'}
               >
                 {option.label}
               </Text>
@@ -48,12 +72,3 @@ export function Choices<T extends string>({ label, options, value, onChange }: P
     </View>
   )
 }
-
-const styles = StyleSheet.create({
-  field: { gap: 8 },
-  label: { fontSize: 15, fontWeight: '600' },
-  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 999, borderWidth: 1 },
-  text: { fontSize: 15 },
-  bold: { fontWeight: '600' },
-})

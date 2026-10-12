@@ -6,10 +6,13 @@ import {
   resolveLanguage,
   resources,
   supportedLanguages,
+  textVariables,
 } from '@ruche/i18n'
 import { getLocales } from 'expo-localization'
 import i18next, { type i18n } from 'i18next'
-import { initReactI18next } from 'react-i18next'
+import { useEffect } from 'react'
+import { initReactI18next, useTranslation } from 'react-i18next'
+import { Platform } from 'react-native'
 
 /** Langue de l'appareil si on la gère, le français sinon. */
 export const detectLanguage = (): Language =>
@@ -29,8 +32,30 @@ export const createI18n = (language: Language = detectLanguage()): i18n => {
     lng: language,
     fallbackLng: defaultLanguage, // texte manquant dans une langue → on affiche le français
     supportedLngs: [...supportedLanguages],
-    interpolation: { escapeValue: false }, // React protège déjà l'affichage, pas besoin d'échapper deux fois
+    interpolation: {
+      escapeValue: false, // React protège déjà l'affichage, pas besoin d'échapper deux fois
+      defaultVariables: textVariables, // {{appName}} rempli partout, sans avoir à le passer
+    },
     initAsync: false,
   })
   return instance
+}
+
+// Vrai une fois la langue du navigateur adoptée : on ne le fait qu'une fois par visite, pour ne
+// jamais revenir dessus si le membre choisit ensuite une autre langue.
+let browserLanguageAdopted = false
+
+/**
+ * Sur le web, les pages sont préparées en français sur le serveur. Ce hook passe à la langue du
+ * navigateur une fois la page affichée. Il est appelé par chaque écran (voir ui/Screen.tsx) et non
+ * par la mise en page racine : React finit d'« hydrater » le contenu d'une page après la racine.
+ * Changer de langue avant ferait différer le texte du HTML préparé, et React devrait tout redessiner.
+ */
+export const useBrowserLanguage = () => {
+  const { i18n } = useTranslation()
+  useEffect(() => {
+    if (Platform.OS !== 'web' || browserLanguageAdopted) return
+    browserLanguageAdopted = true
+    void i18n.changeLanguage(detectLanguage())
+  }, [i18n])
 }

@@ -9,11 +9,14 @@
 // - seuls les liens https vers un site public sont cliquables, via la page d'avertissement ;
 // - les caractères invisibles (écrits par exemple « &#x202E; ») sont retirés de l'affichage ;
 // - l'imbrication est bornée : un texte piégé (« >>>>>… » mille fois) ne fait pas planter la page.
+
+import { radii, space, textStyles } from '@ruche/brand'
 import { publicHttpsUrl, removeForbiddenCharacters } from '@ruche/contracts'
 import { lexer, type Token } from 'marked'
 import { Fragment, type ReactNode, useMemo } from 'react'
-import { Platform, StyleSheet, Text, View } from 'react-native'
-import { type Colors, useColors } from '../theme'
+import { StyleSheet, Text, View } from 'react-native'
+import { fontName, monoFont } from './theme/fonts'
+import { type Theme, useTheme } from './theme/ThemeProvider'
 
 type Props = {
   text: string
@@ -52,7 +55,7 @@ const parse = (text: string): Token[] | null => {
 }
 
 export function Markdown({ text, onLinkPress }: Props) {
-  const styles = makeStyles(useColors())
+  const styles = makeStyles(useTheme())
   // useMemo : on ne redécoupe le texte que s'il change, pas à chaque affichage de l'écran.
   const tokens = useMemo(() => parse(text), [text])
 
@@ -202,22 +205,51 @@ export function Markdown({ text, onLinkPress }: Props) {
   return <View style={styles.root}>{tokens.map((token, i) => block(token, i))}</View>
 }
 
-const mono = Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' })
-
-const makeStyles = (c: Colors) =>
-  StyleSheet.create({
-    root: { gap: 10 },
-    text: { fontSize: 16, lineHeight: 24, color: c.text },
-    heading: { fontSize: 19, fontWeight: '700', marginTop: 4 },
-    bold: { fontWeight: '700' },
+// Les styles de la description, tirés des jetons : texte courant, titres en police d'affichage.
+// Pas de bordure colorée sur le côté des citations : un fond doux suffit à les distinguer.
+const makeStyles = ({ colors }: Theme) => {
+  const body = textStyles.body
+  const heading = textStyles.heading
+  return StyleSheet.create({
+    root: { gap: space.md },
+    text: {
+      fontFamily: fontName(body.family, body.weight),
+      fontSize: body.size,
+      lineHeight: body.lineHeight,
+      color: colors.textSecondary,
+    },
+    heading: {
+      fontFamily: fontName(heading.family, heading.weight),
+      fontSize: heading.size,
+      lineHeight: heading.lineHeight,
+      letterSpacing: heading.size * heading.tracking,
+      color: colors.text,
+      marginTop: space.xs,
+    },
+    bold: { fontFamily: fontName('text', 700), color: colors.text },
     italic: { fontStyle: 'italic' },
     strike: { textDecorationLine: 'line-through' },
-    link: { color: c.accent, textDecorationLine: 'underline' },
-    code: { fontFamily: mono, fontSize: 14, backgroundColor: c.accentSoft, color: c.text },
-    codeBlock: { padding: 12, borderRadius: 8, lineHeight: 20 },
-    quote: { borderLeftWidth: 3, borderLeftColor: c.border, paddingLeft: 12, gap: 8 },
-    list: { gap: 4 },
-    item: { flexDirection: 'row', gap: 8 },
-    itemBody: { flex: 1, gap: 4 },
-    hr: { height: 1, backgroundColor: c.border, marginVertical: 4 },
+    link: { color: colors.amberText, textDecorationLine: 'underline' },
+    code: {
+      fontFamily: monoFont,
+      fontSize: textStyles.callout.size,
+      backgroundColor: colors.honeySoft,
+      color: colors.text,
+    },
+    codeBlock: {
+      padding: space.md,
+      borderRadius: radii.code,
+      lineHeight: textStyles.callout.lineHeight,
+    },
+    quote: {
+      backgroundColor: colors.surfaceGrouped,
+      borderRadius: radii.small,
+      padding: space.md,
+      gap: space.sm,
+    },
+    list: { gap: space.xs },
+    item: { flexDirection: 'row', gap: space.sm },
+    itemBody: { flex: 1, gap: space.xs },
+    hr: { height: 1, backgroundColor: colors.line, marginVertical: space.xs },
   })
+}
