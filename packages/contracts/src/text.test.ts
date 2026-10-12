@@ -36,8 +36,8 @@ describe('DisplayName', () => {
 
   it('refuses invisible or control characters that could fake another name', () => {
     expect(DisplayName.safeParse('Léa\u0000').success).toBe(false) // caractère nul
-    expect(DisplayName.safeParse('Léa‮admin').success).toBe(false) // inverse le sens du texte
-    expect(DisplayName.safeParse('​').success).toBe(false) // espace de largeur nulle
+    expect(DisplayName.safeParse('Léa\u202Eadmin').success).toBe(false) // inverse le sens du texte
+    expect(DisplayName.safeParse('\u200B').success).toBe(false) // espace de largeur nulle
     expect(DisplayName.safeParse('Léa\nadmin').success).toBe(false) // retour à la ligne
   })
 })
@@ -55,6 +55,6 @@ describe('FreeText', () => {
 describe('ShortLabel', () => {
   it('refuses a line break or an invisible character', () => {
     expect(ShortLabel(40).safeParse('Claude\nCursor').success).toBe(false)
-    expect(ShortLabel(40).safeParse('Clau​de').success).toBe(false)
+    expect(ShortLabel(40).safeParse('Clau\u200Bde').success).toBe(false)
   })
 })

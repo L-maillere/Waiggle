@@ -66,6 +66,25 @@ développera ; chacune est livrable seule.
   connexion sur un autre appareil, l'appli reprend la langue du compte.
 - **Ce qui n'est pas modifiable ici** : l'adresse e-mail et le mot de passe (tranche ultérieure).
 
+### Notes de réalisation (tranche 2) — à valider
+
+Règles ajoutées pendant la réalisation, surtout après la relecture de sécurité :
+
+- **Photo préparée sur l'appareil** : l'appli recadre la photo en carré au centre et la réduit à
+  1 024 px avant l'envoi (sur mobile, le membre choisit lui-même le cadrage).
+- **Images refusées par le serveur** (même si un autre programme que l'appli les envoie) : plus de
+  4 096 × 4 096 pixels, plus de 4 fois plus larges que hautes (ou l'inverse), ou en 16 bits par
+  couleur. Une photo de téléphone ordinaire (12 mégapixels) passe.
+- **Serveur très sollicité** : au-delà de 2 images en traitement et 8 en attente, l'envoi est refusé
+  avec « Réessaie dans un instant ».
+- **Caractères invisibles refusés** dans le nom, la bio et les outils : caractères de contrôle,
+  caractères qui inversent le sens d'écriture, lettres « vides ». Un nom doit contenir au moins un
+  caractère visible. Effet de bord : les drapeaux d'Écosse et du pays de Galles (faits de
+  caractères invisibles) ne sont pas acceptés. Les mêmes règles s'appliquent au nom choisi à
+  l'inscription.
+- **Image envoyée à l'inscription** : ignorée ; un avatar ne vient que de « Changer la photo ».
+- **Autres sites** : toute modification envoyée depuis un autre site que l'appli est refusée.
+
 ## Tranche 3 — Publier un projet
 
 **Publier un projet**

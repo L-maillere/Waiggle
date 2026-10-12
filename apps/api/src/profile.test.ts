@@ -92,7 +92,7 @@ describe('completing my profile', () => {
   it('refuses invisible characters instead of crashing on them', async () => {
     // Le caractère nul (U+0000) faisait échouer la base de données : erreur 500.
     const nul = await patchMe({ bio: 'x\u0000' })
-    // U+202E inverse le sens du texte : « Léa‮nimda » s'afficherait « Léaadmin ».
+    // U+202E inverse le sens du texte : « Léa » + U+202E + « nimda » s'afficherait « Léaadmin ».
     const reversed = await patchMe({ name: 'Léa\u202Enimda' })
 
     expect(nul.status).toBe(400)
