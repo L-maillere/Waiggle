@@ -103,6 +103,7 @@ export const en: Translation = {
       toolTooLong: 'Each tool must be at most {{max}} characters long.',
       avatarTooLarge: 'The image is larger than {{max}} MB.',
       avatarType: 'Choose a JPEG, PNG or WebP image.',
+      invalidCharacters: 'Some characters are not allowed (invisible or control characters).',
     },
   },
   email: {

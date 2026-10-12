@@ -6,6 +6,7 @@ import { type Database, schema } from '@ruche/db'
 import { eq } from 'drizzle-orm'
 import type { Context } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
+import { requireUser } from '../auth/session'
 import { errorBody, languageOf } from '../errors'
 import { processAvatar } from '../media/avatar'
 import type { FileStorage } from '../media/storage'
@@ -85,6 +86,11 @@ type Deps = {
 
 export const meRoutes = ({ db, storage, limiter, publicApiUrl }: Deps) => {
   const app = createRouter()
+
+  // Toutes ces routes exigent un membre connecté. Ce contrôle passe en premier, avant la lecture
+  // du corps de la requête (vérification du JSON, limite de taille de l'avatar…).
+  app.use('/v1/me', requireUser)
+  app.use('/v1/me/*', requireUser)
 
   // Réponses d'erreur courantes, dans la langue du visiteur.
   const unauthorized = (c: Context<AppEnv>) => c.json(errorBody(languageOf(c), 'unauthorized'), 401)
@@ -170,16 +176,32 @@ export const meRoutes = ({ db, storage, limiter, publicApiUrl }: Deps) => {
     const key = `avatars/${crypto.randomUUID()}.webp`
     await storage.put(key, result.data)
 
-    // On retient l'ancien avatar, on enregistre le nouveau, puis on efface l'ancien.
-    const [previous] = await db
-      .select({ avatarKey: schema.profile.avatarKey })
-      .from(schema.profile)
-      .where(eq(schema.profile.userId, user.id))
-    await db
-      .insert(schema.profile)
-      .values({ userId: user.id, avatarKey: key })
-      .onConflictDoUpdate({ target: schema.profile.userId, set: { avatarKey: key } })
-    if (previous?.avatarKey) await storage.delete(previous.avatarKey)
+    // On échange l'ancien avatar contre le nouveau, puis on efface l'ancien fichier.
+    // Une « transaction » regroupe plusieurs opérations : elles réussissent toutes, ou aucune.
+    // Le verrou (FOR UPDATE) fait patienter un second envoi simultané jusqu'à la fin de celle-ci :
+    // sans lui, deux envois liraient le même « ancien » avatar et l'un des nouveaux fichiers
+    // resterait orphelin (jamais effacé, même à la suppression du compte).
+    let previousKey: string | null
+    try {
+      previousKey = await db.transaction(async (tx) => {
+        // La ligne du profil doit exister pour pouvoir être verrouillée.
+        await tx.insert(schema.profile).values({ userId: user.id }).onConflictDoNothing()
+        const [row] = await tx
+          .select({ avatarKey: schema.profile.avatarKey })
+          .from(schema.profile)
+          .where(eq(schema.profile.userId, user.id))
+          .for('update')
+        await tx
+          .update(schema.profile)
+          .set({ avatarKey: key })
+          .where(eq(schema.profile.userId, user.id))
+        return row?.avatarKey ?? null
+      })
+    } catch (error) {
+      await storage.delete(key) // la base n'a rien enregistré : le nouveau fichier ne sert à rien
+      throw error
+    }
+    if (previousKey) await storage.delete(previousKey)
 
     const me = await loadMe(db, user.id, publicApiUrl)
     if (!me) return unauthorized(c)

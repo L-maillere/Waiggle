@@ -119,15 +119,25 @@ function ProfileForm({ me }: { me: Me }) {
     return t(`errors.${error}`)
   }
 
-  const nameError =
-    errors.name === 'nameTooLong'
-      ? t('profile.errors.nameTooLong', { max: NAME_MAX_LENGTH })
-      : errors.name && t('auth.errors.nameRequired')
+  // Messages d'erreur des champs (undefined : pas d'erreur).
+  const invalid = t('profile.errors.invalidCharacters')
+  const nameMessages = {
+    nameRequired: t('auth.errors.nameRequired'),
+    nameTooLong: t('profile.errors.nameTooLong', { max: NAME_MAX_LENGTH }),
+    invalidCharacters: invalid,
+  }
+  const nameError = errors.name && nameMessages[errors.name]
+  const bioError =
+    errors.bio === 'invalidCharacters'
+      ? invalid
+      : errors.bio && t('profile.errors.bioTooLong', { max: BIO_MAX_LENGTH })
   const toolsError =
-    errors.tools &&
-    t(`profile.errors.${errors.tools}`, {
-      max: errors.tools === 'tooManyTools' ? FAVORITE_TOOLS_MAX : TOOL_MAX_LENGTH,
-    })
+    errors.tools === 'invalidCharacters'
+      ? invalid
+      : errors.tools &&
+        t(`profile.errors.${errors.tools}`, {
+          max: errors.tools === 'tooManyTools' ? FAVORITE_TOOLS_MAX : TOOL_MAX_LENGTH,
+        })
 
   return (
     <Screen title={t('profile.title')}>
@@ -147,7 +157,7 @@ function ProfileForm({ me }: { me: Me }) {
         onChangeText={setName}
         autoCapitalize="words"
         maxLength={NAME_MAX_LENGTH}
-        error={nameError || undefined}
+        error={nameError}
       />
       <TextField
         label={t('profile.fields.bio')}
@@ -157,7 +167,7 @@ function ProfileForm({ me }: { me: Me }) {
         multiline
         // Pas de maxLength ici : le compteur montre la limite sans couper le texte en plein milieu.
         hint={t('profile.fields.bioCounter', { count: bio.length, max: BIO_MAX_LENGTH })}
-        error={errors.bio && t('profile.errors.bioTooLong', { max: BIO_MAX_LENGTH })}
+        error={bioError}
       />
       <TextField
         label={t('profile.fields.tools')}

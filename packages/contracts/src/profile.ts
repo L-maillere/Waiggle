@@ -1,8 +1,8 @@
 // Formes des données du profil : ce qu'un membre peut modifier, et les règles des avatars.
 import { z } from 'zod'
 import { LanguageSchema } from './accounts'
+import { DisplayName, FreeText, ShortLabel } from './text'
 
-export const NAME_MAX_LENGTH = 80
 export const BIO_MAX_LENGTH = 280
 export const FAVORITE_TOOLS_MAX = 10
 export const TOOL_MAX_LENGTH = 40
@@ -24,10 +24,11 @@ const withoutDuplicates = (tools: string[]) =>
  */
 export const ProfileUpdate = z
   .strictObject({
-    name: z.string().trim().min(1).max(NAME_MAX_LENGTH).optional(),
-    bio: z.string().trim().max(BIO_MAX_LENGTH).optional(),
+    // Les règles de texte (longueur, caractères interdits) sont dans text.ts.
+    name: DisplayName.optional(),
+    bio: FreeText(BIO_MAX_LENGTH).optional(),
     favoriteTools: z
-      .array(z.string().trim().min(1).max(TOOL_MAX_LENGTH))
+      .array(ShortLabel(TOOL_MAX_LENGTH))
       .max(FAVORITE_TOOLS_MAX)
       .transform(withoutDuplicates) // transform : Zod modifie la valeur après l'avoir validée
       .optional(),

@@ -5,12 +5,14 @@ import { createRoute, OpenAPIHono } from '@hono/zod-openapi'
 import { type ErrorCode, HealthResponse } from '@ruche/contracts'
 import type { Database } from '@ruche/db'
 import { parseAcceptLanguage, resolveLanguage } from '@ruche/i18n'
+import { bodyLimit } from 'hono/body-limit'
 import { cors } from 'hono/cors'
 import { HTTPException } from 'hono/http-exception'
 import { secureHeaders } from 'hono/secure-headers'
 import type { Auth } from './auth/auth'
 import { sessionMiddleware } from './auth/session'
 import { errorBody, languageOf } from './errors'
+import { describeError } from './log'
 import type { FileStorage } from './media/storage'
 import { createRateLimiter } from './rate-limit'
 import { meRoutes } from './routes/me'
@@ -81,9 +83,21 @@ export const createApp = ({ version, auth, db, storage, appUrl, publicApiUrl }: 
       credentials: true,
       allowHeaders: ['Content-Type', 'Authorization'],
       allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-      exposeHeaders: ['Content-Disposition', 'Content-Language'],
+      // En-têtes de réponse que l'appli web a le droit de lire (Retry-After : dans combien de
+      // secondes réessayer après un refus pour trop de demandes).
+      exposeHeaders: ['Content-Disposition', 'Content-Language', 'Retry-After'],
     }),
   )
+
+  // Taille maximale des requêtes ordinaires (du JSON de quelques lignes) : 16 Ko. Vérifiée avant
+  // tout le reste, y compris la session : personne, même anonyme, ne peut faire lire au serveur une
+  // requête géante. Seul l'envoi d'avatar a sa propre limite, plus grande (voir routes/me.ts).
+  const limitBody = bodyLimit({
+    maxSize: 16 * 1024,
+    onError: (c) => c.json(errorBody(languageOf(c), 'payload_too_large'), 413),
+  })
+  app.use('/api/auth/*', limitBody)
+  app.use('/v1/*', (c, next) => (c.req.path === '/v1/me/avatar' ? next() : limitBody(c, next)))
 
   // Toutes les routes de Better Auth (inscription, connexion, vérification…) sous /api/auth/.
   // c.req.raw est la requête HTTP standard, que Better Auth sait traiter seul.
@@ -94,6 +108,12 @@ export const createApp = ({ version, auth, db, storage, appUrl, publicApiUrl }: 
   // puis retrouver le membre connecté.
   app.use('/v1/*', sameOriginWrites([appUrl, publicApiUrl]))
   app.use('/v1/*', sessionMiddleware(auth))
+  // Les réponses de /v1/… sont personnelles (profil, export…) : aucun cache intermédiaire
+  // (navigateur, proxy d'entreprise) ne doit les garder.
+  app.use('/v1/*', async (c, next) => {
+    await next()
+    c.header('Cache-Control', 'no-store')
+  })
 
   // La route de santé : `as const` garantit que status vaut exactement 'ok', comme l'exige le schéma.
   app.openapi(healthRoute, (c) => c.json({ status: 'ok' as const, version }, 200))
@@ -127,7 +147,8 @@ export const createApp = ({ version, auth, db, storage, appUrl, publicApiUrl }: 
     if (err instanceof HTTPException && err.status < 500) {
       return c.json(errorBody(language, codeForStatus(err.status)), err.status)
     }
-    console.error(err)
+    // Un résumé sans données personnelles (voir log.ts), jamais l'erreur brute.
+    console.error('Unhandled error', describeError(err, { method: c.req.method, path: c.req.path }))
     return c.json(errorBody(language, 'internal'), 500)
   })
 

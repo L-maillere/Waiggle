@@ -9,15 +9,19 @@ import { type ApiResult, errorKeyForStatus } from './errors'
 /**
  * Envoie une requête à l'API avec la session du membre.
  * - Sur le web, le navigateur joint lui-même le cookie de session (credentials: 'include').
- * - Sur mobile, pas de cookies de navigateur : on ajoute celui gardé par le plugin Expo.
+ * - Sur mobile, pas de cookies de navigateur : on ajoute celui gardé par le plugin Expo
+ *   (dans le coffre-fort chiffré du téléphone).
  */
 export const apiFetch = async (path: string, init: RequestInit = {}): Promise<Response> => {
+  const isWeb = Platform.OS === 'web'
   const headers = new Headers(init.headers)
-  if (Platform.OS !== 'web') {
+  if (!isWeb) {
     const cookie = await authClient.getCookie()
     if (cookie) headers.set('Cookie', cookie)
   }
-  return fetch(`${apiUrl}${path}`, { ...init, headers, credentials: 'include' })
+  // Sur mobile, credentials: 'omit' : le système ne joint jamais de cookie gardé de son côté
+  // (par exemple celui d'une session terminée). Seul compte celui qu'on vient d'ajouter.
+  return fetch(`${apiUrl}${path}`, { ...init, headers, credentials: isWeb ? 'include' : 'omit' })
 }
 
 // La partie d'un schéma Zod dont on a besoin : safeParse. Décrire seulement cette forme évite que

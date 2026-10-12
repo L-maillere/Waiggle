@@ -7,9 +7,9 @@ import { ProfileUpdate } from '@ruche/contracts'
 export type ProfileForm = { name: string; bio: string; tools: string }
 
 export type ProfileFormErrors = {
-  name?: 'nameRequired' | 'nameTooLong'
-  bio?: 'bioTooLong'
-  tools?: 'tooManyTools' | 'toolTooLong'
+  name?: 'nameRequired' | 'nameTooLong' | 'invalidCharacters'
+  bio?: 'bioTooLong' | 'invalidCharacters'
+  tools?: 'tooManyTools' | 'toolTooLong' | 'invalidCharacters'
 }
 
 /** « Claude,  Midjourney , » → ['Claude', 'Midjourney'] */
@@ -36,6 +36,12 @@ export const toProfileUpdate = (
     // issue.path dit où est le problème : ['bio'], ['favoriteTools'] (la liste entière)
     // ou ['favoriteTools', 3] (le 4e outil). issue.code dit lequel : trop court, trop long…
     const [field, index] = issue.path
+    // « custom » : une règle maison a refusé le texte (caractères invisibles, voir text.ts).
+    if (issue.code === 'custom') {
+      if (field === 'name' || field === 'bio') errors[field] = 'invalidCharacters'
+      if (field === 'favoriteTools') errors.tools = 'invalidCharacters'
+      continue
+    }
     if (field === 'name') errors.name = issue.code === 'too_big' ? 'nameTooLong' : 'nameRequired'
     if (field === 'bio') errors.bio = 'bioTooLong'
     if (field === 'favoriteTools')

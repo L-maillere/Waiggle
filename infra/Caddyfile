@@ -3,6 +3,10 @@
 {$API_DOMAIN:localhost} {
 	encode zstd gzip
 	header -Server
+	# Aucune requête de plus de 6 Mo n'atteint l'API (la plus grosse légitime : un avatar de 5 Mo).
+	request_body {
+		max_size 6MB
+	}
 	reverse_proxy api:3000 {
 		# Adresse IP réelle du visiteur, utilisée par la limitation de débit.
 		# header_up REMPLACE toute valeur envoyée par le visiteur : il ne peut pas la falsifier.

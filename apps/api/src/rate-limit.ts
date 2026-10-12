@@ -2,7 +2,7 @@
 // Les compteurs sont dans la base (table api_rate_limit) : ils survivent à un redémarrage et
 // seraient partagés si l'API tournait un jour sur plusieurs serveurs.
 import { type Database, schema } from '@ruche/db'
-import { sql } from 'drizzle-orm'
+import { like, sql } from 'drizzle-orm'
 
 export type RateRule = { windowMs: number; max: number }
 export type RateDecision = { allowed: true } | { allowed: false; retryAfterSeconds: number }
@@ -44,3 +44,11 @@ export const createRateLimiter = (db: Database, clock: () => number = Date.now):
     }
   },
 })
+
+/**
+ * Efface les compteurs d'un membre (à la suppression de son compte : ils contiennent son
+ * identifiant). Convention : les clés des compteurs d'un membre finissent par « :<identifiant> »,
+ * par exemple « profile:abc123 ». `like` cherche un motif : « % » veut dire « n'importe quoi ».
+ */
+export const deleteMemberCounters = (db: Database, userId: string) =>
+  db.delete(schema.apiRateLimit).where(like(schema.apiRateLimit.key, `%:${userId}`))

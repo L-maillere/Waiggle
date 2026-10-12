@@ -1,5 +1,6 @@
 packages:
   - apps/*
+  - apps/api/runtime
   - packages/*
 
 # Only these dependencies may run install scripts (supply-chain protection).

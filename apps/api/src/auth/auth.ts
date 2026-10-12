@@ -3,7 +3,7 @@
 // Écrire soi-même ces mécanismes est risqué (stockage des mots de passe, jetons, attaques) :
 // on s'appuie sur une bibliothèque éprouvée, et on règle ici son comportement pour Ruche.
 import { expo } from '@better-auth/expo'
-import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from '@ruche/contracts'
+import { DisplayName, PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from '@ruche/contracts'
 import { type Database, schema } from '@ruche/db'
 import {
   defaultLanguage,
@@ -14,10 +14,12 @@ import {
 } from '@ruche/i18n'
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
+import { APIError, createAuthMiddleware } from 'better-auth/api'
 import { eq } from 'drizzle-orm'
 import type { Mailer } from '../email/mailer'
 import { existingAccountEmail, verificationEmail } from '../email/templates'
 import type { FileStorage } from '../media/storage'
+import { deleteMemberCounters } from '../rate-limit'
 import { authSchemaOptions } from './schema-options'
 
 export type AuthOptions = {
@@ -121,12 +123,13 @@ export const createAuth = ({
             .where(eq(schema.profile.userId, user.id))
           if (row?.avatarKey) avatarsToDelete.set(user.id, row.avatarKey)
         },
-        // Juste après : on efface le fichier lui-même du stockage.
+        // Juste après : on efface le fichier lui-même du stockage, et les compteurs anti-abus
+        // qui portent son identifiant.
         afterDelete: async (user) => {
           const key = avatarsToDelete.get(user.id)
-          if (!key) return
           avatarsToDelete.delete(user.id)
-          await storage.delete(key)
+          if (key) await storage.delete(key)
+          await deleteMemberCounters(db, user.id)
         },
       },
     },
@@ -164,6 +167,21 @@ export const createAuth = ({
       disableCSRFCheck: false,
     },
 
+    // Un « hook » qui s'exécute avant chaque route de Better Auth. À l'inscription, le nom doit
+    // suivre les mêmes règles que dans le profil (1 à 80 caractères, aucun caractère invisible).
+    // Ce contrôle a lieu AVANT que Better Auth ne regarde si l'adresse existe déjà : la réponse est
+    // la même dans les deux cas, elle ne révèle pas qui a un compte.
+    hooks: {
+      before: createAuthMiddleware(async (ctx) => {
+        if (ctx.path !== '/sign-up/email') return
+        const body: unknown = ctx.body
+        const name = typeof body === 'object' && body !== null && 'name' in body ? body.name : ''
+        if (!DisplayName.safeParse(name).success) {
+          throw new APIError('BAD_REQUEST', { message: 'Invalid name' })
+        }
+      }),
+    },
+
     // Les « hooks » de base de données s'exécutent juste avant ou après une écriture.
     databaseHooks: {
       user: {
@@ -180,7 +198,16 @@ export const createAuth = ({
             const language = isLanguage(requested)
               ? requested
               : resolveLanguage(parseAcceptLanguage(header))
-            return { data: { ...user, language } }
+            return {
+              data: {
+                ...user,
+                name: user.name.trim(),
+                language,
+                // Une image envoyée avec l'inscription est ignorée : un avatar ne vient que de
+                // POST /v1/me/avatar, qui le nettoie et l'héberge chez nous.
+                image: null,
+              },
+            }
           },
         },
       },

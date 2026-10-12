@@ -46,6 +46,13 @@ services:
     volumes:
       # Les avatars des membres. À sauvegarder avec la base de données.
       - media-data:/app/media
+    # Système de fichiers en lecture seule : seuls le volume des avatars et /tmp (en mémoire)
+    # sont modifiables. Un attaquant ne pourrait rien installer dans le conteneur.
+    read_only: true
+    tmpfs:
+      - /tmp
+    # Mémoire maximale : si l'API déraille, elle seule redémarre, la base de données est épargnée.
+    mem_limit: 1g
     depends_on:
       db:
         condition: service_healthy # attend que la base réponde avant de démarrer

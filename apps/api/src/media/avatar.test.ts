@@ -1,7 +1,7 @@
 // Tests du traitement des avatars, sans API autour : on donne des octets, on regarde ce qui sort.
 import sharp from 'sharp'
 import { describe, expect, it } from 'vitest'
-import { photoWithGps, pngImage } from '../testing/images'
+import { jpegImage, photoWithGps, pngBomb, pngImage } from '../testing/images'
 import { processAvatar } from './avatar'
 
 describe('processAvatar', () => {
@@ -43,5 +43,28 @@ describe('processAvatar', () => {
 
     expect(await processAvatar(text)).toEqual({ ok: false, reason: 'unsupported' })
     expect(await processAvatar(gif)).toEqual({ ok: false, reason: 'unsupported' })
+  })
+
+  it('accepts an ordinary phone photo of 12 megapixels', async () => {
+    const result = await processAvatar(await jpegImage(4032, 3024))
+
+    expect(result.ok).toBe(true)
+  })
+
+  it('refuses a decompression bomb: a tiny file announcing a huge picture', async () => {
+    // 5 000 × 5 000 = 25 millions de pixels, dans un fichier de quelques dizaines de Ko.
+    const bomb = pngBomb(5000, 5000)
+    expect(bomb.length).toBeLessThan(100_000)
+    expect(await sharp(bomb).metadata()).toMatchObject({ width: 5000, height: 5000 })
+
+    expect(await processAvatar(bomb)).toEqual({ ok: false, reason: 'unsupported' })
+  })
+
+  it('refuses a very elongated picture, costly to process', async () => {
+    // Une bande 5 fois plus large que haute (le traitement de ces formes coûte cher en mémoire).
+    expect(await processAvatar(await jpegImage(2500, 500))).toEqual({
+      ok: false,
+      reason: 'unsupported',
+    })
   })
 })

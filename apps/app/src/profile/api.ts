@@ -35,8 +35,8 @@ export type PickedImage = { uri: string }
 const PREPARED_MAX_SIDE = 1024
 
 /**
- * Ouvre la galerie de photos et prépare l'image choisie : recadrée en carré (sur mobile),
- * réduite, enregistrée en JPEG. Renvoie null si le membre annule.
+ * Ouvre la galerie de photos et prépare l'image choisie : recadrée en carré au centre, réduite à
+ * 1 024 px au plus, enregistrée en JPEG. Renvoie null si le membre annule.
  */
 export const pickAvatar = async (): Promise<PickedImage | null> => {
   const result = await ImagePicker.launchImageLibraryAsync({
@@ -48,12 +48,21 @@ export const pickAvatar = async (): Promise<PickedImage | null> => {
   const asset = result.canceled ? undefined : result.assets[0]
   if (!asset) return null
 
-  // Réduit le plus grand côté à PREPARED_MAX_SIDE (sans agrandir une petite image).
   const context = ImageManipulator.manipulate(asset.uri)
-  if (Math.max(asset.width, asset.height) > PREPARED_MAX_SIDE) {
-    context.resize(
-      asset.width >= asset.height ? { width: PREPARED_MAX_SIDE } : { height: PREPARED_MAX_SIDE },
-    )
+  // Recadrage carré au centre. Sur mobile, le membre l'a déjà fait (allowsEditing) ; sur le web,
+  // la galerie ne sait pas recadrer : on le fait ici. Le serveur refuse les images trop allongées.
+  const side = Math.min(asset.width, asset.height)
+  if (asset.width !== asset.height) {
+    context.crop({
+      originX: Math.floor((asset.width - side) / 2),
+      originY: Math.floor((asset.height - side) / 2),
+      width: side,
+      height: side,
+    })
+  }
+  // Réduction (sans jamais agrandir une petite image).
+  if (side > PREPARED_MAX_SIDE) {
+    context.resize({ width: PREPARED_MAX_SIDE, height: PREPARED_MAX_SIDE })
   }
   const image = await context.renderAsync()
   const saved = await image.saveAsync({ format: SaveFormat.JPEG, compress: 0.85 })

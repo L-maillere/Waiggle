@@ -22,14 +22,10 @@ RUN pnpm install --offline --frozen-lockfile --filter @ruche/api...
 RUN pnpm --filter @ruche/api build
 
 # Exception : sharp (traitement des images) contient du code compilé pour chaque système, qu'on ne
-# peut pas glisser dans dist/index.js. On l'installe à part, à la version exacte fixée dans
-# apps/api/package.json, avec le binaire précompilé pour ce système (Alpine).
-# --ignore-scripts : aucun script d'installation n'est exécuté (protection de la chaîne d'approvisionnement).
-WORKDIR /runtime
-# Le package.json indique aussi à Node que dist/index.js utilise la syntaxe moderne des modules (ESM).
-RUN echo '{"private":true,"type":"module"}' > package.json \
-  && npm install --omit=dev --ignore-scripts --no-audit --no-fund \
-    "sharp@$(node -p "require('/repo/apps/api/package.json').dependencies.sharp")"
+# peut pas glisser dans dist/index.js. Le petit paquet apps/api/runtime ne contient que lui :
+# « pnpm deploy » l'installe dans /runtime d'après pnpm-lock.yaml (versions exactes, vérifiées par
+# leur empreinte), avec le binaire précompilé pour ce système (Alpine), sans script d'installation.
+RUN pnpm --filter @ruche/api-runtime deploy --prod --legacy --offline /runtime
 
 # --- Étape 2 : exécution ---
 # On repart d'une image vide : ni code source, ni outils de build, ni dépendances de dev.
@@ -38,12 +34,15 @@ WORKDIR /app
 ENV NODE_ENV=production
 # Les migrations SQL (création et évolution des tables) sont appliquées au démarrage.
 ENV MIGRATIONS_DIR=/app/migrations
-COPY --from=build --chown=node:node /repo/apps/api/dist ./dist
-COPY --from=build --chown=node:node /repo/packages/db/migrations ./migrations
-COPY --from=build --chown=node:node /runtime/package.json ./package.json
-COPY --from=build --chown=node:node /runtime/node_modules ./node_modules
-# Dossier des fichiers envoyés par les membres (avatars). Un volume Docker y est monté
-# (voir infra/docker-compose.yml) pour qu'ils survivent aux mises à jour du conteneur.
+# Le code appartient à root : le serveur (qui tourne avec l'utilisateur « node ») peut le lire,
+# mais pas le modifier. Même en cas de faille, il ne pourrait pas réécrire son propre code.
+COPY --from=build /repo/apps/api/dist ./dist
+COPY --from=build /repo/packages/db/migrations ./migrations
+# package.json dit aussi à Node que dist/index.js utilise la syntaxe moderne des modules (ESM).
+COPY --from=build /runtime/package.json ./package.json
+COPY --from=build /runtime/node_modules ./node_modules
+# Seul dossier où le serveur peut écrire : les fichiers envoyés par les membres (avatars).
+# Un volume Docker y est monté (voir infra/docker-compose.yml) pour qu'ils survivent aux mises à jour.
 ENV MEDIA_DIR=/app/media
 RUN mkdir -p /app/media && chown node:node /app/media
 # Le serveur tourne avec un utilisateur sans privilèges, jamais en root.

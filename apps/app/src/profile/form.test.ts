@@ -56,4 +56,11 @@ describe('toProfileUpdate', () => {
       errors: { tools: 'toolTooLong' },
     })
   })
+
+  it('refuses invisible characters that could fake another name', () => {
+    expect(toProfileUpdate({ ...valid, name: 'Léa\u202Enimda' })).toEqual({
+      ok: false,
+      errors: { name: 'invalidCharacters' },
+    })
+  })
 })

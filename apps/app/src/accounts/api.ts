@@ -33,14 +33,19 @@ export const signUp = async (input: SignUpRequest): Promise<Result> => {
 
 export const signIn = async (input: SignInRequest): Promise<Result> => {
   const { error } = await authClient.signIn.email(input)
+  // Nouveau membre connecté : on repart d'un cache vide (voir signOut).
+  if (!error) queryClient.clear()
   return toResult(error)
 }
 
 export const signOut = async (): Promise<void> => {
-  await authClient.signOut()
-  // On vide le cache des données (profil…) : sur un appareil partagé, la personne suivante ne doit
-  // rien voir de ce qui appartenait au membre précédent.
-  queryClient.clear()
+  try {
+    await authClient.signOut()
+  } finally {
+    // On vide le cache des données (profil…), même si le serveur n'a pas répondu : sur un appareil
+    // partagé, la personne suivante ne doit rien voir de ce qui appartenait au membre précédent.
+    queryClient.clear()
+  }
 }
 
 /** Supprime le compte après vérification du mot de passe par le serveur. */

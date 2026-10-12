@@ -103,6 +103,8 @@ export const fr = {
       toolTooLong: 'Chaque outil doit faire au plus {{max}} caractères.',
       avatarTooLarge: 'L’image dépasse {{max}} Mo.',
       avatarType: 'Choisis une image JPEG, PNG ou WebP.',
+      invalidCharacters:
+        'Certains caractères ne sont pas autorisés (caractères invisibles ou de contrôle).',
     },
   },
   email: {

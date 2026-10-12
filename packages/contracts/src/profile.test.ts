@@ -33,3 +33,11 @@ describe('ProfileUpdate', () => {
     expect(ProfileUpdate.safeParse({ language: 'de' }).success).toBe(false)
   })
 })
+
+describe('ProfileUpdate and invisible characters', () => {
+  it('refuses the null character anywhere, instead of letting the database fail', () => {
+    expect(ProfileUpdate.safeParse({ bio: 'x\u0000' }).success).toBe(false)
+    expect(ProfileUpdate.safeParse({ name: 'Léa\u0000' }).success).toBe(false)
+    expect(ProfileUpdate.safeParse({ favoriteTools: ['Claude\u0000'] }).success).toBe(false)
+  })
+})

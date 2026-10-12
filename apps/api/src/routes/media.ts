@@ -21,6 +21,9 @@ export const mediaRoutes = (storage: FileStorage) => {
       // Le fichier ne changera jamais (un nouvel avatar = un nouveau nom) : le navigateur peut
       // le garder un an en cache sans redemander.
       'Cache-Control': 'public, max-age=31536000, immutable',
+      // Si un navigateur ouvrait ce fichier comme une page, il n'y exécuterait rien (défense en
+      // profondeur : le fichier est une image ré-encodée par nos soins, et nosniff est déjà actif).
+      'Content-Security-Policy': "default-src 'none'; sandbox",
     })
   })
 
