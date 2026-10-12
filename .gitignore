@@ -27,3 +27,6 @@ coverage/
 
 # Claude Code : réglages personnels
 .claude/settings.local.json
+
+# Base de données locale de développement (PGlite)
+.data/

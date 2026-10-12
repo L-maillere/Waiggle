@@ -24,7 +24,10 @@ RUN pnpm --filter @ruche/api build
 FROM node:24-alpine
 WORKDIR /app
 ENV NODE_ENV=production
+# Les migrations SQL (création et évolution des tables) sont appliquées au démarrage.
+ENV MIGRATIONS_DIR=/app/migrations
 COPY --from=build --chown=node:node /repo/apps/api/dist ./dist
+COPY --from=build --chown=node:node /repo/packages/db/migrations ./migrations
 # Le serveur tourne avec un utilisateur sans privilèges, jamais en root.
 USER node
 EXPOSE 3000

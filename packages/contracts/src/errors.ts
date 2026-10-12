@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 // La liste fermée des codes d'erreur. Le code sert aux programmes (l'appli réagit selon le code),
 // le message sert aux humains (il est traduit dans la langue du visiteur).
-export const ErrorCode = z.enum(['not_found', 'validation', 'internal'])
+export const ErrorCode = z.enum(['not_found', 'validation', 'unauthorized', 'internal'])
 export type ErrorCode = z.infer<typeof ErrorCode>
 
 /** Toutes les erreurs renvoyées par l'API ont cette forme, quel que soit le problème. */
