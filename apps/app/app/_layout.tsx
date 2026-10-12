@@ -1,13 +1,16 @@
 // Mise en page racine de l'appli. Avec Expo Router, chaque fichier du dossier app/ est une page
 // (app/index.tsx = la page d'accueil). _layout.tsx enveloppe toutes les pages : c'est l'endroit
-// où l'on installe ce qui sert partout, comme les traductions.
+// où l'on installe ce qui sert partout : les traductions et le cache des données de l'API.
 import { defaultLanguage } from '@ruche/i18n'
+import { QueryClientProvider } from '@tanstack/react-query'
 import { Stack } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { useEffect, useState } from 'react'
 import { I18nextProvider } from 'react-i18next'
 import { Platform } from 'react-native'
+import { queryClient } from '../src/api/query-client'
 import { createI18n, detectLanguage } from '../src/i18n'
+import { LanguageSync } from '../src/profile/LanguageSync'
 
 const isWeb = Platform.OS === 'web'
 
@@ -32,10 +35,16 @@ export default function RootLayout() {
   }, [i18n])
 
   return (
-    <I18nextProvider i18n={i18n}>
-      <StatusBar style="auto" />
-      {/* Stack : navigation en pile, chaque nouvelle page s'empile sur la précédente */}
-      <Stack screenOptions={{ headerShown: false }} />
-    </I18nextProvider>
+    // Les « Provider » rendent une ressource disponible à tous les écrans placés à l'intérieur,
+    // sans avoir à la passer de main en main : ici le cache de l'API, puis les traductions.
+    <QueryClientProvider client={queryClient}>
+      <I18nextProvider i18n={i18n}>
+        {/* Applique la langue enregistrée sur le compte du membre connecté */}
+        <LanguageSync />
+        <StatusBar style="auto" />
+        {/* Stack : navigation en pile, chaque nouvelle page s'empile sur la précédente */}
+        <Stack screenOptions={{ headerShown: false }} />
+      </I18nextProvider>
+    </QueryClientProvider>
   )
 }

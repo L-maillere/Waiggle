@@ -1,6 +1,6 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:recommended", ":semanticCommits", "group:allNonMajor"],
+  "extends": ["config:recommended", ":semanticCommits", "group:allNonMajor", "docker:pinDigests"],
   "timezone": "Europe/Paris",
   "schedule": ["before 6am on monday"],
   "labels": ["dependencies"],
@@ -19,6 +19,11 @@
       ],
       "matchUpdateTypes": ["major", "minor"],
       "enabled": false
+    },
+    {
+      "description": "Better Auth packages pin each other exactly (and the app pins @better-auth/utils to satisfy @better-auth/core's peer): update them together.",
+      "matchPackageNames": ["better-auth", "@better-auth/*", "better-call"],
+      "groupName": "better-auth"
     }
   ]
 }

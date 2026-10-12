@@ -3,6 +3,8 @@ import { deleteAccount, signOut } from '../accounts/api'
 import { mockSession, renderWithI18n } from '../testing/render'
 import { AccountScreen } from './AccountScreen'
 
+// Le choix de la langue enregistre la langue sur le compte : on remplace aussi ces appels.
+jest.mock('../profile/api', () => ({ getMe: jest.fn(), updateProfile: jest.fn() }))
 jest.mock('../accounts/api', () => ({
   useSession: jest.fn(),
   signOut: jest.fn(),
@@ -10,7 +12,8 @@ jest.mock('../accounts/api', () => ({
   downloadMyData: jest.fn(),
 }))
 const mockReplace = jest.fn()
-jest.mock('expo-router', () => ({ useRouter: () => ({ push: jest.fn(), replace: mockReplace }) }))
+const mockPush = jest.fn()
+jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush, replace: mockReplace }) }))
 
 const lea = { user: { name: 'Léa', email: 'lea@example.com' } }
 
@@ -27,6 +30,21 @@ describe('AccountScreen', () => {
 
     expect(screen.getByText('Léa')).toBeTruthy()
     expect(screen.getByText('lea@example.com')).toBeTruthy()
+  })
+
+  it('leads to the profile page', async () => {
+    await renderWithI18n(<AccountScreen />)
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Modifier mon profil' }))
+
+    expect(mockPush).toHaveBeenCalledWith('/profile')
+  })
+
+  it('offers to choose the language', async () => {
+    await renderWithI18n(<AccountScreen />)
+
+    expect(screen.getByRole('button', { name: 'English' })).toBeTruthy()
+    expect(screen.getByText('Tes e-mails te sont aussi envoyés dans cette langue.')).toBeTruthy()
   })
 
   it('signs out and goes back home', async () => {

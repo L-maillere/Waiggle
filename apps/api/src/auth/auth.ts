@@ -3,7 +3,7 @@
 // Écrire soi-même ces mécanismes est risqué (stockage des mots de passe, jetons, attaques) :
 // on s'appuie sur une bibliothèque éprouvée, et on règle ici son comportement pour Ruche.
 import { expo } from '@better-auth/expo'
-import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from '@ruche/contracts'
+import { DisplayName, PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from '@ruche/contracts'
 import { type Database, schema } from '@ruche/db'
 import {
   defaultLanguage,
@@ -14,13 +14,19 @@ import {
 } from '@ruche/i18n'
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
+import { APIError, createAuthMiddleware } from 'better-auth/api'
+import { eq } from 'drizzle-orm'
 import type { Mailer } from '../email/mailer'
 import { existingAccountEmail, verificationEmail } from '../email/templates'
+import type { FileStorage } from '../media/storage'
+import { deleteMemberCounters } from '../rate-limit'
 import { authSchemaOptions } from './schema-options'
 
 export type AuthOptions = {
   db: Database
   mailer: Mailer
+  /** Stockage des fichiers : l'avatar d'un compte supprimé y est effacé. */
+  storage: FileStorage
   /** Clé secrète qui signe les sessions (BETTER_AUTH_SECRET). */
   secret: string
   /** Adresse publique de l'API, utilisée pour construire les liens des e-mails. */
@@ -40,8 +46,19 @@ const languageOf = (user: object): Language => {
   return isLanguage(language) ? language : defaultLanguage
 }
 
-export const createAuth = ({ db, mailer, secret, publicApiUrl, appUrl, rateLimit }: AuthOptions) =>
-  betterAuth({
+export const createAuth = ({
+  db,
+  mailer,
+  storage,
+  secret,
+  publicApiUrl,
+  appUrl,
+  rateLimit,
+}: AuthOptions) => {
+  // Avatars à effacer après la suppression d'un compte (identifiant du membre → fichier).
+  const avatarsToDelete = new Map<string, string>()
+
+  return betterAuth({
     ...authSchemaOptions,
     appName: 'Ruche',
     baseURL: publicApiUrl,
@@ -95,8 +112,32 @@ export const createAuth = ({ db, mailer, secret, publicApiUrl, appUrl, rateLimit
       // Suppression du compte par le membre lui-même (route POST /api/auth/delete-user),
       // après confirmation de son mot de passe. Les sessions et méthodes de connexion
       // disparaissent avec lui (suppression « en cascade » dans la base).
-      deleteUser: { enabled: true },
+      deleteUser: {
+        enabled: true,
+        // Juste avant la suppression : on note le fichier de l'avatar (la ligne `profile` va
+        // disparaître avec le compte, on ne pourrait plus le retrouver après).
+        beforeDelete: async (user) => {
+          const [row] = await db
+            .select({ avatarKey: schema.profile.avatarKey })
+            .from(schema.profile)
+            .where(eq(schema.profile.userId, user.id))
+          if (row?.avatarKey) avatarsToDelete.set(user.id, row.avatarKey)
+        },
+        // Juste après : on efface le fichier lui-même du stockage, et les compteurs anti-abus
+        // qui portent son identifiant.
+        afterDelete: async (user) => {
+          const key = avatarsToDelete.get(user.id)
+          avatarsToDelete.delete(user.id)
+          if (key) await storage.delete(key)
+          await deleteMemberCounters(db, user.id)
+        },
+      },
     },
+
+    // Routes génériques de Better Auth que Ruche n'utilise pas. update-user permettrait de
+    // changer son nom ou son image sans passer par nos règles (image hébergée n'importe où,
+    // qui révélerait l'adresse IP de chaque visiteur) : le profil passe par PATCH /v1/me.
+    disabledPaths: ['/update-user'],
 
     rateLimit: {
       ...authSchemaOptions.rateLimit,
@@ -126,6 +167,21 @@ export const createAuth = ({ db, mailer, secret, publicApiUrl, appUrl, rateLimit
       disableCSRFCheck: false,
     },
 
+    // Un « hook » qui s'exécute avant chaque route de Better Auth. À l'inscription, le nom doit
+    // suivre les mêmes règles que dans le profil (1 à 80 caractères, aucun caractère invisible).
+    // Ce contrôle a lieu AVANT que Better Auth ne regarde si l'adresse existe déjà : la réponse est
+    // la même dans les deux cas, elle ne révèle pas qui a un compte.
+    hooks: {
+      before: createAuthMiddleware(async (ctx) => {
+        if (ctx.path !== '/sign-up/email') return
+        const body: unknown = ctx.body
+        const name = typeof body === 'object' && body !== null && 'name' in body ? body.name : ''
+        if (!DisplayName.safeParse(name).success) {
+          throw new APIError('BAD_REQUEST', { message: 'Invalid name' })
+        }
+      }),
+    },
+
     // Les « hooks » de base de données s'exécutent juste avant ou après une écriture.
     databaseHooks: {
       user: {
@@ -142,11 +198,21 @@ export const createAuth = ({ db, mailer, secret, publicApiUrl, appUrl, rateLimit
             const language = isLanguage(requested)
               ? requested
               : resolveLanguage(parseAcceptLanguage(header))
-            return { data: { ...user, language } }
+            return {
+              data: {
+                ...user,
+                name: user.name.trim(),
+                language,
+                // Une image envoyée avec l'inscription est ignorée : un avatar ne vient que de
+                // POST /v1/me/avatar, qui le nettoie et l'héberge chez nous.
+                image: null,
+              },
+            }
           },
         },
       },
     },
   })
+}
 
 export type Auth = ReturnType<typeof createAuth>

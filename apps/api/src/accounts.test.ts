@@ -53,6 +53,37 @@ describe('creating an account', () => {
     expect(ctx.mailer.sent[0]?.subject).toBe('Activate your Ruche account')
   })
 
+  it('applies the same name rules as the profile: 80 characters, nothing invisible', async () => {
+    const tooLong = await ctx.signUp({ ...lea, name: 'a'.repeat(81) })
+    const reversed = await ctx.signUp({ ...lea, email: 'max@example.com', name: 'Max\u202Enimda' })
+
+    expect(tooLong.status).toBe(400)
+    expect(reversed.status).toBe(400)
+    expect(await ctx.db.select().from(schema.user)).toHaveLength(0)
+  })
+
+  it('refuses an invalid name the same way whether the address has an account or not', async () => {
+    await ctx.signUp(lea)
+
+    const existing = await ctx.signUp({ ...lea, name: 'a'.repeat(81) })
+    const unknown = await ctx.signUp({ ...lea, email: 'new@example.com', name: 'a'.repeat(81) })
+
+    expect(existing.status).toBe(unknown.status)
+    expect(await existing.text()).toBe(await unknown.text())
+  })
+
+  it('ignores a profile picture hosted elsewhere, sent along with the sign-up', async () => {
+    // Une image hébergée n'importe où révélerait l'adresse IP de chaque visiteur du profil.
+    await ctx.request('/api/auth/sign-up/email', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ...lea, image: 'https://tracker.example/pixel.png' }),
+    })
+
+    const [user] = await ctx.db.select({ image: schema.user.image }).from(schema.user)
+    expect(user).toEqual({ image: null })
+  })
+
   it('refuses a password shorter than 12 characters', async () => {
     const res = await ctx.signUp({ ...lea, password: 'too-short1' })
 

@@ -54,6 +54,37 @@ développera ; chacune est livrable seule.
 - Un membre peut changer de langue dans ses réglages ; son choix est mémorisé sur tous ses appareils
 - Les e-mails et notifications lui sont envoyés dans cette langue
 
+### Précisions (tranche 2)
+
+- **Limites** : nom de 1 à 80 caractères, bio de 280 caractères au plus, 10 outils favoris au plus
+  (40 caractères chacun, doublons retirés).
+- **Avatar** : JPEG, PNG ou WebP de 5 Mo au plus. Il est redressé selon l'orientation de la photo,
+  recadré en carré de 512 px, réenregistré en WebP, sans aucune métadonnée. Un nouvel avatar
+  remplace et efface l'ancien ; la suppression du compte efface aussi l'avatar.
+- **Anti-abus** : 30 modifications de profil et 10 envois d'avatar par heure et par membre.
+- **Langue** : changer de langue dans l'appli connectée l'enregistre sur le compte ; à la
+  connexion sur un autre appareil, l'appli reprend la langue du compte.
+- **Ce qui n'est pas modifiable ici** : l'adresse e-mail et le mot de passe (tranche ultérieure).
+
+### Notes de réalisation (tranche 2) — à valider
+
+Règles ajoutées pendant la réalisation, surtout après la relecture de sécurité :
+
+- **Photo préparée sur l'appareil** : l'appli recadre la photo en carré au centre et la réduit à
+  1 024 px avant l'envoi (sur mobile, le membre choisit lui-même le cadrage).
+- **Images refusées par le serveur** (même si un autre programme que l'appli les envoie) : plus de
+  4 096 × 4 096 pixels, plus de 4 fois plus larges que hautes (ou l'inverse), ou en 16 bits par
+  couleur. Une photo de téléphone ordinaire (12 mégapixels) passe.
+- **Serveur très sollicité** : au-delà de 2 images en traitement et 8 en attente, l'envoi est refusé
+  avec « Réessaie dans un instant ».
+- **Caractères invisibles refusés** dans le nom, la bio et les outils : caractères de contrôle,
+  caractères qui inversent le sens d'écriture, lettres « vides ». Un nom doit contenir au moins un
+  caractère visible. Effet de bord : les drapeaux d'Écosse et du pays de Galles (faits de
+  caractères invisibles) ne sont pas acceptés. Les mêmes règles s'appliquent au nom choisi à
+  l'inscription.
+- **Image envoyée à l'inscription** : ignorée ; un avatar ne vient que de « Changer la photo ».
+- **Autres sites** : toute modification envoyée depuis un autre site que l'appli est refusée.
+
 ## Tranche 3 — Publier un projet
 
 **Publier un projet**

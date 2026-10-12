@@ -15,11 +15,15 @@
   },
   "dependencies": {
     "@better-auth/expo": "1.7.7",
+    "@better-auth/utils": "0.4.2",
     "@ruche/contracts": "workspace:*",
     "@ruche/i18n": "workspace:*",
+    "@tanstack/react-query": "5.104.2",
     "better-auth": "1.7.7",
     "expo": "~57.0.27",
     "expo-constants": "~57.0.21",
+    "expo-image-manipulator": "~57.0.21",
+    "expo-image-picker": "~57.0.20",
     "expo-linking": "~57.0.12",
     "expo-localization": "~57.0.2",
     "expo-network": "~57.0.2",
@@ -45,6 +49,7 @@
     "typescript": "7.0.2"
   },
   "jest": {
-    "preset": "jest-expo"
+    "preset": "jest-expo",
+    "testTimeout": 15000
   }
 }

@@ -59,10 +59,12 @@ jobs:
           package-manager-cache: false # rien n'est installé ici, donc rien à mettre en cache
       - run: pnpm audit --audit-level high
 
-  # Vérifie que l'image Docker de l'API se construit.
+  # Construit l'image Docker de l'API, puis la démarre comme en production pour un test
+  # « de fumée » de bout en bout (voir infra/smoke-test.sh).
   docker:
-    name: API image builds
+    name: API image builds and runs
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - run: docker build -f apps/api/Dockerfile -t ruche-api:ci .
+      - run: infra/smoke-test.sh ruche-api:ci

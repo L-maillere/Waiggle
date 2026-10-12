@@ -2,6 +2,7 @@
 // L'appli s'en sert pour valider les formulaires avant envoi ; l'API, pour valider ses réponses.
 import { supportedLanguages } from '@ruche/i18n'
 import { z } from 'zod'
+import { DisplayName } from './text'
 
 export const LanguageSchema = z.enum(supportedLanguages)
 
@@ -13,7 +14,7 @@ export const PASSWORD_MAX_LENGTH = 128
 export const Password = z.string().min(PASSWORD_MIN_LENGTH).max(PASSWORD_MAX_LENGTH)
 
 export const SignUpRequest = z.object({
-  name: z.string().trim().min(1).max(80), // .trim() retire les espaces autour avant de compter
+  name: DisplayName, // 1 à 80 caractères, sans caractère invisible (voir text.ts)
   email: z.email(),
   password: Password,
   language: LanguageSchema.optional(),
@@ -35,6 +36,10 @@ export const Me = z
     emailVerified: z.boolean(),
     language: LanguageSchema,
     createdAt: z.iso.datetime(), // date au format ISO, par exemple "2026-10-12T08:30:00.000Z"
+    // Profil public (tranche 2)
+    bio: z.string(),
+    favoriteTools: z.array(z.string()),
+    avatarUrl: z.url().nullable(), // null : pas encore d'avatar
   })
   .meta({ id: 'Me' })
 export type Me = z.infer<typeof Me>

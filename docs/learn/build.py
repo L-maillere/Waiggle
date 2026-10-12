@@ -58,6 +58,11 @@ h2 {{
 }}
 h3 {{ font-size: 11.5pt; margin: 6mm 0 2mm; page-break-after: avoid; }}
 p, li {{ orphans: 3; widows: 3; }}
+/* Captures d'écran : centrées, sans dépasser la largeur, avec un léger cadre. */
+img {{
+  display: block; margin: 4mm auto; max-width: 62%; max-height: 120mm;
+  border: 1px solid #eadfc8; border-radius: 6px;
+}}
 ul, ol {{ padding-left: 5.5mm; }}
 li {{ margin: 1mm 0; }}
 strong {{ font-weight: 650; }}

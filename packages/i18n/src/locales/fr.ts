@@ -63,6 +63,11 @@ export const fr = {
   account: {
     title: 'Mon compte',
     signOut: 'Me déconnecter',
+    editProfile: 'Modifier mon profil',
+    language: {
+      title: 'Langue',
+      hint: 'Tes e-mails te sont aussi envoyés dans cette langue.',
+    },
     export: {
       button: 'Télécharger mes données',
       done: 'Tes données ont été téléchargées.',
@@ -74,6 +79,32 @@ export const fr = {
       password: 'Confirme avec ton mot de passe',
       submit: 'Supprimer définitivement',
       wrongPassword: 'Mot de passe incorrect.',
+    },
+  },
+  profile: {
+    title: 'Mon profil',
+    avatar: {
+      label: 'Photo de profil',
+      change: 'Changer la photo',
+      updated: 'Photo mise à jour.',
+    },
+    fields: {
+      bio: 'Bio',
+      bioCounter: '{{count}} / {{max}}',
+      tools: 'Outils favoris',
+      toolsHint: 'Sépare-les par des virgules ({{max}} au plus).',
+    },
+    save: 'Enregistrer',
+    saved: 'Profil enregistré.',
+    errors: {
+      nameTooLong: 'Le nom doit faire au plus {{max}} caractères.',
+      bioTooLong: 'La bio doit faire au plus {{max}} caractères.',
+      tooManyTools: '{{max}} outils au plus.',
+      toolTooLong: 'Chaque outil doit faire au plus {{max}} caractères.',
+      avatarTooLarge: 'L’image dépasse {{max}} Mo.',
+      avatarType: 'Choisis une image JPEG, PNG ou WebP.',
+      invalidCharacters:
+        'Certains caractères ne sont pas autorisés (caractères invisibles ou de contrôle).',
     },
   },
   email: {
@@ -97,6 +128,12 @@ export const fr = {
     notFound: "Cette page n'existe pas.",
     validation: 'Certaines informations sont invalides.',
     unauthorized: 'Connecte-toi pour continuer.',
+    forbidden: 'Cette action n’est pas autorisée.',
+    rateLimited: 'Trop de demandes. Réessaie dans quelques minutes.',
+    payloadTooLarge: 'Ce fichier est trop lourd.',
+    unsupportedMediaType: 'Ce type de fichier n’est pas accepté.',
+    unavailable: 'Ruche est très sollicitée en ce moment. Réessaie dans un instant.',
     internal: 'Une erreur inattendue est survenue.',
+    network: 'Impossible de joindre Ruche. Vérifie ta connexion et réessaie.',
   },
 } as const

@@ -7,6 +7,7 @@ import { createApp } from './app'
 import { createAuth } from './auth/auth'
 import { createBrevoMailer, createConsoleMailer, type Mailer } from './email/mailer'
 import { loadEnv } from './env'
+import { createDiskStorage } from './media/storage'
 
 const env = loadEnv(process.env)
 // Version affichée par /health : celle du package.json en développement, APP_VERSION en production.
@@ -35,18 +36,29 @@ if (env.nodeEnv === 'production' && env.mail.provider === 'console') {
   console.warn('MAIL_PROVIDER=console in production: emails (and their links) go to the logs.')
 }
 
+// 3. Le stockage des fichiers (avatars) : un dossier du disque.
+const storage = createDiskStorage(env.mediaDir)
+
 const database = await openDatabase()
 
-// 3. L'authentification, puis l'application qui rassemble toutes les routes.
+// 4. L'authentification, puis l'application qui rassemble toutes les routes.
 const auth = createAuth({
   db: database.db,
   mailer,
+  storage,
   secret: env.authSecret,
   publicApiUrl: env.publicApiUrl,
   appUrl: env.appUrl,
   rateLimit: env.nodeEnv === 'production',
 })
-const app = createApp({ version, auth, db: database.db, appUrl: env.appUrl })
+const app = createApp({
+  version,
+  auth,
+  db: database.db,
+  storage,
+  appUrl: env.appUrl,
+  publicApiUrl: env.publicApiUrl,
+})
 
 const server = serve({ fetch: app.fetch, port: env.port }, ({ port }) => {
   console.log(`Ruche API listening on http://localhost:${port} (${env.nodeEnv})`)

@@ -10,7 +10,16 @@ type Props = {
   onChangeText: (text: string) => void
   hint?: string | undefined
   error?: string | undefined
-} & Pick<TextInputProps, 'secureTextEntry' | 'autoComplete' | 'keyboardType' | 'textContentType'>
+} & Pick<
+  TextInputProps,
+  | 'secureTextEntry'
+  | 'autoComplete'
+  | 'keyboardType'
+  | 'textContentType'
+  | 'multiline'
+  | 'maxLength'
+  | 'autoCapitalize'
+>
 
 export function TextField({ label, value, onChangeText, hint, error, ...inputProps }: Props) {
   const c = useColors()
@@ -29,6 +38,7 @@ export function TextField({ label, value, onChangeText, hint, error, ...inputPro
             borderColor: error ? c.danger : c.border,
             backgroundColor: c.background,
           },
+          inputProps.multiline && styles.multiline, // texte sur plusieurs lignes : champ plus haut
         ]}
         placeholderTextColor={c.muted}
         {...inputProps} // les autres réglages (mot de passe masqué, type de clavier…) sont transmis tels quels
@@ -53,5 +63,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
+  multiline: { minHeight: 96, textAlignVertical: 'top' },
   small: { fontSize: 13 },
 })

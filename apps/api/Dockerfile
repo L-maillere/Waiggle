@@ -21,6 +21,15 @@ RUN pnpm install --offline --frozen-lockfile --filter @ruche/api...
 # Assemble tout le serveur en un seul fichier dist/index.js (voir le script "build").
 RUN pnpm --filter @ruche/api build
 
+# Exception : sharp (traitement des images) contient du code compilé pour chaque système, qu'on ne
+# peut pas glisser dans dist/index.js. Le petit paquet apps/api/runtime ne contient que lui :
+# « pnpm deploy » l'installe dans /runtime d'après pnpm-lock.yaml (versions exactes, vérifiées par
+# leur empreinte), avec le binaire précompilé pour ce système (Alpine), sans script d'installation.
+# inject-workspace-packages : réglage exigé par pnpm 10 pour déployer à partir du fichier de
+# verrouillage commun. Sans effet ici : ce paquet ne dépend d'aucun autre paquet du dépôt.
+RUN pnpm --filter @ruche/api-runtime deploy --prod --offline \
+  --config.inject-workspace-packages=true /runtime
+
 # --- Étape 2 : exécution ---
 # On repart d'une image vide : ni code source, ni outils de build, ni dépendances de dev.
 FROM node:24-alpine
@@ -28,8 +37,17 @@ WORKDIR /app
 ENV NODE_ENV=production
 # Les migrations SQL (création et évolution des tables) sont appliquées au démarrage.
 ENV MIGRATIONS_DIR=/app/migrations
-COPY --from=build --chown=node:node /repo/apps/api/dist ./dist
-COPY --from=build --chown=node:node /repo/packages/db/migrations ./migrations
+# Le code appartient à root : le serveur (qui tourne avec l'utilisateur « node ») peut le lire,
+# mais pas le modifier. Même en cas de faille, il ne pourrait pas réécrire son propre code.
+COPY --from=build /repo/apps/api/dist ./dist
+COPY --from=build /repo/packages/db/migrations ./migrations
+# package.json dit aussi à Node que dist/index.js utilise la syntaxe moderne des modules (ESM).
+COPY --from=build /runtime/package.json ./package.json
+COPY --from=build /runtime/node_modules ./node_modules
+# Seul dossier où le serveur peut écrire : les fichiers envoyés par les membres (avatars).
+# Un volume Docker y est monté (voir infra/docker-compose.yml) pour qu'ils survivent aux mises à jour.
+ENV MEDIA_DIR=/app/media
+RUN mkdir -p /app/media && chown node:node /app/media
 # Le serveur tourne avec un utilisateur sans privilèges, jamais en root.
 USER node
 EXPOSE 3000
