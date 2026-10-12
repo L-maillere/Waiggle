@@ -118,6 +118,7 @@ export function AccountScreen() {
           label={t('account.export.button')}
           trailing={exporting ? <Text tone="muted">{t('common.loading')}</Text> : 'download-simple'}
           onPress={() => void onExport()}
+          disabled={exporting} // pas de deuxième export tant que le premier n'est pas fini
         />
       </ListGroup>
       {exportMessage ? (

@@ -83,6 +83,16 @@ describe('ProjectScreen', () => {
     expect(screen.queryByRole('button', { name: 'Supprimer' })).toBeNull()
   })
 
+  it('deletes nothing when the author changes their mind', async () => {
+    await renderWithProviders(<ProjectScreen id={recipesProject.id} />)
+
+    await fireEvent.press(await screen.findByRole('button', { name: 'Supprimer' }))
+    await fireEvent.press(screen.getByRole('button', { name: 'Annuler' }))
+
+    expect(deleteProject).not.toHaveBeenCalled()
+    expect(screen.queryByRole('button', { name: 'Supprimer le projet' })).toBeNull()
+  })
+
   it('deletes the project once the author confirms, then goes home', async () => {
     jest.mocked(deleteProject).mockResolvedValue({ ok: true, data: null })
     await renderWithProviders(<ProjectScreen id={id} />)

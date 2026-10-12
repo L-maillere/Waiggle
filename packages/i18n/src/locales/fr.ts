@@ -32,7 +32,7 @@ export const fr = {
     haveAccount: 'J’ai déjà un compte',
     account: 'Mon compte',
     publish: 'Publier un projet',
-    membersOnly: 'Tout reste entre membres : rien n’est visible sans compte.',
+    membersOnly: 'Les projets et les profils ne sont visibles que par les membres connectés.',
     openSource: '{{appName}} est un logiciel libre.',
     seeCode: 'Voir le code',
   },
@@ -65,6 +65,7 @@ export const fr = {
     checkEmail: {
       title: 'Vérifie ta boîte mail',
       body: 'Nous avons envoyé un lien à {{email}}. Clique dessus pour activer ton compte.',
+      bodyNoEmail: 'Nous t’avons envoyé un lien par e-mail. Clique dessus pour activer ton compte.',
       locked: 'Tant que tu n’as pas ouvert ce lien, tu ne peux pas te connecter.',
       back: 'Retour à la connexion',
     },

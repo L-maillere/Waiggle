@@ -83,6 +83,8 @@ type RowProps = {
   selected?: boolean
   /** Le contenu de droite qui n'est pas une icône (un contrôle segmenté, par exemple). */
   accessory?: ReactNode
+  /** Inactive (par exemple pendant que son action est en cours). */
+  disabled?: boolean
 }
 
 export function ListRow({
@@ -95,6 +97,7 @@ export function ListRow({
   onPress,
   selected,
   accessory,
+  disabled = false,
 }: RowProps) {
   const { colors } = useTheme()
   const isChoice = selected !== undefined
@@ -159,7 +162,8 @@ export function ListRow({
     <Pressable
       accessibilityRole={isChoice ? 'radio' : 'button'}
       accessibilityLabel={label}
-      {...(isChoice ? { accessibilityState: { checked: selected } } : null)}
+      accessibilityState={{ disabled, ...(isChoice ? { checked: selected } : null) }}
+      disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => (pressed ? { backgroundColor: colors.surfaceGrouped } : null)}
     >

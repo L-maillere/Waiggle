@@ -42,7 +42,11 @@ describe('SignUpScreen', () => {
     expect(field.props.secureTextEntry).toBe(true)
 
     await fireEvent.press(screen.getByRole('button', { name: 'Afficher le mot de passe' }))
-    expect(screen.getByLabelText('Mot de passe').props.secureTextEntry).toBe(false)
+    const shown = screen.getByLabelText('Mot de passe')
+    expect(shown.props.secureTextEntry).toBe(false)
+    // Même affiché, il ne part ni au correcteur orthographique ni au dictionnaire du clavier.
+    expect(shown.props.autoCorrect).toBe(false)
+    expect(shown.props.spellCheck).toBe(false)
 
     await fireEvent.press(screen.getByRole('button', { name: 'Masquer le mot de passe' }))
     expect(screen.getByLabelText('Mot de passe').props.secureTextEntry).toBe(true)

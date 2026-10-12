@@ -30,7 +30,7 @@ export const en: Translation = {
     haveAccount: 'I already have an account',
     account: 'My account',
     publish: 'Publish a project',
-    membersOnly: 'Everything stays between members: nothing is visible without an account.',
+    membersOnly: 'Projects and profiles are only visible to signed-in members.',
     openSource: '{{appName}} is free software.',
     seeCode: 'See the code',
   },
@@ -63,6 +63,7 @@ export const en: Translation = {
     checkEmail: {
       title: 'Check your inbox',
       body: 'We sent a link to {{email}}. Click it to activate your account.',
+      bodyNoEmail: 'We sent you a link by email. Click it to activate your account.',
       locked: 'Until you open this link, you cannot sign in.',
       back: 'Back to sign in',
     },

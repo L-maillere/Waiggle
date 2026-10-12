@@ -25,7 +25,9 @@ describe('HomeScreen', () => {
     expect(screen.getByRole('header', { name: `Bienvenue sur ${appName}` })).toBeTruthy()
     expect(screen.getByText('Montre à tes proches ce que tu construis avec l’IA.')).toBeTruthy()
     expect(
-      screen.getByText('Tout reste entre membres : rien n’est visible sans compte.'),
+      screen.getByText(
+        'Les projets et les profils ne sont visibles que par les membres connectés.',
+      ),
     ).toBeTruthy()
   })
 

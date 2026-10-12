@@ -7,7 +7,7 @@
 import { borders, layout, radii, space, textStyles } from '@ruche/brand'
 import { Children, createContext, Fragment, type ReactNode, useContext, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Pressable, TextInput, type TextInputProps, View } from 'react-native'
+import { Platform, Pressable, TextInput, type TextInputProps, View } from 'react-native'
 import { Icon } from './Icon'
 import { Text } from './Text'
 import { fontName } from './theme/fonts'
@@ -161,6 +161,19 @@ export function TextField({
             ...(inputProps.multiline ? { minHeight: 96, textAlignVertical: 'top' } : null),
           }}
           {...inputProps} // les autres réglages (type de clavier, saisie automatique…) sont transmis tels quels
+          // Un mot de passe, même affiché, ne passe jamais par le correcteur orthographique ni par le
+          // dictionnaire du clavier : certains correcteurs envoient le texte à un service en ligne,
+          // et un clavier pourrait le proposer plus tard en suggestion. Placé après inputProps pour
+          // qu'aucun écran ne puisse le réactiver.
+          {...(secureTextEntry
+            ? {
+                autoCorrect: false,
+                spellCheck: false,
+                ...(revealed && Platform.OS === 'android'
+                  ? { keyboardType: 'visible-password' as const }
+                  : null),
+              }
+            : null)}
         />
         {secureTextEntry ? (
           <Pressable
