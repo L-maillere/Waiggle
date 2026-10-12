@@ -107,4 +107,8 @@ describe('fill', () => {
   it('fills the given parameters and blanks the unknown ones', () => {
     expect(fill('Bonjour {{ name }}{{missing}}', { name: 'Léa' })).toBe('Bonjour Léa')
   })
+
+  it('never fills in what every JavaScript object inherits', () => {
+    expect(fill('[{{constructor}}][{{toString}}][{{__proto__}}]')).toBe('[][][]')
+  })
 })

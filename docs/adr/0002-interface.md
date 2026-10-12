@@ -55,4 +55,5 @@ aurait fini par ne plus ressembler à l'appli.
 - **Sur Android**, le verre n'est pas encore flouté (il faut désigner la zone à flouter, écran par
   écran) : il est un peu plus opaque à la place.
 - **La lumière d'ambiance des projets** demandera au serveur de calculer un ThumbHash de chaque
-  visuel (tranche 3b).
+  visuel (tranche 3b). Venant de l'API, il sera vérifié par le contrat (base64, longueur bornée)
+  avant d'être affiché.

@@ -30,7 +30,11 @@ export const textVariables = { appName } as const
  */
 export const fill = (template: string, params: Readonly<Record<string, string>> = {}): string => {
   const values: Record<string, string> = { ...textVariables, ...params }
-  return template.replace(/{{\s*(\w+)\s*}}/g, (_, key: string) => values[key] ?? '')
+  // Object.hasOwn : seules les valeurs données comptent, jamais celles héritées de tout objet
+  // JavaScript ({{constructor}} ou {{toString}} donnent donc une chaîne vide).
+  return template.replace(/{{\s*(\w+)\s*}}/g, (_, key: string) =>
+    Object.hasOwn(values, key) ? (values[key] ?? '') : '',
+  )
 }
 
 /** Les textes, dans la forme attendue par la bibliothèque i18next. */

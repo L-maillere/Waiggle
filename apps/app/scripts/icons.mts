@@ -122,9 +122,22 @@ const paths = icons.map((name) => {
   return `  '${name}': ${JSON.stringify(ds)},`
 })
 
+// La licence MIT demande de joindre son texte complet à toute copie : on le recopie en tête du
+// fichier produit, tel qu'il est livré avec les icônes.
+const license = readFileSync(
+  join(root, 'node_modules', '@phosphor-icons', 'core', 'LICENSE'),
+  'utf8',
+)
+  .trim()
+  .split('\n')
+  .map((line) => `// ${line}`.trimEnd())
+  .join('\n')
+
 const output = `// Fichier fabriqué par scripts/icons.mts : ne pas le modifier à la main.
-// Icônes Phosphor (https://phosphoricons.com), © 2023 Phosphor Icons, licence MIT.
-// Chaque icône : la liste de ses tracés SVG, sur une grille de 256 × 256.
+// Icônes Phosphor (https://phosphoricons.com). Chaque icône : la liste de ses tracés SVG, sur une
+// grille de 256 × 256. Licence des icônes :
+//
+${license}
 
 export const iconPaths = {
 ${paths.join('\n')}

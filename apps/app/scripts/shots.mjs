@@ -11,7 +11,7 @@
 import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs'
 import { createServer } from 'node:http'
-import { dirname, extname, join } from 'node:path'
+import { dirname, extname, join, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
 import { leaMe } from '../src/testing/fixtures.ts'
@@ -66,14 +66,28 @@ const pageFor = (dir, segments) => {
   }
   return null
 }
+// Le fichier à servir pour une adresse, ou null si l'adresse est mal formée ou cherche à sortir
+// du dossier construit (« ../ », barre oblique inverse sous Windows, nom de lecteur « C: »).
 const fileFor = (url) => {
-  const segments = decodeURIComponent(new URL(url, 'http://x').pathname)
-    .split('/')
-    .filter((s) => s !== '' && s !== '.' && s !== '..') // jamais en dehors du dossier construit
-  return pageFor(build, segments) ?? join(build, '+not-found.html')
+  let path
+  try {
+    path = decodeURIComponent(new URL(url, 'http://x').pathname)
+  } catch {
+    return null // encodage invalide (« %E0%A4%A »)
+  }
+  const segments = path.split('/').filter((s) => s !== '' && s !== '.')
+  if (segments.some((s) => s === '..' || s.includes('\\') || s.includes(':'))) return null
+  const file = pageFor(build, segments) ?? join(build, '+not-found.html')
+  // Dernière vérification : le chemin final est bien dans le dossier construit.
+  return resolve(file).startsWith(resolve(build) + sep) ? file : null
 }
 const server = createServer((req, res) => {
   const file = fileFor(req.url ?? '/')
+  if (!file) {
+    res.writeHead(400)
+    res.end()
+    return
+  }
   res.writeHead(200, { 'content-type': types[extname(file)] ?? 'application/octet-stream' })
   res.end(readFileSync(file))
 })
