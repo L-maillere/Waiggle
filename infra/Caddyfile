@@ -1,0 +1,6 @@
+# Caddy obtains and renews HTTPS certificates automatically for real domains.
+{$API_DOMAIN:localhost} {
+	encode zstd gzip
+	header -Server
+	reverse_proxy api:3000
+}

@@ -1,0 +1,29 @@
+# Dépendances
+node_modules/
+
+# Builds
+dist/
+.turbo/
+web-build/
+
+# Expo
+.expo/
+expo-env.d.ts
+ios/
+android/
+
+# Secrets : jamais dans le dépôt
+.env
+.env.*
+!.env.example
+
+# Outils et système
+coverage/
+*.log
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Claude Code : réglages personnels
+.claude/settings.local.json

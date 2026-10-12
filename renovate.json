@@ -1,0 +1,24 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", ":semanticCommits", "group:allNonMajor"],
+  "timezone": "Europe/Paris",
+  "schedule": ["before 6am on monday"],
+  "labels": ["dependencies"],
+  "packageRules": [
+    {
+      "description": "Expo SDK upgrades are done deliberately with `expo install --fix`, not by Renovate.",
+      "matchPackageNames": [
+        "expo",
+        "expo-*",
+        "jest-expo",
+        "react",
+        "react-dom",
+        "react-native",
+        "react-native-*",
+        "@types/react"
+      ],
+      "matchUpdateTypes": ["major", "minor"],
+      "enabled": false
+    }
+  ]
+}

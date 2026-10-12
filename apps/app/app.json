@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "Ruche",
+    "slug": "ruche",
+    "scheme": "ruche",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "app.ruche"
+    },
+    "android": {
+      "package": "app.ruche"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static"
+    },
+    "plugins": ["expo-router", "expo-localization"],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

@@ -1,0 +1,15 @@
+packages:
+  - apps/*
+  - packages/*
+
+# Only these dependencies may run install scripts (supply-chain protection).
+onlyBuiltDependencies:
+  - esbuild
+
+# Advisories accepted after review. Each entry needs a reason and is re-checked at every Expo SDK upgrade.
+auditConfig:
+  ignoreGhsas:
+    # node-forge, via the Expo CLI (dev server certificates). Not shipped in the app or the API; no fix published yet.
+    - GHSA-86w9-cpqp-85rv
+    # braces, via Jest (glob matching on our own test files). Test tooling only; no fix published yet.
+    - GHSA-vfj7-8cjw-p6xm
