@@ -1,6 +1,6 @@
 # Phase 1 — MVP en cercle restreint : scénarios
 
-Statut : **brouillon, à valider par Louis** avant d'écrire les tests.
+Statut : **validé par Louis** le 12/10/2026. Tranche 1 réalisée (voir ses notes de réalisation).
 
 Chaque scénario devient un ou plusieurs tests. Les tranches sont listées dans l'ordre où on les
 développera ; chacune est livrable seule.
@@ -29,6 +29,18 @@ développera ; chacune est livrable seule.
 - Quand un membre supprime son compte depuis l'appli
 - Alors son profil, ses projets, réactions et commentaires disparaissent
 - Et il peut d'abord télécharger l'export de ses données
+
+### Notes de réalisation (tranche 1)
+
+- **Plus strict que prévu** : on ne peut pas du tout se connecter avant d'avoir vérifié son
+  adresse (le scénario disait seulement « ne peut pas publier »). Cliquer sur le lien connecte
+  directement, donc rien n'est perdu pour le membre.
+- **Passkeys reportées** : elles exigent un vrai nom de domaine et une configuration iOS / Android.
+  Elles viendront après la mise en ligne sur le VPS.
+- **Limitation** : 5 tentatives de connexion par quart d'heure et par adresse IP (pas par compte).
+- **Suppression** immédiate après confirmation du mot de passe, sans e-mail de confirmation.
+- **Langue** : enregistrée à l'inscription (choix de l'appli, sinon langue du navigateur).
+  Changer de langue dans les réglages viendra avec la tranche 2.
 
 ## Tranche 2 — Profil et langue
 
