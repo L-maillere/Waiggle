@@ -23,7 +23,8 @@ const phone = {
 export const renderWithProviders = async (
   ui: ReactElement,
   language: 'fr' | 'en' = 'fr',
-  appearance: Appearance = 'day',
+  // Sans apparence imposée, le thème fait comme dans l'appli : « Automatique », qu'on peut changer.
+  appearance?: Appearance,
 ) => {
   const i18n = createI18n(language)
   // retry: false : en test, une requête qui échoue ne doit pas être retentée trois fois.
@@ -35,7 +36,7 @@ export const renderWithProviders = async (
     <SafeAreaProvider initialMetrics={phone}>
       <QueryClientProvider client={queryClient}>
         <I18nextProvider i18n={i18n}>
-          <ThemeProvider appearance={appearance}>{ui}</ThemeProvider>
+          <ThemeProvider {...(appearance ? { appearance } : null)}>{ui}</ThemeProvider>
         </I18nextProvider>
       </QueryClientProvider>
     </SafeAreaProvider>,

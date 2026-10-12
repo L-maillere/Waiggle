@@ -12,15 +12,21 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSession } from '../accounts/api'
 import { ApiError, type ApiErrorKey } from '../api/errors'
+import { TopNav } from '../navigation/TopNav'
 import { pickAvatar, updateProfile, uploadAvatar } from '../profile/api'
-import { type ProfileFormErrors, toProfileUpdate } from '../profile/form'
+import { type ProfileFormErrors, parseTools, toProfileUpdate } from '../profile/form'
 import { useMe, useSetMe } from '../profile/hooks'
 import { Avatar } from '../ui/Avatar'
 import { Button } from '../ui/Button'
+import { Icon } from '../ui/Icon'
 import { Notice } from '../ui/Notice'
 import { Screen } from '../ui/Screen'
-import { Stack } from '../ui/Stack'
-import { TextField } from '../ui/TextField'
+import { SheetHeader } from '../ui/SheetHeader'
+import { Row, Stack } from '../ui/Stack'
+import { TagInput } from '../ui/TagInput'
+import { Text } from '../ui/Text'
+import { FieldGroup, TextField } from '../ui/TextField'
+import { useLayout } from '../ui/theme/layout'
 
 export function ProfileScreen() {
   const { t } = useTranslation()
@@ -55,6 +61,8 @@ type Message = { text: string; ok: boolean } | null
 
 function ProfileForm({ me }: { me: Me }) {
   const { t } = useTranslation()
+  const router = useRouter()
+  const wide = useLayout().sizeClass === 'wide'
   const { refetch: refetchSession } = useSession()
   const setMe = useSetMe()
 
@@ -139,48 +147,83 @@ function ProfileForm({ me }: { me: Me }) {
           max: errors.tools === 'tooManyTools' ? FAVORITE_TOOLS_MAX : TOOL_MAX_LENGTH,
         })
 
+  const back = () => (router.canGoBack() ? router.back() : router.replace('/account'))
+  const save = { label: t('profile.save'), onPress: () => void onSave(), loading: busy === 'save' }
+
   return (
-    <Screen title={t('profile.title')}>
+    <Screen
+      // Sur téléphone, « Annuler » et « Enregistrer » restent en haut, à portée de pouce ; sur
+      // ordinateur, la barre de navigation en haut et les deux boutons sous le formulaire.
+      header={
+        wide ? (
+          <TopNav />
+        ) : (
+          <SheetHeader
+            title={t('profile.title')}
+            cancel={{ label: t('common.cancel'), onPress: back }}
+            action={save}
+          />
+        )
+      }
+      {...(wide ? { title: t('profile.title') } : null)}
+    >
       <Stack gap="md" align="center">
-        <Avatar name={name} url={me.avatarUrl} label={t('profile.avatar.label')} />
+        <Avatar name={name} url={me.avatarUrl} label={t('profile.avatar.label')} size={132} />
         <Button
           label={t('profile.avatar.change')}
-          variant="secondary"
+          variant="glass"
           size="compact"
           icon="camera"
           onPress={onChangeAvatar}
           loading={busy === 'avatar'}
         />
+        <Row gap="sm" justify="center">
+          <Icon name="shield-check" size={16} tone="amber" />
+          <Text variant="caption" tone="muted" align="center">
+            {t('profile.avatar.privacy')}
+          </Text>
+        </Row>
       </Stack>
 
-      <TextField
-        label={t('auth.fields.name')}
-        value={name}
-        onChangeText={setName}
-        autoCapitalize="words"
-        maxLength={NAME_MAX_LENGTH}
-        error={nameError}
-      />
-      <TextField
-        label={t('profile.fields.bio')}
-        value={bio}
-        onChangeText={setBio}
-        autoCapitalize="sentences"
-        multiline
-        // Pas de maxLength ici : le compteur montre la limite sans couper le texte en plein milieu.
-        hint={t('profile.fields.bioCounter', { count: bio.length, max: BIO_MAX_LENGTH })}
-        error={bioError}
-      />
-      <TextField
+      <FieldGroup>
+        <TextField
+          label={t('auth.fields.name')}
+          value={name}
+          onChangeText={setName}
+          autoCapitalize="words"
+          maxLength={NAME_MAX_LENGTH}
+          showCount
+          error={nameError}
+        />
+        <TextField
+          label={t('profile.fields.bio')}
+          value={bio}
+          onChangeText={setBio}
+          autoCapitalize="sentences"
+          multiline
+          // Pas de maxLength ici : le compteur montre la limite sans couper le texte en plein milieu.
+          limit={BIO_MAX_LENGTH}
+          showCount
+          error={bioError}
+        />
+      </FieldGroup>
+      <TagInput
         label={t('profile.fields.tools')}
-        value={tools}
-        onChangeText={setTools}
-        hint={t('profile.fields.toolsHint', { max: FAVORITE_TOOLS_MAX })}
+        values={parseTools(tools)}
+        onChange={(list) => setTools(list.join(', '))}
+        placeholder={t('profile.fields.toolsPlaceholder')}
+        removeLabel={(item) => t('common.remove', { item })}
+        limit={t('profile.fields.toolsLimit', { max: FAVORITE_TOOLS_MAX })}
         error={toolsError || undefined}
       />
 
-      {message ? <Notice tone={message.ok ? 'info' : 'error'} message={message.text} /> : null}
-      <Button label={t('profile.save')} onPress={onSave} loading={busy === 'save'} />
+      {message ? <Notice tone={message.ok ? 'success' : 'error'} message={message.text} /> : null}
+      {wide ? (
+        <Row gap="md" justify="end">
+          <Button label={t('common.cancel')} variant="secondary" onPress={back} />
+          <Button {...save} />
+        </Row>
+      ) : null}
     </Screen>
   )
 }

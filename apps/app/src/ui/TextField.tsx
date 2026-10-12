@@ -19,8 +19,10 @@ type Props = {
   onChangeText: (text: string) => void
   hint?: string | undefined
   error?: string | undefined
-  /** Affiche « 42 / 140 » à côté de l'étiquette (avec maxLength). */
+  /** Affiche « 42 / 140 » à côté de l'étiquette (la limite : maxLength, ou `limit`). */
   showCount?: boolean
+  /** Une limite seulement affichée : on peut la dépasser, l'erreur vient à l'enregistrement. */
+  limit?: number
   /** Un petit texte à droite de l'étiquette (« 12 caractères minimum »). */
   aside?: string
   /** Une confirmation sous le champ, en vert (« Lien vérifié »). Une erreur passe avant. */
@@ -100,6 +102,7 @@ export function TextField({
   hint,
   error,
   showCount = false,
+  limit,
   aside,
   success,
   secureTextEntry = false,
@@ -112,10 +115,8 @@ export function TextField({
   // Un mot de passe est masqué, mais on peut l'afficher le temps de vérifier ce qu'on a tapé.
   const [revealed, setRevealed] = useState(false)
   const body = textStyles.body
-  const counter =
-    showCount && inputProps.maxLength
-      ? `${Array.from(value).length} / ${inputProps.maxLength}`
-      : aside
+  const max = limit ?? inputProps.maxLength
+  const counter = showCount && max ? `${Array.from(value).length} / ${max}` : aside
 
   const row = (
     <View

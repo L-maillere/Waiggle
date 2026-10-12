@@ -70,6 +70,8 @@ export function ListGroup({ title, footer, children, radio = false }: GroupProps
 
 type RowProps = {
   label: string
+  /** Une icône dans une pastille, à gauche du libellé. */
+  icon?: IconName
   /** Une précision sous le libellé (l'adresse e-mail…), ou à droite avec `detailRight`. */
   detail?: string
   detailRight?: boolean
@@ -85,6 +87,7 @@ type RowProps = {
 
 export function ListRow({
   label,
+  icon,
   detail,
   detailRight = false,
   trailing,
@@ -117,6 +120,20 @@ export function ListRow({
         paddingVertical: space.md,
       }}
     >
+      {icon ? (
+        <View
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: radii.pill,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: colors.surfaceGrouped,
+          }}
+        >
+          <Icon name={icon} size={20} tone="secondary" />
+        </View>
+      ) : null}
       <View style={{ flex: 1, gap: space.xxs }}>
         <Text weight={600} tone={tone === 'danger' ? 'danger' : 'default'}>
           {label}

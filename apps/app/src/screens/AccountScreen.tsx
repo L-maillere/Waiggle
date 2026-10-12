@@ -1,18 +1,26 @@
-// Page « Mon compte » : qui est connecté, profil, langue, déconnexion, export des données,
-// suppression du compte.
+// Page « Réglages » : qui est connecté, profil, langue, apparence, export des données,
+// déconnexion. La suppression du compte a sa propre page (DeleteAccountScreen), plus solennelle.
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from '@ruche/contracts'
+import { supportedLanguages } from '@ruche/i18n'
 import { useRouter } from 'expo-router'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { deleteAccount, downloadMyData, signOut, useSession } from '../accounts/api'
+import { downloadMyData, signOut, useSession } from '../accounts/api'
+import { TopNav } from '../navigation/TopNav'
+import { useMe } from '../profile/hooks'
+import { useChooseLanguage } from '../profile/useChooseLanguage'
+import { Avatar } from '../ui/Avatar'
 import { Button } from '../ui/Button'
-import { LanguageSwitcher } from '../ui/LanguageSwitcher'
+import { Icon } from '../ui/Icon'
+import { ListGroup, ListRow } from '../ui/ListGroup'
 import { Notice } from '../ui/Notice'
 import { Screen } from '../ui/Screen'
-import { Stack } from '../ui/Stack'
+import { Segmented } from '../ui/Segmented'
+import { Row, Stack } from '../ui/Stack'
 import { Surface } from '../ui/Surface'
 import { Text } from '../ui/Text'
-import { TextField } from '../ui/TextField'
+import type { Appearance } from '../ui/theme/appearance'
+import { useTheme } from '../ui/theme/ThemeProvider'
 
 // Paramètres des messages qui citent les longueurs de mot de passe.
 const lengths = { min: PASSWORD_MIN_LENGTH, max: PASSWORD_MAX_LENGTH }
@@ -21,10 +29,13 @@ export function AccountScreen() {
   const { t } = useTranslation()
   const router = useRouter()
   const { data, isPending } = useSession()
-  const [password, setPassword] = useState('')
-  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const me = useMe(Boolean(data))
+  const { current, choose } = useChooseLanguage()
+  const { appearance, setAppearance } = useTheme()
   const [exportMessage, setExportMessage] = useState<{ text: string; ok: boolean } | null>(null)
-  const [busy, setBusy] = useState<'export' | 'delete' | null>(null)
+  const [exporting, setExporting] = useState(false)
+
+  const back = () => (router.canGoBack() ? router.back() : router.replace('/'))
 
   if (isPending) return <Screen title={t('common.loading')}>{null}</Screen>
   // Personne de connecté : on propose de se connecter.
@@ -43,9 +54,9 @@ export function AccountScreen() {
   }
 
   const onExport = async () => {
-    setBusy('export')
+    setExporting(true)
     const result = await downloadMyData()
-    setBusy(null)
+    setExporting(false)
     setExportMessage(
       result.ok
         ? { text: t('account.export.done'), ok: true }
@@ -53,75 +64,91 @@ export function AccountScreen() {
     )
   }
 
-  const onDelete = async () => {
-    setBusy('delete')
-    const result = await deleteAccount(password)
-    setBusy(null)
-    if (result.ok) {
-      router.replace('/')
-      return
-    }
-    setDeleteError(
-      result.error === 'wrongPassword'
-        ? t('account.delete.wrongPassword')
-        : t(`auth.errors.${result.error}`, lengths),
-    )
-  }
-
   return (
-    <Screen title={t('account.title')}>
-      <Stack gap="xxs">
-        <Text variant="heading">{data.user.name}</Text>
-        <Text tone="muted">{data.user.email}</Text>
-      </Stack>
-      <Button label={t('account.editProfile')} onPress={() => router.push('/profile')} />
-
-      <Stack gap="sm">
-        <Text variant="headline" accessibilityRole="header">
-          {t('account.language.title')}
-        </Text>
-        <LanguageSwitcher />
-        <Text variant="caption" tone="muted">
-          {t('account.language.hint')}
-        </Text>
-      </Stack>
-
-      <Button label={t('account.signOut')} variant="secondary" onPress={onSignOut} />
+    <Screen header={<TopNav />} onBack={back} title={t('account.title')}>
+      {/* Qui est connecté, et le chemin vers son profil. */}
+      <Surface variant="grouped" padding="lg">
+        <Row gap="md">
+          <Avatar
+            name={data.user.name}
+            url={me.data?.avatarUrl ?? null}
+            label={t('profile.avatar.label')}
+            size={56}
+          />
+          <Stack gap="xxs" grow>
+            <Text variant="headline">{data.user.name}</Text>
+          </Stack>
+        </Row>
+      </Surface>
       <Button
-        label={t('account.export.button')}
+        label={t('account.editProfile')}
         variant="secondary"
-        onPress={onExport}
-        loading={busy === 'export'}
+        icon="pencil-simple"
+        onPress={() => router.push('/profile')}
       />
+
+      <ListGroup title={t('account.language.title')} footer={t('account.language.hint')} radio>
+        {supportedLanguages.map((language) => (
+          <ListRow
+            key={language}
+            label={t(`common.languages.${language}`)}
+            selected={language === current}
+            onPress={() => void choose(language)}
+          />
+        ))}
+      </ListGroup>
+
+      <ListGroup title={t('account.appearance.title')} footer={t('account.appearance.hint')}>
+        <Stack padding="md">
+          <Segmented<Appearance>
+            label={t('account.appearance.title')}
+            options={[
+              { value: 'auto', label: t('account.appearance.auto'), icon: 'circle-half' },
+              { value: 'day', label: t('account.appearance.day'), icon: 'sun' },
+              { value: 'night', label: t('account.appearance.night'), icon: 'moon' },
+            ]}
+            value={appearance}
+            onChange={setAppearance}
+          />
+        </Stack>
+      </ListGroup>
+
+      <ListGroup title={t('account.data.title')}>
+        <ListRow
+          label={t('account.export.button')}
+          trailing={exporting ? <Text tone="muted">{t('common.loading')}</Text> : 'download-simple'}
+          onPress={() => void onExport()}
+        />
+      </ListGroup>
       {exportMessage ? (
         <Notice tone={exportMessage.ok ? 'success' : 'error'} message={exportMessage.text} />
       ) : null}
 
-      {/* Zone de suppression, dans son propre cadre : c'est une action définitive. */}
-      <Surface variant="grouped" padding="lg" gap="md">
-        <Text variant="headline" tone="danger" accessibilityRole="header">
-          {t('account.delete.title')}
-        </Text>
-        <Text>{t('account.delete.warning')}</Text>
-        <Text variant="callout" tone="muted">
-          {t('account.delete.exportFirst')}
-        </Text>
-        <TextField
-          label={t('account.delete.password')}
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          autoComplete="current-password"
-          error={deleteError ?? undefined}
+      <ListGroup title={t('account.section.title')}>
+        <ListRow
+          label={t('account.email.label')}
+          detail={data.user.email}
+          trailing={
+            <Row gap="xs">
+              <Icon name="lock-simple" size={14} tone="accent" />
+              <Text variant="caption" weight={600} tone="accent">
+                {t('account.email.soon')}
+              </Text>
+            </Row>
+          }
         />
-        <Button
-          label={t('account.delete.submit')}
-          variant="danger"
-          onPress={onDelete}
-          loading={busy === 'delete'}
-          disabled={password.length === 0} // impossible de supprimer sans avoir tapé son mot de passe
+        <ListRow
+          label={t('account.signOut')}
+          trailing="sign-out"
+          onPress={() => void onSignOut()}
         />
-      </Surface>
+        <ListRow
+          label={t('account.delete.title')}
+          tone="danger"
+          trailing="trash"
+          onPress={() => router.push('/account/delete')}
+        />
+      </ListGroup>
     </Screen>
   )
 }
