@@ -54,6 +54,18 @@ développera ; chacune est livrable seule.
 - Un membre peut changer de langue dans ses réglages ; son choix est mémorisé sur tous ses appareils
 - Les e-mails et notifications lui sont envoyés dans cette langue
 
+### Précisions (tranche 2)
+
+- **Limites** : nom de 1 à 80 caractères, bio de 280 caractères au plus, 10 outils favoris au plus
+  (40 caractères chacun, doublons retirés).
+- **Avatar** : JPEG, PNG ou WebP de 5 Mo au plus. Il est redressé selon l'orientation de la photo,
+  recadré en carré de 512 px, réenregistré en WebP, sans aucune métadonnée. Un nouvel avatar
+  remplace et efface l'ancien ; la suppression du compte efface aussi l'avatar.
+- **Anti-abus** : 30 modifications de profil et 10 envois d'avatar par heure et par membre.
+- **Langue** : changer de langue dans l'appli connectée l'enregistre sur le compte ; à la
+  connexion sur un autre appareil, l'appli reprend la langue du compte.
+- **Ce qui n'est pas modifiable ici** : l'adresse e-mail et le mot de passe (tranche ultérieure).
+
 ## Tranche 3 — Publier un projet
 
 **Publier un projet**

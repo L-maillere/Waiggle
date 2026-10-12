@@ -1,26 +1,61 @@
-// Routes du membre connecté : son profil (GET /v1/me) et l'export de ses données
-// (GET /v1/me/export). Les deux exigent d'être connecté.
-import { createRoute, OpenAPIHono } from '@hono/zod-openapi'
-import { AccountExport, ErrorResponse, Me } from '@ruche/contracts'
+// Routes du membre connecté : lire et modifier son profil, changer d'avatar, exporter ses données.
+// Toutes exigent d'être connecté.
+import { createRoute } from '@hono/zod-openapi'
+import { AccountExport, AVATAR_MAX_BYTES, Me, ProfileUpdate } from '@ruche/contracts'
 import { type Database, schema } from '@ruche/db'
-import { defaultLanguage, type Language, supportedLanguages } from '@ruche/i18n'
 import { eq } from 'drizzle-orm'
+import type { Context } from 'hono'
+import { bodyLimit } from 'hono/body-limit'
 import { errorBody, languageOf } from '../errors'
-import type { AppEnv, AuthUser } from '../types'
+import { processAvatar } from '../media/avatar'
+import type { FileStorage } from '../media/storage'
+import { loadMe } from '../profile/me'
+import type { RateLimiter, RateRule } from '../rate-limit'
+import type { AppEnv } from '../types'
+import { createRouter, errorResponse } from './router'
 
-// Réponse commune aux routes qui exigent une connexion.
-const unauthorizedResponse = {
-  description: 'Not signed in.',
-  content: { 'application/json': { schema: ErrorResponse } },
-}
+// Règles anti-abus de ces routes (voir docs/scenarios/phase-1.md, tranche 2).
+const HOUR = 60 * 60 * 1000
+const profileRule: RateRule = { windowMs: HOUR, max: 30 }
+const avatarRule: RateRule = { windowMs: HOUR, max: 10 }
+
+const meResponse = { description: 'The profile.', content: { 'application/json': { schema: Me } } }
 
 const meRoute = createRoute({
   method: 'get',
   path: '/v1/me',
   summary: 'The signed-in member',
+  responses: { 200: meResponse, 401: errorResponse('Not signed in.') },
+})
+
+const updateMeRoute = createRoute({
+  method: 'patch',
+  path: '/v1/me',
+  summary: 'Update my profile and language',
+  // La requête doit respecter ProfileUpdate ; sinon le routeur répond 400 avant même la route.
+  request: { body: { content: { 'application/json': { schema: ProfileUpdate } } } },
   responses: {
-    200: { description: 'The profile.', content: { 'application/json': { schema: Me } } },
-    401: unauthorizedResponse,
+    200: meResponse,
+    400: errorResponse('Invalid data.'),
+    401: errorResponse('Not signed in.'),
+    429: errorResponse('Too many changes.'),
+  },
+})
+
+const avatarRoute = createRoute({
+  method: 'post',
+  path: '/v1/me/avatar',
+  summary: 'Upload my avatar',
+  description:
+    'multipart/form-data with an "avatar" file (JPEG, PNG or WebP, 5 MB at most). ' +
+    'The image is re-encoded to a 512 px WebP square without metadata.',
+  responses: {
+    200: meResponse,
+    400: errorResponse('No file.'),
+    401: errorResponse('Not signed in.'),
+    413: errorResponse('File too large.'),
+    415: errorResponse('Not a JPEG, PNG or WebP image.'),
+    429: errorResponse('Too many uploads.'),
   },
 })
 
@@ -33,36 +68,125 @@ const exportRoute = createRoute({
       description: 'Everything Ruche stores about the member, without secrets.',
       content: { 'application/json': { schema: AccountExport } },
     },
-    401: unauthorizedResponse,
+    401: errorResponse('Not signed in.'),
   },
 })
 
-const isLanguage = (value: unknown): value is Language =>
-  typeof value === 'string' && (supportedLanguages as readonly string[]).includes(value)
+type Deps = {
+  db: Database
+  storage: FileStorage
+  limiter: RateLimiter
+  publicApiUrl: string
+}
 
-// Ne garde du membre que ce que l'appli a le droit de voir, au format du contrat `Me`.
-// Les dates sont converties en texte ISO (le JSON ne connaît pas les dates).
-const toMe = (user: AuthUser): Me => ({
-  id: user.id,
-  name: user.name,
-  email: user.email,
-  emailVerified: user.emailVerified,
-  language: isLanguage(user.language) ? user.language : defaultLanguage,
-  createdAt: user.createdAt.toISOString(),
-})
+export const meRoutes = ({ db, storage, limiter, publicApiUrl }: Deps) => {
+  const app = createRouter()
 
-export const meRoutes = (db: Database) => {
-  const app = new OpenAPIHono<AppEnv>()
+  // Réponses d'erreur courantes, dans la langue du visiteur.
+  const unauthorized = (c: Context<AppEnv>) => c.json(errorBody(languageOf(c), 'unauthorized'), 401)
+  const tooMany = (c: Context<AppEnv>, retryAfterSeconds: number) => {
+    // Retry-After : en-tête standard qui dit dans combien de secondes réessayer.
+    c.header('Retry-After', String(retryAfterSeconds))
+    return c.json(errorBody(languageOf(c), 'rate_limited'), 429)
+  }
 
-  app.openapi(meRoute, (c) => {
+  app.openapi(meRoute, async (c) => {
     const user = c.get('user')
-    if (!user) return c.json(errorBody(languageOf(c), 'unauthorized'), 401)
-    return c.json(toMe(user), 200)
+    if (!user) return unauthorized(c)
+    const me = await loadMe(db, user.id, publicApiUrl)
+    if (!me) return unauthorized(c)
+    return c.json(me, 200)
+  })
+
+  app.openapi(updateMeRoute, async (c) => {
+    const user = c.get('user')
+    if (!user) return unauthorized(c)
+    const decision = await limiter.hit(`profile:${user.id}`, profileRule)
+    if (!decision.allowed) return tooMany(c, decision.retryAfterSeconds)
+
+    // c.req.valid('json') : le corps de la requête, déjà vérifié par le schéma ProfileUpdate.
+    const { name, language, bio, favoriteTools } = c.req.valid('json')
+
+    // Le nom et la langue sont dans la table `user`…
+    if (name !== undefined || language !== undefined) {
+      await db
+        .update(schema.user)
+        // On n'écrit que ce qui a été envoyé : { name } seulement si name existe, etc.
+        .set({ ...(name !== undefined && { name }), ...(language !== undefined && { language }) })
+        .where(eq(schema.user.id, user.id))
+    }
+    // … la bio et les outils dans `profile`. « Upsert » : créer la ligne si elle n'existe pas
+    // encore, sinon la mettre à jour (insert … on conflict do update).
+    if (bio !== undefined || favoriteTools !== undefined) {
+      await db
+        .insert(schema.profile)
+        .values({ userId: user.id, bio: bio ?? '', favoriteTools: favoriteTools ?? [] })
+        .onConflictDoUpdate({
+          target: schema.profile.userId,
+          set: {
+            ...(bio !== undefined && { bio }),
+            ...(favoriteTools !== undefined && { favoriteTools }),
+          },
+        })
+    }
+
+    const me = await loadMe(db, user.id, publicApiUrl)
+    if (!me) return unauthorized(c)
+    return c.json(me, 200)
+  })
+
+  // Avant même de lire le fichier : on coupe tout envoi plus gros que la limite (+ 64 Ko pour
+  // l'enveloppe du formulaire). Un envoi géant ne remplira jamais la mémoire du serveur.
+  app.use(
+    '/v1/me/avatar',
+    bodyLimit({
+      maxSize: AVATAR_MAX_BYTES + 64 * 1024,
+      onError: (c) => c.json(errorBody(languageOf(c), 'payload_too_large'), 413),
+    }),
+  )
+
+  app.openapi(avatarRoute, async (c) => {
+    const user = c.get('user')
+    if (!user) return unauthorized(c)
+    const decision = await limiter.hit(`avatar:${user.id}`, avatarRule)
+    if (!decision.allowed) return tooMany(c, decision.retryAfterSeconds)
+
+    // parseBody lit un formulaire « multipart » : les champs texte et les fichiers.
+    const form = await c.req.parseBody()
+    const file = form.avatar
+    if (!(file instanceof File)) return c.json(errorBody(languageOf(c), 'validation'), 400)
+    if (file.size > AVATAR_MAX_BYTES) {
+      return c.json(errorBody(languageOf(c), 'payload_too_large'), 413)
+    }
+
+    const result = await processAvatar(new Uint8Array(await file.arrayBuffer()))
+    if (!result.ok) return c.json(errorBody(languageOf(c), 'unsupported_media_type'), 415)
+
+    // Nom de fichier tiré au hasard par le serveur : jamais celui envoyé par le membre.
+    const key = `avatars/${crypto.randomUUID()}.webp`
+    await storage.put(key, result.data)
+
+    // On retient l'ancien avatar, on enregistre le nouveau, puis on efface l'ancien.
+    const [previous] = await db
+      .select({ avatarKey: schema.profile.avatarKey })
+      .from(schema.profile)
+      .where(eq(schema.profile.userId, user.id))
+    await db
+      .insert(schema.profile)
+      .values({ userId: user.id, avatarKey: key })
+      .onConflictDoUpdate({ target: schema.profile.userId, set: { avatarKey: key } })
+    if (previous?.avatarKey) await storage.delete(previous.avatarKey)
+
+    const me = await loadMe(db, user.id, publicApiUrl)
+    if (!me) return unauthorized(c)
+    return c.json(me, 200)
   })
 
   app.openapi(exportRoute, async (c) => {
     const user = c.get('user')
-    if (!user) return c.json(errorBody(languageOf(c), 'unauthorized'), 401)
+    if (!user) return unauthorized(c)
+    const me = await loadMe(db, user.id, publicApiUrl)
+    if (!me) return unauthorized(c)
 
     // On choisit les colonnes une par une (select({...})) : impossible d'exporter par erreur
     // l'empreinte du mot de passe ou un jeton, qui ne sont jamais demandés.
@@ -85,7 +209,7 @@ export const meRoutes = (db: Database) => {
     return c.json(
       {
         exportedAt: new Date().toISOString(),
-        user: toMe(user),
+        user: me,
         loginMethods: loginMethods.map((m) => ({ ...m, createdAt: m.createdAt.toISOString() })),
         sessions: sessions.map((s) => ({
           ...s,

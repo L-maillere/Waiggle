@@ -63,6 +63,11 @@ export const en: Translation = {
   account: {
     title: 'My account',
     signOut: 'Sign out',
+    editProfile: 'Edit my profile',
+    language: {
+      title: 'Language',
+      hint: 'Your emails are also sent in this language.',
+    },
     export: {
       button: 'Download my data',
       done: 'Your data has been downloaded.',
@@ -74,6 +79,29 @@ export const en: Translation = {
       password: 'Confirm with your password',
       submit: 'Delete permanently',
       wrongPassword: 'Incorrect password.',
+    },
+  },
+  profile: {
+    title: 'My profile',
+    avatar: {
+      label: 'Profile picture',
+      change: 'Change picture',
+      updated: 'Picture updated.',
+    },
+    fields: {
+      bio: 'Bio',
+      bioCounter: '{{count}} / {{max}}',
+      tools: 'Favorite tools',
+      toolsHint: 'Separate them with commas ({{max}} at most).',
+    },
+    save: 'Save',
+    saved: 'Profile saved.',
+    errors: {
+      bioTooLong: 'Your bio must be at most {{max}} characters long.',
+      tooManyTools: '{{max}} tools at most.',
+      toolTooLong: 'Each tool must be at most {{max}} characters long.',
+      avatarTooLarge: 'The image is larger than {{max}} MB.',
+      avatarType: 'Choose a JPEG, PNG or WebP image.',
     },
   },
   email: {
@@ -97,6 +125,9 @@ export const en: Translation = {
     notFound: 'This page does not exist.',
     validation: 'Some information is invalid.',
     unauthorized: 'Sign in to continue.',
+    rateLimited: 'Too many requests. Try again in a few minutes.',
+    payloadTooLarge: 'This file is too large.',
+    unsupportedMediaType: 'This type of file is not accepted.',
     internal: 'Something went wrong.',
   },
 }

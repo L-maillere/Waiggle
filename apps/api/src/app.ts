@@ -10,15 +10,22 @@ import { secureHeaders } from 'hono/secure-headers'
 import type { Auth } from './auth/auth'
 import { sessionMiddleware } from './auth/session'
 import { errorBody, languageOf } from './errors'
+import type { FileStorage } from './media/storage'
+import { createRateLimiter } from './rate-limit'
 import { meRoutes } from './routes/me'
+import { mediaRoutes } from './routes/media'
 import type { AppEnv } from './types'
 
 export type AppOptions = {
   version: string
   auth: Auth
   db: Database
+  /** Où sont rangés les fichiers envoyés par les membres (avatars…). */
+  storage: FileStorage
   /** Adresse de l'appli web, seule autorisée à appeler l'API depuis un navigateur. */
   appUrl: string
+  /** Adresse publique de l'API, pour fabriquer les liens des images. */
+  publicApiUrl: string
 }
 
 // Déclaration de la route GET /health. createRoute décrit la route ET sa réponse attendue :
@@ -35,7 +42,7 @@ const healthRoute = createRoute({
   },
 })
 
-export const createApp = ({ version, auth, db, appUrl }: AppOptions) => {
+export const createApp = ({ version, auth, db, storage, appUrl, publicApiUrl }: AppOptions) => {
   const app = new OpenAPIHono<AppEnv>()
 
   // Un « middleware » est une fonction exécutée pour chaque requête, avant (et après) la route.
@@ -74,8 +81,10 @@ export const createApp = ({ version, auth, db, appUrl }: AppOptions) => {
   // La route de santé : `as const` garantit que status vaut exactement 'ok', comme l'exige le schéma.
   app.openapi(healthRoute, (c) => c.json({ status: 'ok' as const, version }, 200))
 
-  // Les routes du membre connecté, rangées dans leur propre fichier.
-  app.route('/', meRoutes(db))
+  // Les routes du membre connecté et le service des images, rangés dans leurs propres fichiers.
+  const limiter = createRateLimiter(db)
+  app.route('/', meRoutes({ db, storage, limiter, publicApiUrl }))
+  app.route('/', mediaRoutes(storage))
 
   // La documentation de l'API, générée à partir des routes déclarées, servie en JSON.
   app.doc31('/openapi.json', {

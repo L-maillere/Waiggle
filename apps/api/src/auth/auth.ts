@@ -14,13 +14,17 @@ import {
 } from '@ruche/i18n'
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
+import { eq } from 'drizzle-orm'
 import type { Mailer } from '../email/mailer'
 import { existingAccountEmail, verificationEmail } from '../email/templates'
+import type { FileStorage } from '../media/storage'
 import { authSchemaOptions } from './schema-options'
 
 export type AuthOptions = {
   db: Database
   mailer: Mailer
+  /** Stockage des fichiers : l'avatar d'un compte supprimé y est effacé. */
+  storage: FileStorage
   /** Clé secrète qui signe les sessions (BETTER_AUTH_SECRET). */
   secret: string
   /** Adresse publique de l'API, utilisée pour construire les liens des e-mails. */
@@ -40,8 +44,19 @@ const languageOf = (user: object): Language => {
   return isLanguage(language) ? language : defaultLanguage
 }
 
-export const createAuth = ({ db, mailer, secret, publicApiUrl, appUrl, rateLimit }: AuthOptions) =>
-  betterAuth({
+export const createAuth = ({
+  db,
+  mailer,
+  storage,
+  secret,
+  publicApiUrl,
+  appUrl,
+  rateLimit,
+}: AuthOptions) => {
+  // Avatars à effacer après la suppression d'un compte (identifiant du membre → fichier).
+  const avatarsToDelete = new Map<string, string>()
+
+  return betterAuth({
     ...authSchemaOptions,
     appName: 'Ruche',
     baseURL: publicApiUrl,
@@ -95,8 +110,31 @@ export const createAuth = ({ db, mailer, secret, publicApiUrl, appUrl, rateLimit
       // Suppression du compte par le membre lui-même (route POST /api/auth/delete-user),
       // après confirmation de son mot de passe. Les sessions et méthodes de connexion
       // disparaissent avec lui (suppression « en cascade » dans la base).
-      deleteUser: { enabled: true },
+      deleteUser: {
+        enabled: true,
+        // Juste avant la suppression : on note le fichier de l'avatar (la ligne `profile` va
+        // disparaître avec le compte, on ne pourrait plus le retrouver après).
+        beforeDelete: async (user) => {
+          const [row] = await db
+            .select({ avatarKey: schema.profile.avatarKey })
+            .from(schema.profile)
+            .where(eq(schema.profile.userId, user.id))
+          if (row?.avatarKey) avatarsToDelete.set(user.id, row.avatarKey)
+        },
+        // Juste après : on efface le fichier lui-même du stockage.
+        afterDelete: async (user) => {
+          const key = avatarsToDelete.get(user.id)
+          if (!key) return
+          avatarsToDelete.delete(user.id)
+          await storage.delete(key)
+        },
+      },
     },
+
+    // Routes génériques de Better Auth que Ruche n'utilise pas. update-user permettrait de
+    // changer son nom ou son image sans passer par nos règles (image hébergée n'importe où,
+    // qui révélerait l'adresse IP de chaque visiteur) : le profil passe par PATCH /v1/me.
+    disabledPaths: ['/update-user'],
 
     rateLimit: {
       ...authSchemaOptions.rateLimit,
@@ -148,5 +186,6 @@ export const createAuth = ({ db, mailer, secret, publicApiUrl, appUrl, rateLimit
       },
     },
   })
+}
 
 export type Auth = ReturnType<typeof createAuth>

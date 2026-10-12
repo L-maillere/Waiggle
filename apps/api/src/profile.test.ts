@@ -1,0 +1,219 @@
+// Tests d'intégration de la tranche 2 : le profil, la langue et l'avatar.
+// Scénarios : docs/scenarios/phase-1.md, tranche 2.
+import { ErrorResponse, Me } from '@ruche/contracts'
+import { schema } from '@ruche/db'
+import sharp from 'sharp'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { createTestContext, type TestContext } from './testing/context'
+import { avatarForm, photoWithGps } from './testing/images'
+
+let ctx: TestContext
+let cookie: string
+
+const lea = { name: 'Léa', email: 'lea@example.com', password: 'correct-horse-battery' }
+
+beforeEach(async () => {
+  ctx = await createTestContext()
+  cookie = await ctx.verifiedMember(lea)
+})
+
+afterEach(async () => {
+  await ctx.close()
+})
+
+const patchMe = (body: unknown, headers: Record<string, string> = {}) =>
+  ctx.request('/v1/me', {
+    method: 'PATCH',
+    headers: { cookie, 'content-type': 'application/json', ...headers },
+    body: JSON.stringify(body),
+  })
+
+const uploadAvatar = (form: FormData, withCookie = cookie) =>
+  ctx.request('/v1/me/avatar', { method: 'POST', headers: { cookie: withCookie }, body: form })
+
+const getMe = async () =>
+  Me.parse(await (await ctx.request('/v1/me', { headers: { cookie } })).json())
+
+describe('completing my profile', () => {
+  it('saves the name, the bio and the favorite tools', async () => {
+    const res = await patchMe({
+      name: 'Léa M.',
+      bio: 'Je bricole des agents IA le week-end.',
+      favoriteTools: ['Claude', 'Cursor'],
+    })
+
+    expect(res.status).toBe(200)
+    expect(await getMe()).toMatchObject({
+      name: 'Léa M.',
+      bio: 'Je bricole des agents IA le week-end.',
+      favoriteTools: ['Claude', 'Cursor'],
+    })
+  })
+
+  it('starts with an empty profile', async () => {
+    expect(await getMe()).toMatchObject({ bio: '', favoriteTools: [], avatarUrl: null })
+  })
+
+  it('refuses a bio that is too long, with a translated message', async () => {
+    const res = await patchMe({ bio: 'a'.repeat(281) }, { 'Accept-Language': 'en' })
+    const body = ErrorResponse.parse(await res.json())
+
+    expect(res.status).toBe(400)
+    expect(body.error).toEqual({ code: 'validation', message: 'Some information is invalid.' })
+  })
+
+  it('cannot be used to change the email address or its verification', async () => {
+    const res = await patchMe({ email: 'pirate@example.com', emailVerified: false })
+
+    expect(res.status).toBe(400)
+    expect(await getMe()).toMatchObject({ email: 'lea@example.com', emailVerified: true })
+  })
+
+  it('is only available to a signed-in member', async () => {
+    const res = await ctx.request('/v1/me', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ bio: 'Coucou' }),
+    })
+
+    expect(res.status).toBe(401)
+  })
+
+  it('blocks a 31st change within an hour', async () => {
+    for (let i = 0; i < 30; i++) expect((await patchMe({ bio: `Version ${i}` })).status).toBe(200)
+
+    const res = await patchMe({ bio: 'Une de trop' })
+
+    expect(res.status).toBe(429)
+    expect(ErrorResponse.parse(await res.json()).error.code).toBe('rate_limited')
+    expect(res.headers.get('retry-after')).toBeTruthy()
+  })
+
+  it('cannot be bypassed through the generic Better Auth route', async () => {
+    // Cette route permettrait de mettre une image hébergée n'importe où comme avatar :
+    // elle est désactivée, tout passe par nos routes contrôlées.
+    const res = await ctx.request('/api/auth/update-user', {
+      method: 'POST',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ image: 'https://tracker.example/pixel.png' }),
+    })
+
+    expect(res.status).toBe(404)
+  })
+
+  it('is part of my data export', async () => {
+    await patchMe({ bio: 'Ma bio', favoriteTools: ['Claude'] })
+
+    const res = await ctx.request('/v1/me/export', { headers: { cookie } })
+    const data = (await res.json()) as { user: Me }
+
+    expect(data.user).toMatchObject({ bio: 'Ma bio', favoriteTools: ['Claude'] })
+  })
+})
+
+describe('choosing my language', () => {
+  it('saves the language on the account', async () => {
+    await patchMe({ language: 'en' })
+
+    expect((await getMe()).language).toBe('en')
+  })
+
+  it('sends my next emails in that language', async () => {
+    await patchMe({ language: 'en' })
+
+    // Une tentative d'inscription avec mon adresse déclenche un e-mail d'avertissement.
+    await ctx.signUp({ ...lea, password: 'another-password-1' })
+
+    expect(ctx.mailer.sent.at(-1)?.subject).toBe('Sign-up attempt on Ruche')
+  })
+})
+
+describe('my avatar', () => {
+  it('is cleaned: a 512 px WebP square without any metadata', async () => {
+    const res = await uploadAvatar(avatarForm(await photoWithGps()))
+    const me = Me.parse(await res.json())
+
+    expect(res.status).toBe(200)
+    expect(me.avatarUrl).toMatch(/^http:\/\/localhost:3000\/media\/avatars\/[0-9a-f-]+\.webp$/)
+
+    const image = await ctx.request(new URL(me.avatarUrl ?? '').pathname)
+    const info = await sharp(new Uint8Array(await image.arrayBuffer())).metadata()
+    expect(info).toMatchObject({ format: 'webp', width: 512, height: 512 })
+    expect(info.exif).toBeUndefined()
+  })
+
+  it('is served as an image that browsers may cache for a long time', async () => {
+    const me = Me.parse(await (await uploadAvatar(avatarForm(await photoWithGps()))).json())
+
+    const image = await ctx.request(new URL(me.avatarUrl ?? '').pathname)
+
+    expect(image.headers.get('content-type')).toBe('image/webp')
+    expect(image.headers.get('x-content-type-options')).toBe('nosniff')
+    expect(image.headers.get('cache-control')).toContain('immutable')
+  })
+
+  it('replaces the previous one, which is deleted', async () => {
+    await uploadAvatar(avatarForm(await photoWithGps()))
+    const first = [...ctx.storage.files.keys()]
+
+    await uploadAvatar(avatarForm(await photoWithGps()))
+
+    expect(ctx.storage.files.size).toBe(1)
+    expect([...ctx.storage.files.keys()]).not.toEqual(first)
+  })
+
+  it('refuses a file that is not an image, even if it claims to be one', async () => {
+    const fake = new TextEncoder().encode('<script>alert(1)</script>')
+
+    const res = await uploadAvatar(avatarForm(fake, 'image/png', 'avatar.png'))
+
+    expect(res.status).toBe(415)
+    expect(ErrorResponse.parse(await res.json()).error.code).toBe('unsupported_media_type')
+    expect(ctx.storage.files.size).toBe(0)
+  })
+
+  it('refuses a file larger than 5 MB', async () => {
+    const huge = new Uint8Array(5 * 1024 * 1024 + 1)
+
+    const res = await uploadAvatar(avatarForm(huge))
+
+    expect(res.status).toBe(413)
+    expect(ErrorResponse.parse(await res.json()).error.code).toBe('payload_too_large')
+  })
+
+  it('is only available to a signed-in member', async () => {
+    const res = await uploadAvatar(avatarForm(await photoWithGps()), '')
+
+    expect(res.status).toBe(401)
+  })
+
+  it('blocks an 11th upload within an hour', async () => {
+    const photo = await photoWithGps()
+    for (let i = 0; i < 10; i++) expect((await uploadAvatar(avatarForm(photo))).status).toBe(200)
+
+    expect((await uploadAvatar(avatarForm(photo))).status).toBe(429)
+  })
+
+  it('is deleted together with my account', async () => {
+    await uploadAvatar(avatarForm(await photoWithGps()))
+
+    await ctx.request('/api/auth/delete-user', {
+      method: 'POST',
+      headers: { cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ password: lea.password }),
+    })
+
+    expect(ctx.storage.files.size).toBe(0)
+    expect(await ctx.db.select().from(schema.profile)).toHaveLength(0)
+  })
+})
+
+describe('serving images', () => {
+  it('only serves files that exist, under a strict name', async () => {
+    const traversal = await ctx.request('/media/avatars/..%2F..%2Fetc%2Fpasswd')
+    const unknown = await ctx.request('/media/avatars/00000000-0000-4000-8000-000000000000.webp')
+
+    expect(traversal.status).toBe(404)
+    expect(unknown.status).toBe(404)
+  })
+})

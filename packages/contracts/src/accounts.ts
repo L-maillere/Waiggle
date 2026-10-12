@@ -35,6 +35,10 @@ export const Me = z
     emailVerified: z.boolean(),
     language: LanguageSchema,
     createdAt: z.iso.datetime(), // date au format ISO, par exemple "2026-10-12T08:30:00.000Z"
+    // Profil public (tranche 2)
+    bio: z.string(),
+    favoriteTools: z.array(z.string()),
+    avatarUrl: z.url().nullable(), // null : pas encore d'avatar
   })
   .meta({ id: 'Me' })
 export type Me = z.infer<typeof Me>

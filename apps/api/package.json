@@ -22,6 +22,7 @@
     "better-auth": "1.7.7",
     "drizzle-orm": "0.45.4",
     "hono": "4.13.13",
+    "sharp": "0.35.5",
     "zod": "4.6.6"
   },
   "devDependencies": {

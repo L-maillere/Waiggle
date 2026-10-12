@@ -1,2 +1,4 @@
-// Toutes les tables de Ruche. Chaque domaine aura son fichier (projets, réactions…) ré-exporté ici.
+// Toutes les tables de Ruche. Chaque domaine a son fichier, ré-exporté ici.
 export * from './auth'
+export * from './profile'
+export * from './rate-limit'

@@ -9,6 +9,9 @@ const errorMessages = {
   not_found: 'notFound',
   validation: 'validation',
   unauthorized: 'unauthorized',
+  rate_limited: 'rateLimited',
+  payload_too_large: 'payloadTooLarge',
+  unsupported_media_type: 'unsupportedMediaType',
   internal: 'internal',
 } as const satisfies Record<ErrorCode, string>
 

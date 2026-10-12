@@ -15,6 +15,8 @@ const EnvSchema = z
     // Absente en développement : une base PGlite locale est utilisée à la place.
     DATABASE_URL: optional(z.string()),
     PGLITE_DIR: z.string().default('.data/pglite'),
+    // Dossier des fichiers envoyés par les membres (avatars…). Dans Docker : un volume.
+    MEDIA_DIR: z.string().default('.data/media'),
     MIGRATIONS_DIR: optional(z.string()),
     // Clé secrète qui signe les sessions. Qui la connaît peut se faire passer pour n'importe qui.
     BETTER_AUTH_SECRET: optional(z.string()),
@@ -57,6 +59,7 @@ export type Env = {
   nodeEnv: 'development' | 'test' | 'production'
   databaseUrl: string | undefined
   pgliteDir: string
+  mediaDir: string
   migrationsDir: string | undefined
   authSecret: string
   publicApiUrl: string
@@ -82,6 +85,7 @@ export const loadEnv = (source: Record<string, string | undefined>): Env => {
     nodeEnv: env.NODE_ENV,
     databaseUrl: env.DATABASE_URL,
     pgliteDir: env.PGLITE_DIR,
+    mediaDir: env.MEDIA_DIR,
     migrationsDir: env.MIGRATIONS_DIR,
     authSecret: env.BETTER_AUTH_SECRET ?? DEVELOPMENT_SECRET,
     publicApiUrl: env.PUBLIC_API_URL,
