@@ -12,6 +12,9 @@ export const PROJECT_PROMPTS_MAX = 5
 export const PROJECT_PROMPT_MAX_LENGTH = 4_000
 export const DEMO_URL_MAX_LENGTH = 2_000
 
+/** L'identifiant d'un projet : un uuid tiré au hasard par le serveur. */
+export const ProjectId = z.uuid()
+
 // z.enum : une liste fermée de valeurs. Les textes affichés (« En construction »…) sont dans les
 // traductions ; ici, seulement des codes stables, en anglais.
 export const ProjectStatus = z.enum(['idea', 'building', 'testable', 'done', 'paused'])
@@ -112,7 +115,7 @@ export const ProjectTool = z.object({ label: z.string(), slug: z.string() })
 
 export const Project = z
   .object({
-    id: z.uuid(),
+    id: ProjectId,
     author: ProjectAuthor,
     title: z.string(),
     pitch: z.string(),
