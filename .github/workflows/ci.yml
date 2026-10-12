@@ -34,6 +34,30 @@ jobs:
       - run: pnpm test
       - run: pnpm build
 
+  # Photographie l'appli web (catalogue des composants et écrans, sur téléphone et ordinateur, de
+  # jour et de nuit) et joint les images à la vérification : page de la vérification, rubrique
+  # « Artifacts », fichier « captures ». Pour relire un changement d'interface sans lancer l'appli.
+  # Échoue aussi si une page affiche une erreur (par exemple un écart entre le serveur et le navigateur).
+  shots:
+    name: Screenshots
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @ruche/app exec playwright install --with-deps chromium
+      - run: pnpm --filter @ruche/app shots
+      - uses: actions/upload-artifact@v4
+        if: always() # même en cas d'échec : les images aident à comprendre pourquoi
+        with:
+          name: captures
+          path: apps/app/shots/
+          retention-days: 14
+
   # Cherche des secrets (mots de passe, clés) oubliés dans tout l'historique Git.
   secrets:
     name: Secret scan

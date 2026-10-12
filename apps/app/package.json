@@ -12,7 +12,8 @@
     "build": "expo export --platform web",
     "test": "jest",
     "typecheck": "tsc --noEmit",
-    "icons": "node scripts/icons.mts"
+    "icons": "node scripts/icons.mts",
+    "shots": "node scripts/shots.mjs"
   },
   "dependencies": {
     "@better-auth/expo": "1.7.7",
@@ -56,9 +57,11 @@
     "@phosphor-icons/core": "2.1.1",
     "@testing-library/react-native": "^14.1.0",
     "@types/jest": "^30.0.0",
+    "@types/node": "26.6.5",
     "@types/react": "^19.3.0",
     "jest": "^30.5.2",
     "jest-expo": "~57.0.5",
+    "playwright": "1.56.0",
     "typescript": "7.0.2"
   },
   "jest": {

@@ -55,34 +55,39 @@ export function AmbientLight({ thumbhash }: Props) {
   }))
 
   // La nuit, la lumière est plus forte : c'est une lanterne dans le noir.
-  const strength = scheme === 'night' ? 0.7 : 0.55
+  const strength = scheme === 'night' ? 0.55 : 0.6
 
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
       <Tilt>
-        <Animated.View
-          style={[{ position: 'absolute', inset: BLEED, opacity: strength }, breathing]}
-        >
-          {thumbhash ? (
-            <Image
-              source={{ thumbhash }}
-              contentFit="cover"
-              style={StyleSheet.absoluteFill}
-              accessible={false}
-            />
-          ) : (
-            <Svg width="100%" height="100%">
-              <Defs>
-                <RadialGradient id={`light${id}`} cx="30%" cy="25%" r="75%">
-                  {honeyLight[scheme].map((stop) => (
-                    <Stop key={stop.at} offset={stop.at} stopColor={stop.color} />
-                  ))}
-                </RadialGradient>
-              </Defs>
-              <Rect width="100%" height="100%" fill={`url(#light${id})`} />
-            </Svg>
-          )}
-        </Animated.View>
+        {/* Deux couches : l'extérieure fixe l'intensité, l'intérieure respire. */}
+        <View style={{ position: 'absolute', inset: BLEED, opacity: strength }}>
+          <Animated.View style={[StyleSheet.absoluteFill, breathing]}>
+            {thumbhash ? (
+              // Les couleurs d'un résumé flou sont un peu ternes : on les ravive (sur le web et
+              // Android ; iOS ne sait pas le faire et garde les couleurs telles quelles).
+              <View style={[StyleSheet.absoluteFill, { filter: 'saturate(1.7)' }]}>
+                <Image
+                  source={{ thumbhash }}
+                  contentFit="cover"
+                  style={StyleSheet.absoluteFill}
+                  accessible={false}
+                />
+              </View>
+            ) : (
+              <Svg width="100%" height="100%">
+                <Defs>
+                  <RadialGradient id={`light${id}`} cx="30%" cy="25%" r="75%">
+                    {honeyLight[scheme].map((stop) => (
+                      <Stop key={stop.at} offset={stop.at} stopColor={stop.color} />
+                    ))}
+                  </RadialGradient>
+                </Defs>
+                <Rect width="100%" height="100%" fill={`url(#light${id})`} />
+              </Svg>
+            )}
+          </Animated.View>
+        </View>
       </Tilt>
       {/* Le voile : la lumière s'efface vers le bas dans la couleur du fond, pour que le texte
           posé plus bas reste lisible. */}

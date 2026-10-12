@@ -30,3 +30,7 @@ coverage/
 
 # Base de données locale de développement (PGlite)
 .data/
+
+# Captures d’écran automatiques (scripts/shots.mjs)
+apps/app/shots/
+apps/app/dist-shots/

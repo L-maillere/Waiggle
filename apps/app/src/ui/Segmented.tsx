@@ -51,7 +51,9 @@ export function Segmented<T extends string>({ label, options, value, onChange }:
               minHeight: 40,
               paddingHorizontal: space.md,
               borderRadius: radii.pill,
-              ...(checked ? { backgroundColor: colors.surface, boxShadow: shadows.soft } : null),
+              ...(checked
+                ? { backgroundColor: colors.surfaceRaised, boxShadow: shadows.soft }
+                : null),
             }}
           >
             {option.icon ? (
