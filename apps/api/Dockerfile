@@ -25,7 +25,10 @@ RUN pnpm --filter @ruche/api build
 # peut pas glisser dans dist/index.js. Le petit paquet apps/api/runtime ne contient que lui :
 # « pnpm deploy » l'installe dans /runtime d'après pnpm-lock.yaml (versions exactes, vérifiées par
 # leur empreinte), avec le binaire précompilé pour ce système (Alpine), sans script d'installation.
-RUN pnpm --filter @ruche/api-runtime deploy --prod --legacy --offline /runtime
+# inject-workspace-packages : réglage exigé par pnpm 10 pour déployer à partir du fichier de
+# verrouillage commun. Sans effet ici : ce paquet ne dépend d'aucun autre paquet du dépôt.
+RUN pnpm --filter @ruche/api-runtime deploy --prod --offline \
+  --config.inject-workspace-packages=true /runtime
 
 # --- Étape 2 : exécution ---
 # On repart d'une image vide : ni code source, ni outils de build, ni dépendances de dev.
