@@ -17,7 +17,7 @@
       "bundler": "metro",
       "output": "static"
     },
-    "plugins": ["expo-router", "expo-localization"],
+    "plugins": ["expo-router", "expo-localization", "expo-secure-store", "expo-web-browser"],
     "experiments": {
       "typedRoutes": true
     }
