@@ -1,6 +1,11 @@
-# Caddy obtains and renews HTTPS certificates automatically for real domains.
+# Caddy : la porte d'entrée. Il obtient et renouvelle tout seul les certificats HTTPS
+# pour les vrais domaines, puis transmet les requêtes à l'API.
 {$API_DOMAIN:localhost} {
 	encode zstd gzip
 	header -Server
-	reverse_proxy api:3000
+	reverse_proxy api:3000 {
+		# Adresse IP réelle du visiteur, utilisée par la limitation de débit.
+		# header_up REMPLACE toute valeur envoyée par le visiteur : il ne peut pas la falsifier.
+		header_up X-Real-IP {remote_host}
+	}
 }

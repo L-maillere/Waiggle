@@ -1,22 +1,64 @@
 // Point de démarrage du serveur : c'est le seul fichier qui touche au « vrai monde »
-// (variables d'environnement, port réseau, signaux du système). Le reste est testable sans lui.
+// (variables d'environnement, base de données, port réseau, signaux du système).
+// Il assemble les pièces, puis lance l'écoute. Le reste est testable sans lui.
 import { serve } from '@hono/node-server'
+import { connectPostgres, type DatabaseHandle } from '@ruche/db'
 import { createApp } from './app'
+import { createAuth } from './auth/auth'
+import { createBrevoMailer, createConsoleMailer, type Mailer } from './email/mailer'
 import { loadEnv } from './env'
 
 const env = loadEnv(process.env)
 // Version affichée par /health : celle du package.json en développement, APP_VERSION en production.
 const version = process.env.npm_package_version ?? process.env.APP_VERSION ?? 'dev'
-const app = createApp({ version })
+
+// 1. La base : un vrai PostgreSQL si DATABASE_URL est fourni (production, Docker), sinon une base
+// PGlite enregistrée dans un dossier local (développement, sans rien installer).
+// L'import « dynamique » (await import) ne charge PGlite que dans ce cas : il n'est jamais
+// embarqué en production.
+const openDatabase = async (): Promise<DatabaseHandle> => {
+  if (env.databaseUrl) return connectPostgres(env.databaseUrl, env.migrationsDir)
+  const { createPgliteDb } = await import('@ruche/db/pglite')
+  console.log(`No DATABASE_URL: using a local PGlite database in ${env.pgliteDir}`)
+  return createPgliteDb(env.pgliteDir)
+}
+
+// 2. L'envoi des e-mails : Brevo en production, la console en développement.
+const mailer: Mailer =
+  env.mail.provider === 'brevo'
+    ? createBrevoMailer({ apiKey: env.mail.apiKey, from: env.mail.from })
+    : createConsoleMailer()
+
+// En production, des e-mails affichés dans les logs contiendraient des liens de vérification :
+// acceptable pour un premier test sur le VPS, mais à ne pas oublier.
+if (env.nodeEnv === 'production' && env.mail.provider === 'console') {
+  console.warn('MAIL_PROVIDER=console in production: emails (and their links) go to the logs.')
+}
+
+const database = await openDatabase()
+
+// 3. L'authentification, puis l'application qui rassemble toutes les routes.
+const auth = createAuth({
+  db: database.db,
+  mailer,
+  secret: env.authSecret,
+  publicApiUrl: env.publicApiUrl,
+  appUrl: env.appUrl,
+  rateLimit: env.nodeEnv === 'production',
+})
+const app = createApp({ version, auth, db: database.db, appUrl: env.appUrl })
 
 const server = serve({ fetch: app.fetch, port: env.port }, ({ port }) => {
   console.log(`Ruche API listening on http://localhost:${port} (${env.nodeEnv})`)
 })
 
 // Arrêt propre : quand Docker ou Ctrl+C demandent l'arrêt (SIGTERM / SIGINT),
-// on laisse les requêtes en cours se terminer avant de quitter.
+// on laisse les requêtes en cours se terminer, on ferme la base, puis on quitte.
 const shutdown = () => {
-  server.close(() => process.exit(0))
+  server.close(async () => {
+    await database.close()
+    process.exit(0)
+  })
 }
 process.on('SIGTERM', shutdown)
 process.on('SIGINT', shutdown)

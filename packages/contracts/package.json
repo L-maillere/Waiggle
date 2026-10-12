@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@ruche/i18n": "workspace:*",
     "zod": "4.6.6"
   },
   "devDependencies": {

@@ -35,8 +35,12 @@ Prérequis : Node.js 24 (voir `.nvmrc`), pnpm 10 (`corepack enable`), Docker.
 pnpm install
 pnpm check            # lint, types et tests
 pnpm --filter @ruche/api dev    # API sur http://localhost:3000
-pnpm --filter @ruche/app web    # appli dans le navigateur
+pnpm --filter @ruche/app web    # appli dans le navigateur, sur http://localhost:8081
 ```
+
+En développement, l'API n'a besoin de rien d'autre : sans `DATABASE_URL`, elle utilise une base
+PGlite enregistrée dans `apps/api/.data/`, et les e-mails (avec leur lien de vérification)
+s'affichent dans le terminal.
 
 Base de données, API et proxy HTTPS en conteneurs :
 

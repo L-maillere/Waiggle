@@ -2,17 +2,21 @@
 // cette syntaxe qui ressemble à du HTML). React Native traduit ensuite <View> et <Text> en vrais
 // éléments iOS, Android ou web.
 import { type Language, supportedLanguages } from '@ruche/i18n'
+import { useRouter } from 'expo-router'
 import { useTranslation } from 'react-i18next'
-import { Pressable, StyleSheet, Text, useColorScheme, View } from 'react-native'
-import { type Colors, palette } from '../theme'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { useSession } from '../accounts/api'
+import { type Colors, useColors } from '../theme'
+import { Button } from '../ui/Button'
 
 export function HomeScreen() {
   // Les « hooks » (fonctions qui commencent par use…) branchent l'écran sur une donnée qui change.
   // useTranslation : donne t() pour traduire, et redessine l'écran quand la langue change.
   const { t, i18n } = useTranslation()
-  // useColorScheme : 'dark' si le téléphone est en mode sombre.
-  const colors = palette[useColorScheme() === 'dark' ? 'dark' : 'light']
-  const styles = makeStyles(colors)
+  // useSession : le membre connecté, ou null. L'écran se redessine à la connexion / déconnexion.
+  const { data: session } = useSession()
+  const router = useRouter()
+  const styles = makeStyles(useColors())
   const current = i18n.language as Language
 
   return (
@@ -23,7 +27,25 @@ export function HomeScreen() {
           {t('home.title', { appName: t('common.appName') })}
         </Text>
         <Text style={styles.tagline}>{t('home.tagline')}</Text>
-        <Text style={styles.soon}>{t('home.comingSoon')}</Text>
+
+        {/* Deux affichages selon qu'un membre est connecté ou non. */}
+        {session ? (
+          <>
+            <Text style={styles.greeting}>{t('home.greeting', { name: session.user.name })}</Text>
+            <Text style={styles.soon}>{t('home.comingSoon')}</Text>
+            <Button label={t('home.account')} onPress={() => router.push('/account')} />
+          </>
+        ) : (
+          <>
+            <Text style={styles.soon}>{t('home.comingSoon')}</Text>
+            <Button label={t('home.signUp')} onPress={() => router.push('/sign-up')} />
+            <Button
+              label={t('home.signIn')}
+              variant="secondary"
+              onPress={() => router.push('/sign-in')}
+            />
+          </>
+        )}
       </View>
 
       <View accessibilityLabel={t('common.language')} style={styles.switcher}>
@@ -73,7 +95,8 @@ const makeStyles = (c: Colors) =>
     },
     title: { fontSize: 30, fontWeight: '700', color: c.text },
     tagline: { fontSize: 17, lineHeight: 25, color: c.text },
-    soon: { fontSize: 15, color: c.muted },
+    greeting: { fontSize: 18, fontWeight: '600', color: c.text },
+    soon: { fontSize: 15, color: c.muted, marginBottom: 4 },
     switcher: { flexDirection: 'row', gap: 8 },
     chip: {
       paddingVertical: 8,

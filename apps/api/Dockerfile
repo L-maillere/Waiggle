@@ -8,9 +8,11 @@ FROM node:24-alpine AS build
 WORKDIR /repo
 RUN corepack enable
 
-# On télécharge d'abord les dépendances, d'après le seul fichier de verrouillage.
-# Docker garde cette étape en cache tant que pnpm-lock.yaml ne change pas : constructions plus rapides.
-COPY pnpm-lock.yaml pnpm-workspace.yaml ./
+# On télécharge d'abord les dépendances, d'après le fichier de verrouillage.
+# Docker garde cette étape en cache tant que ces fichiers ne changent pas : constructions plus rapides.
+# package.json est indispensable ici : son champ "packageManager" fixe la version exacte de pnpm.
+# Sans lui, corepack télécharge la toute dernière version, qui peut se comporter autrement.
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm fetch
 
 COPY . .
@@ -24,7 +26,10 @@ RUN pnpm --filter @ruche/api build
 FROM node:24-alpine
 WORKDIR /app
 ENV NODE_ENV=production
+# Les migrations SQL (création et évolution des tables) sont appliquées au démarrage.
+ENV MIGRATIONS_DIR=/app/migrations
 COPY --from=build --chown=node:node /repo/apps/api/dist ./dist
+COPY --from=build --chown=node:node /repo/packages/db/migrations ./migrations
 # Le serveur tourne avec un utilisateur sans privilèges, jamais en root.
 USER node
 EXPOSE 3000
