@@ -14,6 +14,7 @@ const day = {
   background: '#FFFFFF', // fond de page
   surface: '#FFFFFF', // cartes, champs, tout ce qui se lit longtemps
   surfaceGrouped: '#F5F5F3', // fond derrière les listes groupées (réglages)
+  surfaceRaised: '#FFFFFF', // posé sur un fond groupé : le choix actif d'un contrôle segmenté
 
   // Textes : l'« encre », de la plus forte à la plus discrète
   text: '#1C1B19', // texte principal et icônes
@@ -67,6 +68,7 @@ const night = {
   background: '#100E0A',
   surface: '#1A1712',
   surfaceGrouped: '#221E17',
+  surfaceRaised: '#36302A',
 
   text: '#F7F3EA',
   textSecondary: '#D9D2C2',
@@ -125,6 +127,7 @@ export const palettes: Record<Scheme, Palette> = { day, night }
 export const contrastPairs: readonly { text: ColorName; on: ColorName; min: 3 | 4.5 }[] = [
   { text: 'text', on: 'background', min: 4.5 },
   { text: 'text', on: 'surfaceGrouped', min: 4.5 },
+  { text: 'text', on: 'surfaceRaised', min: 4.5 },
   { text: 'textSecondary', on: 'background', min: 4.5 },
   { text: 'textMuted', on: 'background', min: 4.5 },
   { text: 'textMuted', on: 'surface', min: 4.5 },
@@ -155,9 +158,9 @@ export const honeyLight: Record<Scheme, readonly { at: number; color: string }[]
   ],
   // La nuit, la lumière est une lanterne : un halo de miel qui s'éteint dans le noir.
   night: [
-    { at: 0, color: '#FFD666' },
-    { at: 0.35, color: '#C78A12' },
-    { at: 0.75, color: '#4A3410' },
+    { at: 0, color: '#FFC933' },
+    { at: 0.3, color: '#9A6A12' },
+    { at: 0.7, color: '#2A1F0C' },
     { at: 1, color: '#100E0A' },
   ],
 }
