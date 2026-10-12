@@ -113,3 +113,10 @@ export const ShortLabel = (max: number) =>
     .min(1)
     .max(max)
     .refine((text) => isClean(text, { lineBreaks: false, needsVisible: true }), { message })
+
+/** Retire les doublons sans tenir compte des majuscules : ['Claude', 'claude'] → ['Claude']. */
+export const uniqueIgnoringCase = (items: string[]) =>
+  items.filter(
+    (item, index) =>
+      items.findIndex((other) => other.toLowerCase() === item.toLowerCase()) === index,
+  )
