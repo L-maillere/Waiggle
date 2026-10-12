@@ -11,6 +11,7 @@ export type ApiErrorKey =
   | 'payloadTooLarge'
   | 'unsupportedMediaType'
   | 'rateLimited'
+  | 'unavailable'
   | 'internal'
   | 'network'
 
@@ -26,6 +27,7 @@ const byStatus: Record<number, ApiErrorKey> = {
   413: 'payloadTooLarge',
   415: 'unsupportedMediaType',
   429: 'rateLimited',
+  503: 'unavailable',
 }
 
 export const errorKeyForStatus = (status: number): ApiErrorKey => byStatus[status] ?? 'internal'

@@ -132,6 +132,7 @@ export const fr = {
     rateLimited: 'Trop de demandes. Réessaie dans quelques minutes.',
     payloadTooLarge: 'Ce fichier est trop lourd.',
     unsupportedMediaType: 'Ce type de fichier n’est pas accepté.',
+    unavailable: 'Ruche est très sollicitée en ce moment. Réessaie dans un instant.',
     internal: 'Une erreur inattendue est survenue.',
     network: 'Impossible de joindre Ruche. Vérifie ta connexion et réessaie.',
   },

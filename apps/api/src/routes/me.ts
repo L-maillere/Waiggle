@@ -11,7 +11,7 @@ import { errorBody, languageOf } from '../errors'
 import { processAvatar } from '../media/avatar'
 import type { FileStorage } from '../media/storage'
 import { loadMe } from '../profile/me'
-import type { RateLimiter, RateRule } from '../rate-limit'
+import { memberCounterKeys, type RateLimiter, type RateRule } from '../rate-limit'
 import type { AppEnv } from '../types'
 import { createRouter, errorResponse } from './router'
 
@@ -61,6 +61,7 @@ const avatarRoute = createRoute({
     413: errorResponse('File too large.'),
     415: errorResponse('Not a JPEG, PNG or WebP image.'),
     429: errorResponse('Too many uploads.'),
+    503: errorResponse('Too many images being processed; retry later.'),
   },
 })
 
@@ -111,7 +112,7 @@ export const meRoutes = ({ db, storage, limiter, publicApiUrl }: Deps) => {
   app.openapi(updateMeRoute, async (c) => {
     const user = c.get('user')
     if (!user) return unauthorized(c)
-    const decision = await limiter.hit(`profile:${user.id}`, profileRule)
+    const decision = await limiter.hit(memberCounterKeys(user.id).profile, profileRule)
     if (!decision.allowed) return tooMany(c, decision.retryAfterSeconds)
 
     // c.req.valid('json') : le corps de la requête, déjà vérifié par le schéma ProfileUpdate.
@@ -158,7 +159,7 @@ export const meRoutes = ({ db, storage, limiter, publicApiUrl }: Deps) => {
   app.openapi(avatarRoute, async (c) => {
     const user = c.get('user')
     if (!user) return unauthorized(c)
-    const decision = await limiter.hit(`avatar:${user.id}`, avatarRule)
+    const decision = await limiter.hit(memberCounterKeys(user.id).avatar, avatarRule)
     if (!decision.allowed) return tooMany(c, decision.retryAfterSeconds)
 
     // parseBody lit un formulaire « multipart » : les champs texte et les fichiers.
@@ -170,6 +171,11 @@ export const meRoutes = ({ db, storage, limiter, publicApiUrl }: Deps) => {
     }
 
     const result = await processAvatar(new Uint8Array(await file.arrayBuffer()))
+    if (!result.ok && result.reason === 'busy') {
+      // 503 : service momentanément indisponible. Retry-After : réessayer dans 10 secondes.
+      c.header('Retry-After', '10')
+      return c.json(errorBody(languageOf(c), 'unavailable'), 503)
+    }
     if (!result.ok) return c.json(errorBody(languageOf(c), 'unsupported_media_type'), 415)
 
     // Nom de fichier tiré au hasard par le serveur : jamais celui envoyé par le membre.

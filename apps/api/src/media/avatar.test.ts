@@ -67,4 +67,16 @@ describe('processAvatar', () => {
       reason: 'unsupported',
     })
   })
+
+  it('refuses a 16-bit image, twice as costly to decode for no visible gain', async () => {
+    const deep = await sharp({
+      create: { width: 200, height: 200, channels: 4, background: '#3b6ea8' },
+    })
+      .toColourspace('rgb16')
+      .png()
+      .toBuffer()
+    expect((await sharp(deep).metadata()).depth).toBe('ushort')
+
+    expect(await processAvatar(deep)).toEqual({ ok: false, reason: 'unsupported' })
+  })
 })

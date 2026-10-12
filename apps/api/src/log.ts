@@ -19,6 +19,9 @@ const codeOf = (value: unknown): string | undefined =>
     ? value.code
     : undefined
 
+// Une ligne de pile d'appels : « at » … « :12:5 » ou « :12:5) » à la fin.
+const STACK_FRAME = /^at .+:\d+:\d+\)?$/
+
 export const describeError = (
   error: unknown,
   where: { method: string; path: string },
@@ -29,11 +32,13 @@ export const describeError = (
     name: error.name,
     ...(code && { code }),
     ...where,
-    // La pile commence par le message (sur une ou plusieurs lignes) : on ne garde que les « at … ».
+    // La pile commence par le message, sur une ou plusieurs lignes : on saute ces lignes-là, puis
+    // on ne garde que celles de la forme « at fonction (fichier:ligne:colonne) ».
     stack: (error.stack ?? '')
       .split('\n')
+      .slice(error.message.split('\n').length)
       .map((line) => line.trim())
-      .filter((line) => line.startsWith('at '))
+      .filter((line) => STACK_FRAME.test(line))
       .slice(0, 8),
   }
 }

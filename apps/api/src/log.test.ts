@@ -22,6 +22,16 @@ describe('describeError', () => {
     expect(text).not.toContain('Ma bio secrète')
   })
 
+  it('drops a line of the message that looks like a stack frame', () => {
+    // Une bio peut contenir des retours à la ligne, donc une ligne qui commence par « at ».
+    const error = new Error('Failed query\nparams: x,at lea@example.com (piège)')
+    error.stack = `Error: Failed query\nat lea@example.com (piège)\n    at update (/app/dist/index.js:10:5)`
+
+    const { stack } = describeError(error, { method: 'PATCH', path: '/v1/me' })
+
+    expect(stack).toEqual(['at update (/app/dist/index.js:10:5)'])
+  })
+
   it('copes with something thrown that is not an Error', () => {
     expect(describeError('oops', { method: 'GET', path: '/' })).toMatchObject({ name: 'string' })
   })

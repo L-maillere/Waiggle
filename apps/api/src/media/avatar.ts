@@ -4,7 +4,7 @@
 // - Un fichier piégé qui se ferait passer pour une image est rejeté au décodage.
 // - Tous les avatars ont le même format et la même taille, ce qui est léger à afficher.
 import sharp from 'sharp'
-import { createQueue } from './queue'
+import { createQueue, QueueFullError } from './queue'
 
 export const AVATAR_SIZE = 512
 
@@ -21,22 +21,36 @@ const ACCEPTED_FORMATS = new Set(['jpeg', 'png', 'webp'])
 const MAX_INPUT_PIXELS = 4096 * 4096
 const MAX_ASPECT_RATIO = 4
 
-// Une seule image traitée à la fois par sharp, et deux traitements au plus en même temps :
-// dix envois simultanés attendent leur tour au lieu de se partager (et d'épuiser) la mémoire.
+// Deux traitements au plus en même temps, huit au plus en attente (au-delà : « réessaie dans un
+// instant »). Dix envois simultanés attendent leur tour au lieu de se partager (et d'épuiser) la
+// mémoire. sharp n'utilise qu'un fil de calcul par image, et ne garde rien en cache.
 sharp.concurrency(1)
-const queue = createQueue(2)
+sharp.cache(false)
+const queue = createQueue(2, 8)
 
-export type AvatarResult = { ok: true; data: Uint8Array } | { ok: false; reason: 'unsupported' }
+export type AvatarResult =
+  | { ok: true; data: Uint8Array }
+  // unsupported : pas une image acceptée ; busy : trop d'images en attente de traitement.
+  | { ok: false; reason: 'unsupported' | 'busy' }
 
-export const processAvatar = (input: Uint8Array): Promise<AvatarResult> =>
-  queue(() => process(input))
+export const processAvatar = async (input: Uint8Array): Promise<AvatarResult> => {
+  try {
+    return await queue(() => process(input))
+  } catch (error) {
+    if (error instanceof QueueFullError) return { ok: false, reason: 'busy' }
+    throw error
+  }
+}
 
 const process = async (input: Uint8Array): Promise<AvatarResult> => {
   try {
     const image = sharp(input, { limitInputPixels: MAX_INPUT_PIXELS })
     // metadata() ne lit que l'en-tête du fichier : rapide, et sans décoder l'image.
-    const { format, width, height } = await image.metadata()
+    const { format, width, height, depth } = await image.metadata()
     if (!format || !ACCEPTED_FORMATS.has(format)) return { ok: false, reason: 'unsupported' }
+    // 8 bits par couleur (« uchar ») seulement : une image 16 bits coûte deux fois plus de mémoire
+    // à décoder, pour une différence invisible sur un avatar.
+    if (depth !== 'uchar') return { ok: false, reason: 'unsupported' }
     if (Math.max(width, height) > MAX_ASPECT_RATIO * Math.min(width, height)) {
       return { ok: false, reason: 'unsupported' }
     }

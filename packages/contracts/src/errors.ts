@@ -10,6 +10,7 @@ export const ErrorCode = z.enum([
   'rate_limited',
   'payload_too_large',
   'unsupported_media_type',
+  'unavailable',
   'internal',
 ])
 export type ErrorCode = z.infer<typeof ErrorCode>

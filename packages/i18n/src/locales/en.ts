@@ -131,6 +131,7 @@ export const en: Translation = {
     rateLimited: 'Too many requests. Try again in a few minutes.',
     payloadTooLarge: 'This file is too large.',
     unsupportedMediaType: 'This type of file is not accepted.',
+    unavailable: 'Ruche is very busy right now. Try again in a moment.',
     internal: 'Something went wrong.',
     network: 'Can’t reach Ruche. Check your connection and try again.',
   },

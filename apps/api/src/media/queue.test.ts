@@ -1,6 +1,6 @@
 // Tests de la file d'attente qui limite le nombre de traitements d'images simultanés.
 import { describe, expect, it } from 'vitest'
-import { createQueue } from './queue'
+import { createQueue, QueueFullError } from './queue'
 
 // Une tâche qu'on termine à la main, pour contrôler l'ordre des événements.
 const deferred = () => {
@@ -42,5 +42,19 @@ describe('createQueue', () => {
 
     await expect(queue(async () => Promise.reject(new Error('boom')))).rejects.toThrow('boom')
     expect(await queue(async () => 'next')).toBe('next')
+  })
+
+  it('turns new tasks away once too many are waiting, instead of piling them up', async () => {
+    const queue = createQueue(1, 1)
+    const gate = deferred()
+
+    const running = queue(() => gate.promise) // occupe la seule place
+    const waiting = queue(async () => 'waited') // attend son tour
+    const refused = queue(async () => 'never')
+
+    await expect(refused).rejects.toBeInstanceOf(QueueFullError)
+    gate.resolve()
+    await running
+    expect(await waiting).toBe('waited')
   })
 })
