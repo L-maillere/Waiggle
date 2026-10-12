@@ -130,6 +130,7 @@ describe('DemoUrl, normalized and hardened', () => {
       'https://intranet..',
       'https://nas.local..',
       'https://a..b.com',
+      'https://foo.bar..',
     ]) {
       expect(accepted(url), url).toBe(false)
     }

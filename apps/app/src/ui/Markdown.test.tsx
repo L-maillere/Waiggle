@@ -4,6 +4,14 @@ import { fireEvent, render, screen } from '@testing-library/react-native'
 import { Markdown } from './Markdown'
 
 const onLinkPress = jest.fn()
+
+// La profondeur de l'arbre affiché : combien d'éléments imbriqués les uns dans les autres.
+type Rendered = string | { children?: Rendered[] | null } | Rendered[] | null
+const depthOf = (node: Rendered): number => {
+  if (node === null || typeof node === 'string') return 0
+  if (Array.isArray(node)) return Math.max(0, ...node.map(depthOf))
+  return 1 + Math.max(0, ...(node.children ?? []).map(depthOf))
+}
 beforeEach(() => onLinkPress.mockReset())
 
 const show = (text: string) => render(<Markdown text={text} onLinkPress={onLinkPress} />)
@@ -67,7 +75,8 @@ describe('Markdown', () => {
       `${'*'.repeat(3000)}x${'*'.repeat(3000)}`, // gras dans de l'italique dans du gras…
     ]) {
       await show(text)
-      expect(screen.toJSON()).toBeTruthy()
+      // Quelle que soit l'imbrication tapée, l'affichage reste borné à quelques niveaux.
+      expect(depthOf(screen.toJSON() as Rendered)).toBeLessThanOrEqual(30)
     }
   })
 
