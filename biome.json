@@ -36,6 +36,35 @@
           }
         }
       }
+    },
+    {
+      "includes": ["apps/app/src/screens/**", "apps/app/app/**", "!**/*.test.tsx"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": {
+                  "react-native": {
+                    "importNames": [
+                      "Text",
+                      "TextInput",
+                      "View",
+                      "ScrollView",
+                      "Pressable",
+                      "TouchableOpacity",
+                      "Image",
+                      "StyleSheet"
+                    ],
+                    "message": "Un écran assemble les composants de src/ui (Text, Stack, Surface, Button, TextField…) au lieu de dessiner lui-même : ainsi, changer l'apparence se fait à un seul endroit. Il manque un composant ? Ajoute-le dans src/ui et au catalogue (voir docs/design/miel.md)."
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   ],
   "assist": {

@@ -2,7 +2,9 @@
 // sessions, vérification de l'adresse e-mail, suppression du compte.
 // Écrire soi-même ces mécanismes est risqué (stockage des mots de passe, jetons, attaques) :
 // on s'appuie sur une bibliothèque éprouvée, et on règle ici son comportement pour Ruche.
+
 import { expo } from '@better-auth/expo'
+import { appName } from '@ruche/brand'
 import { DisplayName, PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from '@ruche/contracts'
 import { type Database, schema } from '@ruche/db'
 import {
@@ -60,7 +62,7 @@ export const createAuth = ({
 
   return betterAuth({
     ...authSchemaOptions,
-    appName: 'Ruche',
+    appName,
     baseURL: publicApiUrl,
     secret,
     database: drizzleAdapter(db, { provider: 'pg', schema }),
@@ -134,7 +136,7 @@ export const createAuth = ({
       },
     },
 
-    // Routes génériques de Better Auth que Ruche n'utilise pas. update-user permettrait de
+    // Routes génériques de Better Auth que l'appli n'utilise pas. update-user permettrait de
     // changer son nom ou son image sans passer par nos règles (image hébergée n'importe où,
     // qui révélerait l'adresse IP de chaque visiteur) : le profil passe par PATCH /v1/me.
     disabledPaths: ['/update-user'],

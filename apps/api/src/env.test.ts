@@ -1,3 +1,4 @@
+import { appName } from '@ruche/brand'
 import { describe, expect, it } from 'vitest'
 import { loadEnv } from './env'
 
@@ -33,8 +34,18 @@ describe('loadEnv', () => {
       mail: {
         provider: 'brevo',
         apiKey: 'key',
-        from: { email: 'no-reply@ruche.app', name: 'Ruche' },
+        from: { email: 'no-reply@ruche.app', name: appName },
       },
+    })
+  })
+
+  it('signs emails with the app name unless another sender name is set', () => {
+    // Une variable vide (« MAIL_FROM_NAME= » dans le .env) compte comme absente.
+    expect(loadEnv({ ...production, MAIL_FROM_NAME: '' }).mail).toMatchObject({
+      from: { name: appName },
+    })
+    expect(loadEnv({ ...production, MAIL_FROM_NAME: 'Famille Moreau' }).mail).toMatchObject({
+      from: { name: 'Famille Moreau' },
     })
   })
 

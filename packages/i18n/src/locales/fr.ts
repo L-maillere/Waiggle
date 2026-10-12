@@ -1,10 +1,11 @@
 // Textes français : la langue de référence. Toute nouvelle clé s'ajoute d'abord ici.
-// {{appName}} est un paramètre remplacé au moment de l'affichage : t('home.title', { appName: 'Ruche' }).
+// {{appName}} est remplacé au moment de l'affichage par le nom de l'appli (défini dans @ruche/brand).
+// On ne l'écrit jamais en toutes lettres ici : un test le vérifie, pour qu'un changement de nom se
+// fasse en une seule ligne.
 // `as const` en bas du fichier fige les valeurs pour que TypeScript en déduise la forme exacte.
 // Ton : on tutoie, comme entre proches.
 export const fr = {
   common: {
-    appName: 'Ruche',
     language: 'Langue',
     languages: {
       fr: 'Français',
@@ -13,6 +14,7 @@ export const fr = {
     loading: 'Chargement…',
     crashed: 'Cette page n’a pas pu s’afficher.',
     retry: 'Réessayer',
+    back: 'Retour',
   },
   home: {
     title: 'Bienvenue sur {{appName}}',
@@ -146,7 +148,7 @@ export const fr = {
       paused: 'En pause',
     },
     visibility: {
-      public: 'Les membres de Ruche',
+      public: 'Les membres de {{appName}}',
       private: 'Moi seulement',
     },
     timeSpent: {
@@ -191,8 +193,8 @@ export const fr = {
     },
   },
   leaving: {
-    title: 'Tu quittes Ruche',
-    body: 'Ce lien mène vers un autre site. Ruche ne vérifie pas son contenu : n’y entre pas d’informations personnelles si tu as un doute.',
+    title: 'Tu quittes {{appName}}',
+    body: 'Ce lien mène vers un autre site. {{appName}} ne vérifie pas son contenu : n’y entre pas d’informations personnelles si tu as un doute.',
     destination: 'Destination',
     continue: 'Continuer vers {{host}}',
     back: 'Revenir',
@@ -224,8 +226,8 @@ export const fr = {
     rateLimited: 'Trop de demandes. Réessaie dans quelques minutes.',
     payloadTooLarge: 'Ce fichier est trop lourd.',
     unsupportedMediaType: 'Ce type de fichier n’est pas accepté.',
-    unavailable: 'Ruche est très sollicitée en ce moment. Réessaie dans un instant.',
+    unavailable: '{{appName}} reçoit beaucoup de demandes en ce moment. Réessaie dans un instant.',
     internal: 'Une erreur inattendue est survenue.',
-    network: 'Impossible de joindre Ruche. Vérifie ta connexion et réessaie.',
+    network: 'Impossible de joindre {{appName}}. Vérifie ta connexion et réessaie.',
   },
 } as const

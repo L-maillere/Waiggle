@@ -72,7 +72,7 @@ const exportRoute = createRoute({
   summary: 'Download all my data (GDPR right of access)',
   responses: {
     200: {
-      description: 'Everything Ruche stores about the member, without secrets.',
+      description: 'Everything the app stores about the member, without secrets.',
       content: { 'application/json': { schema: AccountExport } },
     },
     401: errorResponse('Not signed in.'),

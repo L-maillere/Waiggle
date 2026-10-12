@@ -4,16 +4,20 @@ import type { Project } from '@ruche/contracts'
 import { useRouter } from 'expo-router'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Platform, StyleSheet, Text, View } from 'react-native'
 import { useSession } from '../accounts/api'
 import { ApiError } from '../api/errors'
 import { deleteProject } from '../projects/api'
 import { useForgetProject, useProject } from '../projects/hooks'
-import { type Colors, useColors } from '../theme'
 import { Button } from '../ui/Button'
+import { CodeBlock } from '../ui/CodeBlock'
 import { Markdown } from '../ui/Markdown'
 import { Notice } from '../ui/Notice'
 import { Screen } from '../ui/Screen'
+import { Stack } from '../ui/Stack'
+import { StatusPill } from '../ui/StatusPill'
+import { Surface } from '../ui/Surface'
+import { Tag } from '../ui/Tag'
+import { Text } from '../ui/Text'
 
 export function ProjectScreen({ id }: { id: string }) {
   const { t } = useTranslation()
@@ -48,7 +52,6 @@ function ProjectView({ project }: { project: Project }) {
   const { t } = useTranslation()
   const router = useRouter()
   const forgetProject = useForgetProject()
-  const styles = makeStyles(useColors())
   const [confirming, setConfirming] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -71,69 +74,84 @@ function ProjectView({ project }: { project: Project }) {
   const hasRecipe = project.tools.length > 0 || project.timeSpent || project.prompts.length > 0
 
   return (
-    <Screen title={project.title}>
-      <Text style={styles.muted}>{t('project.page.by', { name: project.author.name })}</Text>
-      <View style={styles.badges}>
-        <Text style={styles.badge}>{t(`project.status.${project.status}`)}</Text>
-      </View>
+    // Arrivé par un lien direct, il n'y a pas de page précédente : le retour mène à l'accueil.
+    <Screen
+      title={project.title}
+      onBack={() => (router.canGoBack() ? router.back() : router.replace('/'))}
+    >
+      <Stack gap="sm">
+        <Text variant="callout" tone="muted">
+          {t('project.page.by', { name: project.author.name })}
+        </Text>
+        <StatusPill
+          label={t(`project.status.${project.status}`)}
+          strong={project.status === 'testable'} // « Testable » en miel plein : on appelle au test
+        />
+      </Stack>
       {project.visibility === 'private' ? (
         <Notice tone="info" message={t('project.page.private')} />
       ) : null}
 
-      <Text style={styles.pitch}>{project.pitch}</Text>
+      <Text variant="headline" tone="secondary">
+        {project.pitch}
+      </Text>
 
       {project.demoUrl ? (
-        <Button label={t('project.page.tryDemo')} onPress={() => openLink(project.demoUrl ?? '')} />
+        <Button
+          label={t('project.page.tryDemo')}
+          icon="arrow-up-right"
+          onPress={() => openLink(project.demoUrl ?? '')}
+        />
       ) : (
-        <Text style={styles.muted}>{t('project.page.noDemo')}</Text>
+        <Text tone="muted">{t('project.page.noDemo')}</Text>
       )}
 
-      {project.description ? <Markdown text={project.description} onLinkPress={openLink} /> : null}
+      {project.description ? (
+        <Surface padding="xl">
+          <Markdown text={project.description} onLinkPress={openLink} />
+        </Surface>
+      ) : null}
 
       {hasRecipe ? (
-        <View style={styles.section}>
-          <Text accessibilityRole="header" style={styles.sectionTitle}>
+        <Stack gap="md">
+          <Text variant="heading" accessibilityRole="header">
             {t('project.page.recipe')}
           </Text>
           {project.tools.length > 0 ? (
-            <View style={styles.badges}>
+            <Stack direction="row" gap="sm" wrap>
               {project.tools.map((tool) => (
-                <Text key={tool.slug} style={styles.tag}>
-                  {tool.label}
-                </Text>
+                <Tag key={tool.slug} label={tool.label} />
               ))}
-            </View>
+            </Stack>
           ) : null}
           {project.timeSpent ? (
-            <View style={styles.line}>
-              <Text style={styles.muted}>{t('project.page.timeSpent')}</Text>
-              <Text style={styles.text}>{t(`project.timeSpent.${project.timeSpent}`)}</Text>
-            </View>
+            <Stack direction="row" gap="sm" align="baseline">
+              <Text tone="muted">{t('project.page.timeSpent')}</Text>
+              <Text weight={600}>{t(`project.timeSpent.${project.timeSpent}`)}</Text>
+            </Stack>
           ) : null}
           {project.prompts.length > 0 ? (
-            <View style={styles.section}>
-              <Text style={styles.muted}>{t('project.page.prompts')}</Text>
+            <Stack gap="sm">
+              <Text tone="muted">{t('project.page.prompts')}</Text>
               {project.prompts.map((prompt, i) => (
                 // Les prompts sont affichés tels quels, sans mise en forme : on voit le vrai texte.
                 // biome-ignore lint/suspicious/noArrayIndexKey: deux prompts peuvent être identiques
-                <Text key={i} selectable style={styles.prompt}>
-                  {prompt}
-                </Text>
+                <CodeBlock key={i}>{prompt}</CodeBlock>
               ))}
-            </View>
+            </Stack>
           ) : null}
-        </View>
+        </Stack>
       ) : null}
 
       {project.isMine ? (
-        <View style={styles.section}>
+        <Stack gap="md">
           {error ? <Notice message={error} /> : null}
           {confirming ? (
             <>
-              <Text style={styles.text}>{t('project.page.deleteConfirm')}</Text>
+              <Text>{t('project.page.deleteConfirm')}</Text>
               <Button
                 label={t('project.page.deleteConfirmButton')}
-                variant="danger"
+                variant="confirm"
                 onPress={onDelete}
                 loading={busy}
               />
@@ -148,6 +166,7 @@ function ProjectView({ project }: { project: Project }) {
               <Button
                 label={t('project.page.edit')}
                 variant="secondary"
+                icon="pencil-simple"
                 onPress={() =>
                   router.push({ pathname: '/projects/[id]/edit', params: { id: project.id } })
                 }
@@ -155,53 +174,13 @@ function ProjectView({ project }: { project: Project }) {
               <Button
                 label={t('project.page.delete')}
                 variant="danger"
+                icon="trash"
                 onPress={() => setConfirming(true)}
               />
             </>
           )}
-        </View>
+        </Stack>
       ) : null}
     </Screen>
   )
 }
-
-const mono = Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' })
-
-const makeStyles = (c: Colors) =>
-  StyleSheet.create({
-    text: { fontSize: 16, color: c.text },
-    muted: { fontSize: 15, color: c.muted },
-    pitch: { fontSize: 18, lineHeight: 26, color: c.text },
-    badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    badge: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: c.text,
-      backgroundColor: c.accentSoft,
-      borderRadius: 999,
-      paddingVertical: 4,
-      paddingHorizontal: 12,
-      overflow: 'hidden',
-    },
-    tag: {
-      fontSize: 14,
-      color: c.text,
-      borderColor: c.border,
-      borderWidth: 1,
-      borderRadius: 999,
-      paddingVertical: 4,
-      paddingHorizontal: 12,
-    },
-    section: { gap: 10 },
-    sectionTitle: { fontSize: 17, fontWeight: '700', color: c.text },
-    line: { flexDirection: 'row', gap: 8, alignItems: 'baseline' },
-    prompt: {
-      fontFamily: mono,
-      fontSize: 14,
-      lineHeight: 20,
-      color: c.text,
-      backgroundColor: c.accentSoft,
-      borderRadius: 8,
-      padding: 12,
-    },
-  })

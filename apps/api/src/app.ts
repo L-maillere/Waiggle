@@ -1,7 +1,9 @@
 // L'application API : la liste des routes et ce qui se passe autour de chaque requête.
 // On la fabrique avec une fonction (createApp) plutôt qu'au chargement du fichier :
 // les tests peuvent ainsi créer leur propre instance, sans démarrer de vrai serveur.
+
 import { createRoute, OpenAPIHono } from '@hono/zod-openapi'
+import { appName } from '@ruche/brand'
 import { type ErrorCode, HealthResponse } from '@ruche/contracts'
 import type { Database } from '@ruche/db'
 import { parseAcceptLanguage, resolveLanguage } from '@ruche/i18n'
@@ -140,7 +142,7 @@ export const createApp = ({ version, auth, db, storage, appUrl, publicApiUrl }: 
   // La documentation de l'API, générée à partir des routes déclarées, servie en JSON.
   app.doc31('/openapi.json', {
     openapi: '3.1.0',
-    info: { title: 'Ruche API', version },
+    info: { title: `${appName} API`, version },
   })
 
   // Toute adresse inconnue : réponse 404 avec un message traduit.

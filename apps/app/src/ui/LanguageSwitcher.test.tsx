@@ -19,7 +19,7 @@ describe('LanguageSwitcher', () => {
     jest.mocked(updateProfile).mockResolvedValue({ ok: true, data: { ...leaMe, language: 'en' } })
     const { i18n } = await renderWithProviders(<LanguageSwitcher />)
 
-    await fireEvent.press(screen.getByRole('button', { name: 'English' }))
+    await fireEvent.press(screen.getByRole('radio', { name: 'English' }))
 
     expect(i18n.language).toBe('en')
     expect(updateProfile).toHaveBeenCalledWith({ language: 'en' })
@@ -29,7 +29,7 @@ describe('LanguageSwitcher', () => {
     mockSession(null)
     const { i18n } = await renderWithProviders(<LanguageSwitcher />)
 
-    await fireEvent.press(screen.getByRole('button', { name: 'English' }))
+    await fireEvent.press(screen.getByRole('radio', { name: 'English' }))
 
     expect(i18n.language).toBe('en')
     expect(updateProfile).not.toHaveBeenCalled()

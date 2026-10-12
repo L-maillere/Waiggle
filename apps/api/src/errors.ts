@@ -1,6 +1,6 @@
 // Fabrication des réponses d'erreur, toujours de la même forme et dans la langue du visiteur.
 import type { ErrorCode, ErrorResponse } from '@ruche/contracts'
-import { type Language, parseAcceptLanguage, resolveLanguage, resources } from '@ruche/i18n'
+import { fill, type Language, parseAcceptLanguage, resolveLanguage, resources } from '@ruche/i18n'
 import type { Context } from 'hono'
 import type { AppEnv } from './types'
 
@@ -19,7 +19,8 @@ const errorMessages = {
 
 /** Le corps JSON d'une erreur, avec le message dans la langue demandée. */
 export const errorBody = (language: Language, code: ErrorCode): ErrorResponse => ({
-  error: { code, message: resources[language].translation.errors[errorMessages[code]] },
+  // fill remplit {{appName}} (le nom de l'appli) présent dans certains messages.
+  error: { code, message: fill(resources[language].translation.errors[errorMessages[code]]) },
 })
 
 // Langue de la requête. `??` signifie « sinon » : si la langue n'a pas encore été calculée

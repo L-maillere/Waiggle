@@ -1,8 +1,9 @@
 // Tests du paquet de traductions.
 // Vitest fournit trois briques : `describe` regroupe des tests, `it` décrit un comportement
 // attendu, `expect(valeur)` vérifie ce comportement (toBe, toEqual…).
+import { appName } from '@ruche/brand'
 import { describe, expect, it } from 'vitest'
-import { defaultLanguage, parseAcceptLanguage, resolveLanguage, resources } from './index'
+import { defaultLanguage, fill, parseAcceptLanguage, resolveLanguage, resources } from './index'
 
 // Un arbre de traductions : chaque valeur est soit un texte, soit un sous-arbre.
 type Tree = { [key: string]: string | Tree }
@@ -35,6 +36,15 @@ describe('translations', () => {
     for (const [key, text] of [...Object.entries(fr), ...Object.entries(en)]) {
       // Le second argument d'expect est le message affiché si le test échoue.
       expect(text.trim(), `empty text for ${key}`).not.toBe('')
+    }
+  })
+
+  it('never writes the app name by hand, so renaming the app takes one line', () => {
+    // Le nom affiché et le nom de code : ni l'un ni l'autre ne doit apparaître dans un texte.
+    for (const [key, text] of [...Object.entries(fr), ...Object.entries(en)]) {
+      expect(text, `write {{appName}} instead in ${key}`).not.toMatch(
+        new RegExp(`${appName}|Ruche`, 'i'),
+      )
     }
   })
 
@@ -86,5 +96,19 @@ describe('parseAcceptLanguage', () => {
 
   it('drops languages explicitly refused with q=0 and the wildcard', () => {
     expect(parseAcceptLanguage('en;q=0, fr, *;q=0.1')).toEqual(['fr'])
+  })
+})
+
+describe('fill', () => {
+  it('fills the app name in every text without being asked', () => {
+    expect(fill('Bienvenue sur {{appName}}')).toBe(`Bienvenue sur ${appName}`)
+  })
+
+  it('fills the given parameters and blanks the unknown ones', () => {
+    expect(fill('Bonjour {{ name }}{{missing}}', { name: 'Léa' })).toBe('Bonjour Léa')
+  })
+
+  it('never fills in what every JavaScript object inherits', () => {
+    expect(fill('[{{constructor}}][{{toString}}][{{__proto__}}]')).toBe('[][][]')
   })
 })

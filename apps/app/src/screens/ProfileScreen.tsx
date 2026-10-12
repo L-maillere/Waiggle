@@ -10,7 +10,6 @@ import {
 import { useRouter } from 'expo-router'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { StyleSheet, View } from 'react-native'
 import { useSession } from '../accounts/api'
 import { ApiError, type ApiErrorKey } from '../api/errors'
 import { pickAvatar, updateProfile, uploadAvatar } from '../profile/api'
@@ -20,6 +19,7 @@ import { Avatar } from '../ui/Avatar'
 import { Button } from '../ui/Button'
 import { Notice } from '../ui/Notice'
 import { Screen } from '../ui/Screen'
+import { Stack } from '../ui/Stack'
 import { TextField } from '../ui/TextField'
 
 export function ProfileScreen() {
@@ -141,15 +141,17 @@ function ProfileForm({ me }: { me: Me }) {
 
   return (
     <Screen title={t('profile.title')}>
-      <View style={styles.avatar}>
+      <Stack gap="md" align="center">
         <Avatar name={name} url={me.avatarUrl} label={t('profile.avatar.label')} />
         <Button
           label={t('profile.avatar.change')}
           variant="secondary"
+          size="compact"
+          icon="camera"
           onPress={onChangeAvatar}
           loading={busy === 'avatar'}
         />
-      </View>
+      </Stack>
 
       <TextField
         label={t('auth.fields.name')}
@@ -182,7 +184,3 @@ function ProfileForm({ me }: { me: Me }) {
     </Screen>
   )
 }
-
-const styles = StyleSheet.create({
-  avatar: { alignItems: 'center', gap: 12 },
-})

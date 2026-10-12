@@ -41,7 +41,7 @@ services:
       MAIL_PROVIDER: ${MAIL_PROVIDER:-console}
       BREVO_API_KEY: ${BREVO_API_KEY:-}
       MAIL_FROM_EMAIL: ${MAIL_FROM_EMAIL:-no-reply@example.com}
-      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Ruche}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-}
       MEDIA_DIR: /app/media
     volumes:
       # Les avatars des membres. À sauvegarder avec la base de données.

@@ -2,7 +2,8 @@
 
 Ruche est un réseau social open source (AGPL-3.0) où des proches publient leurs projets IA, les
 suivent, les testent et s'encouragent. On n'héberge rien d'exécutable : chaque projet pointe vers
-une démo externe. Le produit est bilingue français / anglais. « Ruche » est un nom de code.
+une démo externe. Le produit est bilingue français / anglais. « Ruche » est un nom de code : les membres voient
+« Waiggle », défini dans `packages/brand/src/name.ts` et nulle part ailleurs.
 
 L'équipe : Louis (humain, relit et valide tout) et Claude (écrit l'essentiel du code).
 
@@ -11,10 +12,12 @@ L'équipe : Louis (humain, relit et valide tout) et Claude (écrit l'essentiel d
 ```text
 apps/api            API Hono + @hono/zod-openapi (Node 24). Plus tard : serveur MCP, tâches pg-boss.
 apps/app            Appli Expo (Expo Router) : iOS, Android et web, une seule base de code.
+packages/brand      Nom affiché et jetons de design (couleurs, lettres, formes, mouvement).
 packages/contracts  Schémas Zod partagés : source de vérité des entrées/sorties de l'API.
 packages/i18n       Traductions fr/en (le français est la référence) et choix de la langue.
 infra/              Docker Compose (PostgreSQL + pgvector, API, Caddy).
 docs/scenarios/     Scénarios d'usage par phase, écrits avant le code.
+docs/design/        Le design « Miel » : où vit chaque décision et comment la changer.
 docs/adr/           Décisions d'architecture.
 ```
 
@@ -28,7 +31,9 @@ pnpm install
 pnpm check                       # lint + types + tests, à lancer avant chaque commit
 pnpm lint:fix                    # formatage et corrections Biome
 pnpm --filter @ruche/api dev     # API sur http://localhost:3000 (/health, /openapi.json)
-pnpm --filter @ruche/app web     # appli dans le navigateur
+pnpm --filter @ruche/app web     # appli dans le navigateur (catalogue des composants : /catalogue)
+pnpm --filter @ruche/app shots   # captures de l'appli : téléphone / ordinateur, jour / nuit
+pnpm --filter @ruche/app icons   # régénère les icônes après un ajout dans scripts/icons.mts
 pnpm --filter <paquet> test      # tests d'un seul paquet
 ```
 
@@ -78,9 +83,38 @@ plutôt que d'inventer une règle métier.
   les pièges évités ; un petit exercice pour s'entraîner.
 - Les extraits sont copiés du vrai code du dépôt, jamais inventés.
 
+## Interface (voir `docs/design/miel.md`)
+
+L'interface doit rester facile à modifier : chaque décision de design vit à un seul endroit.
+
+- **Trois étages.** Les jetons (`packages/brand`) donnent les valeurs. Les composants
+  (`apps/app/src/ui`) sont les seuls à les lire. Les écrans (`apps/app/src/screens`) ne font
+  qu'assembler des composants : aucune couleur, taille, marge ou police écrite dans un écran.
+- **Il manque quelque chose ?** On crée ou complète un composant de `src/ui` plutôt que de styler
+  dans l'écran. Puis on l'ajoute au catalogue (`src/catalogue/`) dans tous ses états, et on teste
+  son comportement (rôle, nom, état) dans `src/ui/components.test.tsx`.
+- **Couleurs** : par rôle (`textMuted`, `honey`), de jour et de nuit, dans
+  `packages/brand/src/colors.ts`. Un texte sur un nouveau fond : ajouter le couple à
+  `contrastPairs`.
+- **Tests d'écran** : on retrouve les éléments par leur rôle et leur nom, jamais par leur style.
+- **Accessibilité** :
+  - tout bouton à icône seule a un `label` ;
+  - zones à toucher de 44 points au moins ;
+  - les textes suivent la taille de texte de l'appareil.
+- **Animations** : complètes par défaut. Seuls les grands déplacements deviennent des fondus si la
+  personne a activé « Réduire les animations » (`useCalmMotion`). La lumière d'ambiance reste.
+- **Web** : la page est pré-rendue sans connaître le visiteur. Ce qui dépend du navigateur (thème,
+  largeur, langue, paramètres d'URL) attend `useHydrated()` (`ui/theme/hydration.ts`). Sinon React
+  signale un écart et redessine tout. La CI des captures échoue sur ces erreurs.
+- **Vérifier** : regarder les captures (`pnpm --filter @ruche/app shots`) avant de proposer un
+  changement d'interface.
+
 ## Langues (fr / en)
 
-- **Aucun texte d'interface écrit en dur.** Tout passe par `t('...')` et `packages/i18n`.
+- **Aucun texte d'interface écrit en dur.** Tout passe par `t('...')` et `packages/i18n`. (Seule
+  exception : les exemples du catalogue, un outil de développement absent de l'appli publiée.)
+- **Le nom de l'appli** s'écrit `{{appName}}` dans les textes, rempli automatiquement. Un test
+  refuse le nom écrit en toutes lettres.
 - Ajouter la clé d'abord dans `locales/fr.ts` (référence), puis dans `locales/en.ts`. Le typage et
   les tests échouent si une clé, un texte ou un paramètre `{{...}}` manque dans une langue.
 - Les messages d'erreur de l'API sont traduits selon l'en-tête `Accept-Language`.

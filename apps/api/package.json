@@ -16,6 +16,7 @@
     "@better-auth/expo": "1.7.7",
     "@hono/node-server": "2.1.4",
     "@hono/zod-openapi": "1.6.3",
+    "@ruche/brand": "workspace:*",
     "@ruche/contracts": "workspace:*",
     "@ruche/db": "workspace:*",
     "@ruche/i18n": "workspace:*",

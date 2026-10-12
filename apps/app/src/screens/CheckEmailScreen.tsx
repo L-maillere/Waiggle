@@ -2,20 +2,23 @@
 // L'adresse arrive dans l'URL de la page (/check-email?email=…), lue avec useLocalSearchParams.
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useTranslation } from 'react-i18next'
-import { StyleSheet, Text } from 'react-native'
-import { useColors } from '../theme'
 import { Button } from '../ui/Button'
 import { Screen } from '../ui/Screen'
+import { Text } from '../ui/Text'
+import { useHydrated } from '../ui/theme/hydration'
 
 export function CheckEmailScreen() {
   const { t } = useTranslation()
   const router = useRouter()
-  const c = useColors()
   const { email = '' } = useLocalSearchParams<{ email?: string }>()
+  // L'adresse est dans l'URL du visiteur, inconnue du serveur qui prépare la page web : on ne
+  // l'affiche qu'une fois dans le navigateur (voir ui/theme/hydration.ts).
+  const hydrated = useHydrated()
 
+  if (!hydrated) return <Screen title={t('auth.checkEmail.title')}>{null}</Screen>
   return (
     <Screen title={t('auth.checkEmail.title')}>
-      <Text style={[styles.body, { color: c.text }]}>{t('auth.checkEmail.body', { email })}</Text>
+      <Text tone="secondary">{t('auth.checkEmail.body', { email })}</Text>
       <Button
         label={t('auth.checkEmail.back')}
         variant="secondary"
@@ -24,5 +27,3 @@ export function CheckEmailScreen() {
     </Screen>
   )
 }
-
-const styles = StyleSheet.create({ body: { fontSize: 16, lineHeight: 24 } })

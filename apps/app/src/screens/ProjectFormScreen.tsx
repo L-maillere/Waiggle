@@ -14,7 +14,6 @@ import {
 import { useRouter } from 'expo-router'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { StyleSheet, Text, View } from 'react-native'
 import { useSession } from '../accounts/api'
 import { ApiError } from '../api/errors'
 import { createProject, updateProject } from '../projects/api'
@@ -26,11 +25,12 @@ import {
   toProjectChanges,
 } from '../projects/form'
 import { useProject, useSetProject } from '../projects/hooks'
-import { useColors } from '../theme'
 import { Button } from '../ui/Button'
 import { Choices } from '../ui/Choices'
 import { Notice } from '../ui/Notice'
 import { Screen } from '../ui/Screen'
+import { Stack } from '../ui/Stack'
+import { Text } from '../ui/Text'
 import { TextField } from '../ui/TextField'
 
 export function ProjectFormScreen({ id }: { id?: string | undefined }) {
@@ -87,7 +87,6 @@ function ProjectFormView({ initial, projectId }: ViewProps) {
   const { t } = useTranslation()
   const router = useRouter()
   const setProject = useSetProject()
-  const c = useColors()
   // Tout le formulaire dans un seul état : un objet, modifié champ par champ.
   const [form, setForm] = useState(initial)
   const [errors, setErrors] = useState<ProjectFormErrors>({})
@@ -205,15 +204,15 @@ function ProjectFormView({ initial, projectId }: ViewProps) {
         onChange={(value) => change('timeSpent')(value === 'unknown' ? null : value)}
       />
 
-      <View style={styles.prompts}>
-        <Text style={[styles.label, { color: c.text }]}>{t('project.fields.prompts')}</Text>
-        <Text style={{ color: errors.prompts ? c.danger : c.muted }}>
+      <Stack gap="md">
+        <Text variant="headline">{t('project.fields.prompts')}</Text>
+        <Text variant="callout" tone={errors.prompts ? 'danger' : 'muted'}>
           {errorText(errors.prompts) ||
             t('project.fields.promptsHint', { max: PROJECT_PROMPTS_MAX })}
         </Text>
         {form.prompts.map((prompt, i) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: un prompt n'a pas d'identifiant ; sa position en tient lieu
-          <View key={i} style={styles.prompt}>
+          <Stack key={i} gap="sm">
             <TextField
               label={t('project.fields.prompt', { number: i + 1 })}
               value={prompt}
@@ -223,18 +222,21 @@ function ProjectFormView({ initial, projectId }: ViewProps) {
             <Button
               label={t('project.fields.removePrompt', { number: i + 1 })}
               variant="secondary"
+              size="compact"
+              icon="trash"
               onPress={() => change('prompts')(form.prompts.filter((_, j) => j !== i))}
             />
-          </View>
+          </Stack>
         ))}
         {form.prompts.length < PROJECT_PROMPTS_MAX ? (
           <Button
             label={t('project.fields.addPrompt')}
             variant="secondary"
+            icon="plus"
             onPress={() => change('prompts')([...form.prompts, ''])}
           />
         ) : null}
-      </View>
+      </Stack>
 
       {message ? <Notice message={message} /> : null}
       <Button
@@ -245,9 +247,3 @@ function ProjectFormView({ initial, projectId }: ViewProps) {
     </Screen>
   )
 }
-
-const styles = StyleSheet.create({
-  prompts: { gap: 10 },
-  prompt: { gap: 8 },
-  label: { fontSize: 15, fontWeight: '600' },
-})

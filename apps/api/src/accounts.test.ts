@@ -2,6 +2,7 @@
 // Chaque test démarre avec une base vide (PGlite en mémoire) et une fausse boîte d'envoi
 // (`mailer.sent`) qui garde les e-mails au lieu de les envoyer. On suit les scénarios de
 // docs/scenarios/phase-1.md, tranche 1.
+import { appName } from '@ruche/brand'
 import { AccountExport, ErrorResponse, Me } from '@ruche/contracts'
 import { schema } from '@ruche/db'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -43,14 +44,14 @@ describe('creating an account', () => {
     expect(ctx.mailer.sent).toHaveLength(1)
     const [email] = ctx.mailer.sent
     expect(email?.to).toBe('lea@example.com')
-    expect(email?.subject).toBe('Active ton compte Ruche')
+    expect(email?.subject).toBe(`Active ton compte ${appName}`)
     expect(linkIn(email?.text ?? '').pathname).toBe('/api/auth/verify-email')
   })
 
   it('writes the email in the language of the member', async () => {
     await ctx.signUp(lea, { 'Accept-Language': 'en-GB,en;q=0.9' })
 
-    expect(ctx.mailer.sent[0]?.subject).toBe('Activate your Ruche account')
+    expect(ctx.mailer.sent[0]?.subject).toBe(`Activate your ${appName} account`)
   })
 
   it('applies the same name rules as the profile: 80 characters, nothing invisible', async () => {
@@ -146,7 +147,7 @@ describe('signing up with an address that already has an account', () => {
 
     const last = ctx.mailer.sent.at(-1)
     expect(last?.to).toBe('lea@example.com')
-    expect(last?.subject).toBe('Tentative d’inscription sur Ruche')
+    expect(last?.subject).toBe(`Tentative d’inscription sur ${appName}`)
     expect(await ctx.db.select().from(schema.user)).toHaveLength(1)
   })
 })

@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Ruche",
+    "name": "Waiggle",
     "slug": "ruche",
     "scheme": "ruche",
     "version": "0.1.0",
@@ -22,7 +22,15 @@
       "expo-localization",
       "expo-secure-store",
       "expo-web-browser",
-      ["expo-image-picker", { "cameraPermission": false, "microphonePermission": false }]
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ],
+      "expo-font",
+      "expo-image"
     ],
     "experiments": {
       "typedRoutes": true

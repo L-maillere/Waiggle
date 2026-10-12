@@ -1,5 +1,6 @@
 // Tests d'intégration de la tranche 2 : le profil, la langue et l'avatar.
 // Scénarios : docs/scenarios/phase-1.md, tranche 2.
+import { appName } from '@ruche/brand'
 import { ErrorResponse, Me } from '@ruche/contracts'
 import { schema } from '@ruche/db'
 import sharp from 'sharp'
@@ -170,7 +171,7 @@ describe('choosing my language', () => {
     // Une tentative d'inscription avec mon adresse déclenche un e-mail d'avertissement.
     await ctx.signUp({ ...lea, password: 'another-password-1' })
 
-    expect(ctx.mailer.sent.at(-1)?.subject).toBe('Sign-up attempt on Ruche')
+    expect(ctx.mailer.sent.at(-1)?.subject).toBe(`Sign-up attempt on ${appName}`)
   })
 })
 
