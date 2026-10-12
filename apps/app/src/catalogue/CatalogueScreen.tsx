@@ -43,9 +43,11 @@ import { Wordmark } from '../ui/Wordmark'
 import { labels } from './labels'
 
 // Des résumés flous (ThumbHash) de deux visuels de projet, pour montrer la lumière d'ambiance.
+// Ils ressemblent à des clés secrètes pour l'outil qui cherche les secrets oubliés (gitleaks) :
+// le commentaire « gitleaks:allow » lui indique que ce n'en sont pas.
 const samples = {
-  cafe: 'GIoKDYSlqIdPUXd3eEeHh9J/YIkI',
-  papillon: 'GdkFJYTHYFSbVnaPWUZndpajf7QG',
+  cafe: 'GIoKDYSlqIdPUXd3eEeHh9J/YIkI', // gitleaks:allow
+  papillon: 'GdkFJYTHYFSbVnaPWUZndpajf7QG', // gitleaks:allow
 }
 
 export function CatalogueScreen() {
