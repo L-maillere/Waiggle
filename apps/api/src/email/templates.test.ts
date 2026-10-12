@@ -1,3 +1,4 @@
+import { appName } from '@ruche/brand'
 import { describe, expect, it } from 'vitest'
 import { existingAccountEmail, verificationEmail } from './templates'
 
@@ -7,7 +8,7 @@ describe('verificationEmail', () => {
   it('is written in French, with the link in the text and in the button', () => {
     const email = verificationEmail('fr', { name: 'Léa', url })
 
-    expect(email.subject).toBe('Active ton compte Ruche')
+    expect(email.subject).toBe(`Active ton compte ${appName}`)
     expect(email.text).toContain('Bonjour Léa,')
     expect(email.text).toContain(url)
     expect(email.html).toContain(`href="${url}"`)
@@ -16,7 +17,7 @@ describe('verificationEmail', () => {
   it('is written in English for an English-speaking member', () => {
     const email = verificationEmail('en', { name: 'Sam', url })
 
-    expect(email.subject).toBe('Activate your Ruche account')
+    expect(email.subject).toBe(`Activate your ${appName} account`)
     expect(email.text).toContain('Hi Sam,')
   })
 
@@ -33,7 +34,7 @@ describe('existingAccountEmail', () => {
     const signInUrl = 'https://ruche.app/sign-in'
     const email = existingAccountEmail('fr', { name: 'Léa', signInUrl })
 
-    expect(email.subject).toBe('Tentative d’inscription sur Ruche')
+    expect(email.subject).toBe(`Tentative d’inscription sur ${appName}`)
     expect(email.text).toContain(signInUrl)
   })
 })

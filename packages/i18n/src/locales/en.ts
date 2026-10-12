@@ -4,7 +4,6 @@ import type { Translation } from '../types'
 // les mêmes clés : en oublier une ou en ajouter une de trop empêche la compilation.
 export const en: Translation = {
   common: {
-    appName: 'Ruche',
     language: 'Language',
     languages: {
       fr: 'Français',
@@ -13,6 +12,7 @@ export const en: Translation = {
     loading: 'Loading…',
     crashed: 'This page could not be displayed.',
     retry: 'Try again',
+    back: 'Back',
   },
   home: {
     title: 'Welcome to {{appName}}',
@@ -145,7 +145,7 @@ export const en: Translation = {
       paused: 'On hold',
     },
     visibility: {
-      public: 'Ruche members',
+      public: '{{appName}} members',
       private: 'Only me',
     },
     timeSpent: {
@@ -189,8 +189,8 @@ export const en: Translation = {
     },
   },
   leaving: {
-    title: 'You are leaving Ruche',
-    body: 'This link leads to another website. Ruche does not check its content: do not enter personal information there if in doubt.',
+    title: 'You are leaving {{appName}}',
+    body: 'This link leads to another website. {{appName}} does not check its content: do not enter personal information there if in doubt.',
     destination: 'Destination',
     continue: 'Continue to {{host}}',
     back: 'Go back',
@@ -221,8 +221,8 @@ export const en: Translation = {
     rateLimited: 'Too many requests. Try again in a few minutes.',
     payloadTooLarge: 'This file is too large.',
     unsupportedMediaType: 'This type of file is not accepted.',
-    unavailable: 'Ruche is very busy right now. Try again in a moment.',
+    unavailable: '{{appName}} is very busy right now. Try again in a moment.',
     internal: 'Something went wrong.',
-    network: 'Can’t reach Ruche. Check your connection and try again.',
+    network: 'Can’t reach {{appName}}. Check your connection and try again.',
   },
 }

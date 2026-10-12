@@ -152,6 +152,58 @@ Règles détaillées :
 - **Réalisation en deux étapes** : 3a pour le projet lui-même, 3b pour les visuels, la page d'un
   membre et les étiquettes.
 
+## Design Miel — Apparence et accessibilité
+
+Statut : **validé par Louis** le 12/10/2026.
+
+Avant la tranche 3b, l'appli prend l'identité « Miel » choisie par Louis (blanc, verre, lumière de
+miel). Ces scénarios valent pour tous les écrans, présents et à venir.
+
+**Choisir l'apparence**
+- Étant donné un membre dans ses réglages
+- Quand il choisit l'apparence « Automatique », « Jour » ou « Nuit »
+- Alors l'appli change aussitôt d'apparence, sans recharger la page
+- Et ce choix est mémorisé sur cet appareil seulement (le téléphone et l'ordinateur peuvent avoir
+  chacun le leur)
+- Et « Automatique », le choix par défaut, suit le mode clair ou sombre de l'appareil, même quand il
+  change pendant l'utilisation
+
+**Animations et lumière d'ambiance**
+- Par défaut, pour tout le monde, l'appli a toutes les animations du prototype et la lumière
+  d'ambiance vivante : elle prend la couleur du visuel affiché, respire lentement et suit
+  l'inclinaison du téléphone
+- Seule exception : sur un appareil où la personne a elle-même activé « Réduire les animations »
+  (une option d'accessibilité pour qui a le mal des transports), les grands déplacements (une carte
+  qui s'envole, la lumière qui suit l'inclinaison) deviennent des fondus. Le reste ne change pas,
+  lumière d'ambiance comprise
+
+**Texte agrandi**
+- Étant donné un appareil réglé avec une grande taille de texte
+- Alors les textes de l'appli grandissent aussi, jusqu'à deux fois leur taille
+- Et aucun texte n'est coupé ni ne déborde de son bouton ou de sa carte
+
+**Lisibilité**
+- Tout texte respecte un contraste d'au moins 4,5:1 avec son fond (3:1 pour les gros titres et les
+  icônes), de jour comme de nuit
+- Un bouton qui n'affiche qu'une icône a un nom lu par les lecteurs d'écran (« Retour »,
+  « Partager »)
+- Les cibles à toucher mesurent au moins 44 × 44 points
+
+**Sur ordinateur**
+- Quand la fenêtre est large, les pages s'organisent en colonnes et le contenu ne dépasse pas
+  1 280 px de large, centré
+- Quand on rétrécit la fenêtre, les colonnes s'empilent comme sur un téléphone, sans défilement
+  horizontal
+
+**Le nom de l'appli**
+- L'appli, le site et les e-mails affichent « Waiggle »
+- Changer ce nom plus tard ne demande de modifier qu'un seul endroit du code
+- « Ruche » reste le nom de code du dépôt et n'apparaît plus nulle part pour les membres
+
+**Polices et vie privée**
+- Les polices sont livrées avec l'appli : afficher une page n'envoie aucune requête à un service
+  extérieur (Google Fonts, par exemple)
+
 ## Tranche 4 — Suivre et le fil
 
 **Suivre**

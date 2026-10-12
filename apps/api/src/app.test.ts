@@ -1,3 +1,4 @@
+import { appName } from '@ruche/brand'
 import { ErrorResponse, HealthResponse } from '@ruche/contracts'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createTestContext, type TestContext } from './testing/context'
@@ -31,7 +32,7 @@ describe('GET /openapi.json', () => {
     const doc = (await res.json()) as { info: { title: string }; paths: Record<string, unknown> }
 
     expect(res.status).toBe(200)
-    expect(doc.info.title).toBe('Ruche API')
+    expect(doc.info.title).toBe(`${appName} API`)
     expect(Object.keys(doc.paths)).toEqual(
       expect.arrayContaining(['/health', '/v1/me', '/v1/me/export']),
     )

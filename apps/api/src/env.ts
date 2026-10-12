@@ -1,6 +1,7 @@
 // Lecture de la configuration du serveur (les « variables d'environnement »).
 // Elles arrivent toujours sous forme de texte, et peuvent manquer ou être fausses :
 // on les vérifie toutes au démarrage avec Zod, pour échouer tout de suite et clairement.
+import { appName } from '@ruche/brand'
 import { z } from 'zod'
 
 // Les chaînes vides ("") sont traitées comme absentes : c'est ce que produit souvent un .env mal rempli.
@@ -26,7 +27,11 @@ const EnvSchema = z
     MAIL_PROVIDER: z.enum(['console', 'brevo']).default('console'),
     BREVO_API_KEY: optional(z.string()),
     MAIL_FROM_EMAIL: z.email().default('no-reply@localhost.localdomain'),
-    MAIL_FROM_NAME: z.string().default('Ruche'),
+    // Nom de l'expéditeur des e-mails. Vide : le nom de l'appli (@ruche/brand).
+    MAIL_FROM_NAME: z.preprocess(
+      (value) => (value === '' ? undefined : value),
+      z.string().default(appName),
+    ),
   })
   // superRefine : des règles qui dépendent de plusieurs variables à la fois.
   .superRefine((env, ctx) => {
