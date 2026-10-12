@@ -38,6 +38,23 @@ export const request = async <T>(
   init: RequestInit,
   schema: Schema<T>,
 ): Promise<ApiResult<T>> => {
+  const sent = await send(path, init)
+  if (!sent.ok) return sent
+  const parsed = schema.safeParse(await sent.data.json().catch(() => null))
+  return parsed.success ? { ok: true, data: parsed.data } : { ok: false, error: 'internal' }
+}
+
+/** Pour les requêtes dont la réponse n'a pas de contenu (une suppression répond « 204 »). */
+export const requestWithoutBody = async (
+  path: string,
+  init: RequestInit,
+): Promise<ApiResult<null>> => {
+  const sent = await send(path, init)
+  return sent.ok ? { ok: true, data: null } : sent
+}
+
+// Partie commune : envoyer, et traduire un échec (réseau ou refus de l'API) en clé de message.
+const send = async (path: string, init: RequestInit): Promise<ApiResult<Response>> => {
   let res: Response
   try {
     res = await apiFetch(path, init)
@@ -45,7 +62,5 @@ export const request = async <T>(
     // fetch ne lève une erreur que si le serveur est injoignable (pas de réseau, API arrêtée).
     return { ok: false, error: 'network' }
   }
-  if (!res.ok) return { ok: false, error: errorKeyForStatus(res.status) }
-  const parsed = schema.safeParse(await res.json().catch(() => null))
-  return parsed.success ? { ok: true, data: parsed.data } : { ok: false, error: 'internal' }
+  return res.ok ? { ok: true, data: res } : { ok: false, error: errorKeyForStatus(res.status) }
 }

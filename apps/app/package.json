@@ -32,6 +32,7 @@
     "expo-status-bar": "~57.0.1",
     "expo-web-browser": "~57.0.3",
     "i18next": "26.4.3",
+    "marked": "18.0.14",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-i18next": "17.0.16",
@@ -50,6 +51,11 @@
   },
   "jest": {
     "preset": "jest-expo",
-    "testTimeout": 15000
+    "testTimeout": 15000,
+    "transformIgnorePatterns": [
+      "/node_modules/(?!(.pnpm|react-native|@react-native|@react-native-community|expo|@expo|@expo-google-fonts|react-navigation|@react-navigation|@sentry/react-native|native-base|standard-navigation|marked))",
+      "/node_modules/react-native-reanimated/plugin/",
+      "/node_modules/@react-native/babel-preset/"
+    ]
   }
 }
