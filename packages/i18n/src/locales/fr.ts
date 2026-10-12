@@ -11,6 +11,8 @@ export const fr = {
       en: 'English',
     },
     loading: 'Chargement…',
+    crashed: 'Cette page n’a pas pu s’afficher.',
+    retry: 'Réessayer',
   },
   home: {
     title: 'Bienvenue sur {{appName}}',
@@ -194,7 +196,8 @@ export const fr = {
     destination: 'Destination',
     continue: 'Continuer vers {{host}}',
     back: 'Revenir',
-    invalid: 'Ce lien ne peut pas être ouvert : seules les adresses https sont acceptées.',
+    invalid:
+      'Ce lien ne peut pas être ouvert : seules les adresses https vers un site public sont acceptées.',
   },
   email: {
     footer: '{{appName}}, le réseau des projets IA entre proches.',

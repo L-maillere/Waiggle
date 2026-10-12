@@ -2,6 +2,7 @@
 // dans une description) passe par ici avant de s'ouvrir.
 // Pourquoi ? Un lien peut mentir sur sa destination : le texte « le site officiel » peut mener
 // ailleurs. Ici, le membre voit l'adresse réelle, et le nom du site en clair, avant de décider.
+import { publicHttpsUrl } from '@ruche/contracts'
 import { useRouter } from 'expo-router'
 import { useTranslation } from 'react-i18next'
 import { Linking, StyleSheet, Text } from 'react-native'
@@ -10,22 +11,19 @@ import { Button } from '../ui/Button'
 import { Notice } from '../ui/Notice'
 import { Screen } from '../ui/Screen'
 
-/** L'adresse si c'est un lien https valide, sinon null (javascript:, http:, texte quelconque…). */
-const httpsUrl = (value: string | undefined): URL | null => {
-  if (!value) return null
-  try {
-    const url = new URL(value)
-    return url.protocol === 'https:' ? url : null
-  } catch {
-    return null
-  }
-}
+/**
+ * L'adresse si c'est un lien https vers un site public, sinon null. Même règle que pour le lien de
+ * démo (voir publicHttpsUrl dans @ruche/contracts) : pas de javascript:, pas d'adresse IP ni de
+ * machine du réseau local, pas d'identifiant caché avant « @ », pas de nom écrit dans un autre
+ * alphabet qui pourrait imiter un site connu.
+ */
+const safeTarget = (value: string | undefined): URL | null => (value ? publicHttpsUrl(value) : null)
 
 export function LeavingScreen({ url }: { url: string | undefined }) {
   const { t } = useTranslation()
   const router = useRouter()
   const c = useColors()
-  const target = httpsUrl(url)
+  const target = safeTarget(url)
 
   if (!target) {
     return (
@@ -40,8 +38,8 @@ export function LeavingScreen({ url }: { url: string | undefined }) {
     <Screen title={t('leaving.title')}>
       <Text style={[styles.body, { color: c.text }]}>{t('leaving.body')}</Text>
       <Text style={[styles.label, { color: c.muted }]}>{t('leaving.destination')}</Text>
-      {/* L'adresse complète, telle que le navigateur la comprend : un nom de site déguisé avec des
-          lettres d'un autre alphabet y apparaît sous sa forme réelle (« xn--… »). */}
+      {/* L'adresse complète, telle qu'elle sera ouverte : un nom de site écrit avec des lettres d'un
+          autre alphabet y apparaît sous sa forme réelle (« xn--… »), ou il a été refusé plus haut. */}
       <Text selectable style={[styles.url, { color: c.text, borderColor: c.border }]}>
         {target.href}
       </Text>

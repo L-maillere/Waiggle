@@ -77,7 +77,7 @@ describe('publishing a project', () => {
 
     expect(project).toMatchObject({
       status: 'testable',
-      demoUrl: 'https://recettes.vercel.app',
+      demoUrl: 'https://recettes.vercel.app/', // enregistrée sous sa forme standard
       // « claude-code » est la même étiquette que « Claude Code » : gardée une seule fois.
       tools: [
         { label: 'Claude Code', slug: 'claude-code' },
@@ -93,6 +93,27 @@ describe('publishing a project', () => {
     const project = await publish({ ...recipes, description: 'é'.repeat(10_000) })
 
     expect(project.description).toHaveLength(10_000)
+  })
+
+  it('stores a demo link in another alphabet under its real form, never as a look-alike', async () => {
+    // « аpple.com » avec un « а » cyrillique ressemble à apple.com : on garde la forme « xn-- ».
+    const project = await publish({ ...recipes, demoUrl: 'https://\u0430pple.com/login' })
+
+    expect(project.demoUrl).toBe('https://xn--pple-43d.com/login')
+  })
+
+  it('refuses a request larger than 256 KB, while the profile keeps its 16 KB limit', async () => {
+    const big = JSON.stringify({ ...recipes, description: 'a'.repeat(300 * 1024) })
+    const medium = JSON.stringify({ bio: 'a'.repeat(20 * 1024) })
+    const post = (path: string, method: string, body: string) =>
+      ctx.request(path, {
+        method,
+        headers: { cookie: lea, 'content-type': 'application/json' },
+        body,
+      })
+
+    expect((await post('/v1/projects', 'POST', big)).status).toBe(413)
+    expect((await post('/v1/me', 'PATCH', medium)).status).toBe(413)
   })
 
   it('refuses a demo link that is not a public https address', async () => {
@@ -191,7 +212,7 @@ describe('changing a project', () => {
     expect(Project.parse(await res.json())).toMatchObject({
       title: recipes.title, // non envoyé : inchangé
       status: 'testable',
-      demoUrl: 'https://recettes.vercel.app',
+      demoUrl: 'https://recettes.vercel.app/',
       visibility: 'private',
     })
   })
@@ -202,6 +223,27 @@ describe('changing a project', () => {
     const res = await send('PATCH', `/v1/projects/${id}`, lea, { demoUrl: null })
 
     expect(Project.parse(await res.json()).demoUrl).toBeNull()
+  })
+
+  it('cannot hand the project over to someone else, nor change its identifier', async () => {
+    const { id } = await publish()
+
+    for (const body of [
+      { authorId: 'max' },
+      { id: crypto.randomUUID() },
+      { createdAt: '2020-01-01' },
+    ]) {
+      expect((await send('PATCH', `/v1/projects/${id}`, lea, body)).status).toBe(400)
+    }
+  })
+
+  it('hides a project from the others as soon as it becomes private', async () => {
+    const { id } = await publish()
+    expect((await read(id, max)).status).toBe(200)
+
+    await send('PATCH', `/v1/projects/${id}`, lea, { visibility: 'private' })
+
+    expect((await read(id, max)).status).toBe(404)
   })
 
   it('refuses changes from another member', async () => {

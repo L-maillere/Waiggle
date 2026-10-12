@@ -2,7 +2,7 @@
 // Les règles de texte (longueurs, caractères interdits) viennent de text.ts, comme pour le profil.
 import { z } from 'zod'
 import { TOOL_MAX_LENGTH } from './profile'
-import { FreeText, ShortLabel, uniqueIgnoringCase } from './text'
+import { FreeText, isCleanText, ShortLabel, uniqueIgnoringCase } from './text'
 
 export const PROJECT_TITLE_MAX = 80
 export const PROJECT_PITCH_MAX = 140
@@ -27,40 +27,66 @@ export type ProjectVisibility = z.infer<typeof ProjectVisibility>
 export const TimeSpent = z.enum(['hour', 'evening', 'weekend', 'weeks', 'months'])
 export type TimeSpent = z.infer<typeof TimeSpent>
 
-// Suffixes de noms réservés aux réseaux locaux (box, imprimante, NAS…) : un lien vers eux ne
-// marcherait que chez l'auteur, et pourrait viser la machine de celui qui clique.
-const LOCAL_SUFFIXES = ['localhost', 'local', 'internal', 'home.arpa', 'lan', 'home']
+// Suffixes de noms qui ne désignent pas un site public : réseaux locaux (box, imprimante, NAS…),
+// noms réservés aux tests ou aux documentations, réseau Tor. Un lien vers eux ne marcherait que
+// chez l'auteur, ou pourrait viser la machine de celui qui clique.
+const RESERVED_SUFFIXES = [
+  'localhost',
+  'localdomain',
+  'local',
+  'lan',
+  'home',
+  'internal',
+  'intranet',
+  'corp',
+  'private',
+  'arpa',
+  'test',
+  'invalid',
+  'example',
+  'onion',
+]
 
 /**
- * Vrai si l'adresse est un lien https vers un site public, désigné par son nom de domaine.
- * On laisse le navigateur (la classe URL) découper l'adresse : il connaît toutes les façons tordues
- * d'écrire une adresse IP (« 0x7f.1 », « 2130706433 »…) et les ramène à la forme habituelle.
+ * L'adresse découpée si c'est un lien https vers un site public, désigné par son nom ; sinon null.
+ * On laisse la classe URL découper l'adresse : elle connaît toutes les façons tordues d'écrire une
+ * adresse IP (« 0x7f.1 », « 2130706433 »…) et les ramène à la forme habituelle.
+ * Sert à l'API (lien de démo), à l'appli (liens Markdown) et à la page d'avertissement.
  */
-const isPublicHttpsUrl = (value: string) => {
+export const publicHttpsUrl = (value: string): URL | null => {
+  // Aucun caractère invisible ou de contrôle, nulle part dans l'adresse.
+  if (!isCleanText(value)) return null
   let url: URL
   try {
     url = new URL(value)
   } catch {
-    return false // ce n'est pas une adresse
+    return null // ce n'est pas une adresse
   }
-  if (url.protocol !== 'https:') return false
+  if (url.protocol !== 'https:') return null
   // « https://ruche.app@pirate.example » mène à pirate.example : ce qui précède @ est un identifiant.
-  if (url.username || url.password) return false
+  if (url.username || url.password) return null
 
-  const host = url.hostname.toLowerCase().replace(/\.$/, '') // « localhost. » = « localhost »
-  // Une adresse IP plutôt qu'un nom : IPv6 entre crochets, ou IPv4 sous forme de 4 nombres.
-  if (host.startsWith('[') || /^\d+\.\d+\.\d+\.\d+$/.test(host)) return false
-  // Un nom sans point (« intranet ») ne désigne qu'une machine du réseau local.
-  if (!host.includes('.')) return false
-  return !LOCAL_SUFFIXES.some((suffix) => host === suffix || host.endsWith(`.${suffix}`))
+  const host = url.hostname.toLowerCase().replace(/\.+$/, '') // « localhost.. » = « localhost »
+  // Une adresse IPv4 (4 nombres) plutôt qu'un nom.
+  if (/^\d+\.\d+\.\d+\.\d+$/.test(host)) return null
+  // Un nom ordinaire : des lettres latines, des chiffres et des tirets, en au moins deux parties
+  // non vides séparées par des points. Cela écarte les adresses IPv6 ([::1]), les noms sans point
+  // (« intranet ») et les noms dans un autre alphabet que le téléphone n'a pas convertis en
+  // « xn--… » (impossible de vérifier qu'ils n'imitent pas un nom connu).
+  if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(host)) return null
+  if (RESERVED_SUFFIXES.some((suffix) => host === suffix || host.endsWith(`.${suffix}`)))
+    return null
+  return url
 }
 
-/** Le lien de démo : https, vers un site public. */
+/** Le lien de démo : https, vers un site public. Il est enregistré sous sa forme standard. */
 export const DemoUrl = z
   .string()
   .trim()
   .max(DEMO_URL_MAX_LENGTH)
-  .refine(isPublicHttpsUrl, { message: 'must be a public https address' })
+  .refine((value) => publicHttpsUrl(value) !== null, { message: 'must be a public https address' })
+  // href : l'adresse réécrite par URL (minuscules, nom « xn-- », « / » final…), la même partout.
+  .transform((value) => publicHttpsUrl(value)?.href ?? value)
 
 // Les champs modifiables d'un projet, avec leurs règles.
 const fields = {

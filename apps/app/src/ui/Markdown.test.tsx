@@ -22,13 +22,13 @@ describe('Markdown', () => {
   })
 
   it('opens https links through the warning page handler', async () => {
-    await show('Voir [le site](https://recettes.vercel.app) ou https://autre.example')
+    await show('Voir [le site](https://recettes.vercel.app) ou https://autre-site.com')
 
     await fireEvent.press(screen.getByRole('link', { name: 'le site' }))
-    await fireEvent.press(screen.getByRole('link', { name: 'https://autre.example' }))
+    await fireEvent.press(screen.getByRole('link', { name: 'https://autre-site.com' }))
 
-    expect(onLinkPress).toHaveBeenNthCalledWith(1, 'https://recettes.vercel.app')
-    expect(onLinkPress).toHaveBeenNthCalledWith(2, 'https://autre.example')
+    expect(onLinkPress).toHaveBeenNthCalledWith(1, 'https://recettes.vercel.app/')
+    expect(onLinkPress).toHaveBeenNthCalledWith(2, 'https://autre-site.com/')
   })
 
   it('never makes a link clickable unless it is https', async () => {
@@ -55,5 +55,40 @@ describe('Markdown', () => {
     await show('Pain &amp; fromage')
 
     expect(screen.getByText('Pain & fromage')).toBeTruthy()
+  })
+
+  it('survives a description nested thousands of times, which used to crash the page', async () => {
+    // Une citation dans une citation dans une citation… (« >>>>> x ») : de quoi épuiser la pile
+    // d'appels de l'analyseur, ou dessiner des milliers de cadres imbriqués.
+    for (const text of [
+      `${'>'.repeat(3000)} x`,
+      `${'>'.repeat(900)} x`,
+      `${'- '.repeat(1500)}x`,
+      `${'*'.repeat(3000)}x${'*'.repeat(3000)}`, // gras dans de l'italique dans du gras…
+    ]) {
+      await show(text)
+      expect(screen.toJSON()).toBeTruthy()
+    }
+  })
+
+  it('removes invisible characters written as entities', async () => {
+    // « &#x202E; » est une autre façon d'écrire le caractère qui retourne le texte.
+    await show('abc&#x202E;def')
+
+    expect(screen.getByText('abcdef')).toBeTruthy()
+  })
+
+  it('shows entities inside code exactly as typed', async () => {
+    await show('`&amp;`')
+
+    expect(screen.getByText('&amp;')).toBeTruthy()
+  })
+
+  it('never makes a link clickable unless it leads to a public website', async () => {
+    await show(
+      '[ref][x] [box](https://192.168.1.1) [faux](https://ruche.app@pirate.example)\n\n[x]: javascript:alert(1)',
+    )
+
+    expect(screen.queryByRole('link')).toBeNull()
   })
 })

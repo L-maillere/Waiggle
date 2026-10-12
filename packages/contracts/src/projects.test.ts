@@ -1,6 +1,6 @@
 // Tests des règles d'un projet : ce qu'un membre peut publier, et quels liens de démo sont acceptés.
-import { describe, expect, it } from 'vitest'
-import { DemoUrl, ProjectInput, ProjectUpdate } from './projects'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { DemoUrl, ProjectInput, ProjectUpdate, publicHttpsUrl } from './projects'
 
 const valid = {
   title: 'Mon agent de recettes',
@@ -112,5 +112,63 @@ describe('DemoUrl', () => {
   it('refuses an address that hides a login, often used to disguise the real site', () => {
     // « https://ruche.app@pirate.example » mène en réalité à pirate.example.
     expect(accepted('https://ruche.app@pirate.example')).toBe(false)
+  })
+})
+
+describe('DemoUrl, normalized and hardened', () => {
+  const accepted = (url: string) => DemoUrl.safeParse(url).success
+
+  it('stores the address in its standard form', () => {
+    expect(DemoUrl.parse('https://Mon-Agent.Vercel.app')).toBe('https://mon-agent.vercel.app/')
+    // Un nom écrit avec un « а » cyrillique est enregistré sous sa forme réelle, en « xn-- ».
+    expect(DemoUrl.parse('https://\u0430pple.com/login')).toBe('https://xn--pple-43d.com/login')
+  })
+
+  it('refuses local names hidden behind trailing dots or empty parts', () => {
+    for (const url of [
+      'https://localhost..',
+      'https://intranet..',
+      'https://nas.local..',
+      'https://a..b.com',
+    ]) {
+      expect(accepted(url), url).toBe(false)
+    }
+  })
+
+  it('refuses other reserved names', () => {
+    for (const url of [
+      'https://box.localdomain',
+      'https://site.test',
+      'https://x.onion',
+      'https://wiki.corp',
+    ]) {
+      expect(accepted(url), url).toBe(false)
+    }
+  })
+
+  it('refuses invisible or control characters, even inside the address', () => {
+    expect(accepted('https://example.com/a\u202Eb')).toBe(false)
+    expect(accepted('https://exa\tmple.com')).toBe(false)
+  })
+})
+
+describe('publicHttpsUrl on a phone', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('refuses a name that the phone leaves in another alphabet, as it cannot be checked', () => {
+    // Sur iOS et Android, l'outil URL d'Expo ne convertit pas les noms Unicode en « xn-- » :
+    // on simule ce comportement avec une fausse classe URL.
+    vi.stubGlobal(
+      'URL',
+      class {
+        protocol = 'https:'
+        username = ''
+        password = ''
+        hostname = '\u0430pple.com'
+        href = 'https://\u0430pple.com/'
+      },
+    )
+
+    expect(publicHttpsUrl('https://\u0430pple.com/')).toBeNull()
   })
 })

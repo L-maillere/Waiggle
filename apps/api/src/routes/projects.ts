@@ -3,7 +3,7 @@
 import { createRoute, z } from '@hono/zod-openapi'
 import { Project, ProjectInput, ProjectUpdate } from '@ruche/contracts'
 import { type Database, schema } from '@ruche/db'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import type { Context } from 'hono'
 import { requireUser } from '../auth/session'
 import { errorBody, languageOf } from '../errors'
@@ -173,7 +173,12 @@ export const projectRoutes = ({ db, limiter, publicApiUrl }: Deps) => {
       ...(changes.prompts !== undefined && { prompts: changes.prompts }),
     }
     if (Object.keys(set).length > 0) {
-      await db.update(schema.project).set(set).where(eq(schema.project.id, id))
+      // Double précaution : la condition « dont l'auteur est le membre » est répétée dans la requête,
+      // même si ownProject l'a déjà vérifiée (au cas où le code changerait un jour).
+      await db
+        .update(schema.project)
+        .set(set)
+        .where(and(eq(schema.project.id, id), eq(schema.project.authorId, user.id)))
     }
 
     const project = await loadVisibleProject(db, id, user.id, publicApiUrl)
@@ -192,7 +197,9 @@ export const projectRoutes = ({ db, limiter, publicApiUrl }: Deps) => {
     if (access === 'not_found') return notFound(c)
     if (access === 'forbidden') return forbidden(c)
 
-    await db.delete(schema.project).where(eq(schema.project.id, id))
+    await db
+      .delete(schema.project)
+      .where(and(eq(schema.project.id, id), eq(schema.project.authorId, user.id)))
     // 204 : « c'est fait », sans contenu à renvoyer.
     return c.body(null, 204)
   })

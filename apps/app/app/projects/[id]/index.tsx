@@ -8,3 +8,6 @@ export default function ProjectPage() {
   const { id } = useLocalSearchParams<{ id: string }>()
   return <ProjectScreen id={firstParam(id) ?? ''} />
 }
+
+// Si la page plante (contenu piégé, bug…), un écran de secours s'affiche à sa place.
+export { RouteErrorBoundary as ErrorBoundary } from '../../../src/ui/RouteErrorBoundary'

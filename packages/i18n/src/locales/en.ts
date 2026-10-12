@@ -11,6 +11,8 @@ export const en: Translation = {
       en: 'English',
     },
     loading: 'Loading…',
+    crashed: 'This page could not be displayed.',
+    retry: 'Try again',
   },
   home: {
     title: 'Welcome to {{appName}}',
@@ -192,7 +194,7 @@ export const en: Translation = {
     destination: 'Destination',
     continue: 'Continue to {{host}}',
     back: 'Go back',
-    invalid: 'This link cannot be opened: only https addresses are allowed.',
+    invalid: 'This link cannot be opened: only https addresses of public websites are allowed.',
   },
   email: {
     footer: '{{appName}}, the network for AI projects among friends and family.',

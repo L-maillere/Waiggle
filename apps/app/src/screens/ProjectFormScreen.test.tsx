@@ -52,7 +52,7 @@ describe('ProjectFormScreen, publishing', () => {
       description: '',
       status: 'testable',
       visibility: 'private',
-      demoUrl: 'https://recettes.vercel.app',
+      demoUrl: 'https://recettes.vercel.app/', // forme standard de l'adresse
       tools: ['Claude', 'Cursor'],
       timeSpent: 'weekend',
       prompts: ['Propose trois recettes'],
