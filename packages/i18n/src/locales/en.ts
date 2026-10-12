@@ -97,6 +97,7 @@ export const en: Translation = {
     save: 'Save',
     saved: 'Profile saved.',
     errors: {
+      nameTooLong: 'Your name must be at most {{max}} characters long.',
       bioTooLong: 'Your bio must be at most {{max}} characters long.',
       tooManyTools: '{{max}} tools at most.',
       toolTooLong: 'Each tool must be at most {{max}} characters long.',
@@ -129,5 +130,6 @@ export const en: Translation = {
     payloadTooLarge: 'This file is too large.',
     unsupportedMediaType: 'This type of file is not accepted.',
     internal: 'Something went wrong.',
+    network: 'Can’t reach Ruche. Check your connection and try again.',
   },
 }

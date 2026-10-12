@@ -97,6 +97,7 @@ export const fr = {
     save: 'Enregistrer',
     saved: 'Profil enregistré.',
     errors: {
+      nameTooLong: 'Le nom doit faire au plus {{max}} caractères.',
       bioTooLong: 'La bio doit faire au plus {{max}} caractères.',
       tooManyTools: '{{max}} outils au plus.',
       toolTooLong: 'Chaque outil doit faire au plus {{max}} caractères.',
@@ -129,5 +130,6 @@ export const fr = {
     payloadTooLarge: 'Ce fichier est trop lourd.',
     unsupportedMediaType: 'Ce type de fichier n’est pas accepté.',
     internal: 'Une erreur inattendue est survenue.',
+    network: 'Impossible de joindre Ruche. Vérifie ta connexion et réessaie.',
   },
 } as const

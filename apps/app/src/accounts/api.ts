@@ -3,7 +3,9 @@
 // l'API. Avantage : dans les tests, on remplace ce fichier par de faux appels (jest.mock).
 import type { SignInRequest, SignUpRequest } from '@ruche/contracts'
 import { Platform, Share } from 'react-native'
-import { apiUrl, webAppUrl } from '../config'
+import { apiFetch } from '../api/client'
+import { queryClient } from '../api/query-client'
+import { webAppUrl } from '../config'
 import { authClient } from './auth-client'
 import { type AuthErrorKey, authErrorKey } from './errors'
 
@@ -36,6 +38,9 @@ export const signIn = async (input: SignInRequest): Promise<Result> => {
 
 export const signOut = async (): Promise<void> => {
   await authClient.signOut()
+  // On vide le cache des données (profil…) : sur un appareil partagé, la personne suivante ne doit
+  // rien voir de ce qui appartenait au membre précédent.
+  queryClient.clear()
 }
 
 /** Supprime le compte après vérification du mot de passe par le serveur. */
@@ -43,7 +48,10 @@ export const deleteAccount = async (
   password: string,
 ): Promise<Result<'wrongPassword' | AuthErrorKey>> => {
   const { error } = await authClient.deleteUser({ password })
-  if (!error) return { ok: true }
+  if (!error) {
+    queryClient.clear() // même raison qu'à la déconnexion
+    return { ok: true }
+  }
   if (error.code === 'INVALID_PASSWORD') return { ok: false, error: 'wrongPassword' }
   return toResult(error)
 }
@@ -53,10 +61,9 @@ export const deleteAccount = async (
  * Sur le web : le navigateur enregistre un fichier. Sur mobile : la feuille de partage s'ouvre.
  */
 export const downloadMyData = async (): Promise<Result> => {
-  const headers = new Headers()
-  // Sur mobile, pas de cookie automatique : on ajoute nous-mêmes celui gardé par le plugin Expo.
-  if (Platform.OS !== 'web') headers.set('Cookie', await authClient.getCookie())
-  const res = await fetch(`${apiUrl}/v1/me/export`, { headers, credentials: 'include' })
+  // apiFetch ajoute la session du membre (voir api/client.ts).
+  const res = await apiFetch('/v1/me/export').catch(() => null)
+  if (!res) return { ok: false, error: 'generic' } // serveur injoignable
   if (!res.ok) return { ok: false, error: authErrorKey({ status: res.status }) }
   const json = await res.text()
 

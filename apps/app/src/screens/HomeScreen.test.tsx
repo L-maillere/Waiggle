@@ -5,6 +5,8 @@ import { fireEvent, screen } from '@testing-library/react-native'
 import { mockSession, renderWithI18n } from '../testing/render'
 import { HomeScreen } from './HomeScreen'
 
+// Le choix de la langue enregistre la langue sur le compte : on remplace aussi ces appels.
+jest.mock('../profile/api', () => ({ getMe: jest.fn(), updateProfile: jest.fn() }))
 jest.mock('../accounts/api', () => ({ useSession: jest.fn() }))
 const mockPush = jest.fn()
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush, replace: jest.fn() }) }))
