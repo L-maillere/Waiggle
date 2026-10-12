@@ -119,6 +119,11 @@ export const createAuth = ({ db, mailer, secret, publicApiUrl, appUrl, rateLimit
       // (Caddy remplace toute valeur envoyée par le visiteur : impossible de la falsifier).
       ipAddress: { ipAddressHeaders: ['x-real-ip'] },
       cookiePrefix: 'ruche',
+      // Contrôles d'origine toujours actifs, y compris pendant les tests (Better Auth les coupe
+      // par défaut quand il détecte un test). Ils refusent notamment un lien de retour
+      // (callbackURL) vers un site extérieur, et les requêtes venues d'un autre site.
+      disableOriginCheck: false,
+      disableCSRFCheck: false,
     },
 
     // Les « hooks » de base de données s'exécutent juste avant ou après une écriture.

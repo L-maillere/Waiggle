@@ -70,6 +70,18 @@ describe('creating an account', () => {
     expect(ctx.mailer.sent).toHaveLength(2)
   })
 
+  it('refuses a verification link that would send the member to another website', async () => {
+    // Sinon, un e-mail authentique de Ruche pourrait mener vers un faux site (« open redirect »).
+    const res = await ctx.request('/api/auth/sign-up/email', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ...lea, callbackURL: 'https://evil.example/phishing' }),
+    })
+
+    expect(res.ok).toBe(false)
+    expect(ctx.mailer.sent).toHaveLength(0)
+  })
+
   it('verifies the address and signs the member in when the link is opened', async () => {
     const cookies = await signUpAndVerify()
 
@@ -189,6 +201,25 @@ describe('deleting my account', () => {
     expect(await ctx.db.select().from(schema.user)).toHaveLength(0)
     expect(await ctx.db.select().from(schema.session)).toHaveLength(0)
     expect((await ctx.signIn(lea)).status).toBe(401)
+  })
+
+  it('refuses a deletion request sent from another website (CSRF)', async () => {
+    // Un site piégé ouvert dans le même navigateur enverrait le cookie de session avec sa requête.
+    // L'en-tête Origin trahit sa provenance : la demande est refusée.
+    const cookies = await signUpAndVerify()
+
+    const res = await ctx.request('/api/auth/delete-user', {
+      method: 'POST',
+      headers: {
+        cookie: cookies,
+        origin: 'https://evil.example',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ password: lea.password }),
+    })
+
+    expect(res.status).toBe(403)
+    expect(await ctx.db.select().from(schema.user)).toHaveLength(1)
   })
 
   it('keeps the account when the password is wrong', async () => {
