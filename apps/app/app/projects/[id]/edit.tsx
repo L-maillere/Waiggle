@@ -1,6 +1,6 @@
 // Page : modifier un projet (« /projects/<id>/edit »).
 import { useLocalSearchParams } from 'expo-router'
-import { firstParam } from '../../../src/navigation'
+import { firstParam } from '../../../src/navigation/params'
 import { ProjectFormScreen } from '../../../src/screens/ProjectFormScreen'
 
 export default function EditProjectPage() {

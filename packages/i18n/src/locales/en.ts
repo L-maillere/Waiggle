@@ -13,17 +13,25 @@ export const en: Translation = {
     crashed: 'This page could not be displayed.',
     retry: 'Try again',
     back: 'Back',
+    cancel: 'Cancel',
+    showPassword: 'Show password',
+    hidePassword: 'Hide password',
   },
   home: {
     title: 'Welcome to {{appName}}',
-    tagline:
-      'Share your AI projects, try the ones your friends and family build, and keep each other going.',
+    tagline: 'Show the people close to you what you build with AI.',
     comingSoon: 'The feed is coming soon.',
+    comingSoonBody:
+      'It will show the projects of the people close to you. Meanwhile, publish yours: it will be ready for them.',
     greeting: 'Hi {{name}}!',
     signUp: 'Create an account',
     signIn: 'Sign in',
+    haveAccount: 'I already have an account',
     account: 'My account',
     publish: 'Publish a project',
+    membersOnly: 'Everything stays between members: nothing is visible without an account.',
+    openSource: '{{appName}} is free software.',
+    seeCode: 'See the code',
   },
   auth: {
     fields: {
@@ -31,20 +39,30 @@ export const en: Translation = {
       email: 'Email address',
       password: 'Password',
       passwordHint: 'At least {{min}} characters.',
+      passwordMin: '{{min}} characters minimum',
+    },
+    passwordMeter: {
+      remaining_one: '{{count}} more character',
+      remaining_other: '{{count}} more characters',
+      done: 'Good, your password is long enough.',
     },
     signUp: {
-      title: 'Create an account',
+      title: 'Create your account',
+      subtitle: 'The people close to you will know you by your display name.',
       submit: 'Create my account',
-      switch: 'Already have an account? Sign in',
+      haveAccount: 'I already have an account',
     },
     signIn: {
-      title: 'Sign in',
+      title: 'Welcome back',
+      subtitle: 'Sign in to find the projects of the people close to you.',
       submit: 'Sign in',
-      switch: 'No account yet? Create one',
+      noAccount: 'No account yet?',
+      createOne: 'Create an account',
     },
     checkEmail: {
       title: 'Check your inbox',
       body: 'We sent a link to {{email}}. Click it to activate your account.',
+      locked: 'Until you open this link, you cannot sign in.',
       back: 'Back to sign in',
     },
     verified: {

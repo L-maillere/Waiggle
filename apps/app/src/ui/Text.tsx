@@ -42,6 +42,10 @@ export type TextProps = {
   align?: 'left' | 'center' | 'right'
   /** Chiffres de même largeur, pour que les compteurs ne bougent pas quand ils changent. */
   tabular?: boolean
+  /** Souligné (liens). */
+  underline?: boolean
+  /** Agrandissement maximal avec le réglage de taille de l'appareil (2 par défaut). */
+  maxScale?: number
 } & Pick<
   NativeTextProps,
   | 'numberOfLines'
@@ -61,6 +65,8 @@ export function Text({
   weight,
   align,
   tabular = false,
+  underline = false,
+  maxScale = maxTextScale,
   ...rest
 }: TextProps) {
   const { colors } = useTheme()
@@ -68,7 +74,7 @@ export function Text({
   return (
     <NativeText
       // Les textes grandissent avec le réglage de taille de l'appareil, jusqu'à deux fois leur taille.
-      maxFontSizeMultiplier={maxTextScale}
+      maxFontSizeMultiplier={maxScale}
       style={{
         fontFamily: fontName(style.family, weight ?? style.weight),
         // La graisse est déjà dans le fichier de police : on n'en redemande pas une au système,
@@ -82,6 +88,7 @@ export function Text({
         // « ...(condition ? {…} : null) » n'ajoute la propriété que si elle a une valeur.
         ...(align ? { textAlign: align } : null),
         ...(tabular ? { fontVariant: ['tabular-nums'] as const } : null),
+        ...(underline ? { textDecorationLine: 'underline' as const } : null),
       }}
       {...rest}
     >

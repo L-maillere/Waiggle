@@ -1,7 +1,7 @@
 // Page : un projet (« /projects/<id> »). [id] dans le nom du dossier : cette partie de l'adresse
 // est variable, et useLocalSearchParams la lit.
 import { useLocalSearchParams } from 'expo-router'
-import { firstParam } from '../../../src/navigation'
+import { firstParam } from '../../../src/navigation/params'
 import { ProjectScreen } from '../../../src/screens/ProjectScreen'
 
 export default function ProjectPage() {

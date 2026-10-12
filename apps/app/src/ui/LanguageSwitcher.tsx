@@ -7,7 +7,12 @@ import { updateProfile } from '../profile/api'
 import { useSetMe } from '../profile/hooks'
 import { Segmented } from './Segmented'
 
-export function LanguageSwitcher() {
+type Props = {
+  /** compact : « FR / EN », pour un coin d'écran ; sinon les noms complets. */
+  compact?: boolean
+}
+
+export function LanguageSwitcher({ compact = false }: Props) {
   const { t, i18n } = useTranslation()
   const { data: session } = useSession()
   const setMe = useSetMe()
@@ -28,10 +33,13 @@ export function LanguageSwitcher() {
       // .map() transforme chaque langue en option du contrôle
       options={supportedLanguages.map((language) => ({
         value: language,
-        label: t(`common.languages.${language}`),
+        // En version compacte, on affiche le code (« FR ») mais on lit le nom (« Français »).
+        label: compact ? language.toUpperCase() : t(`common.languages.${language}`),
+        spokenLabel: t(`common.languages.${language}`),
       }))}
       value={i18n.language as Language}
       onChange={(language) => void choose(language)}
+      fill={!compact}
     />
   )
 }
