@@ -177,11 +177,13 @@ function ProfileForm({ me }: { me: Me }) {
           onPress={onChangeAvatar}
           loading={busy === 'avatar'}
         />
-        <Row gap="sm" justify="center">
-          <Icon name="shield-check" size={16} tone="amber" />
-          <Text variant="caption" tone="muted" align="center">
-            {t('profile.avatar.privacy')}
-          </Text>
+        <Row gap="sm" align="start">
+          <Icon name="shield-check" size={18} tone="amber" />
+          <Stack grow>
+            <Text variant="caption" tone="muted">
+              {t('profile.avatar.privacy')}
+            </Text>
+          </Stack>
         </Row>
       </Stack>
 

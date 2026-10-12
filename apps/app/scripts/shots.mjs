@@ -121,10 +121,17 @@ const pages = [
   { name: 'quitter', path: '/out?url=https%3A%2F%2Frecettes.vercel.app', signedIn: false },
   { name: 'accueil-connecte', path: '/', signedIn: true },
   { name: 'compte', path: '/account', signedIn: true, fullPage: true },
+  { name: 'supprimer-compte', path: '/account/delete', signedIn: true, fullPage: true },
   { name: 'profil', path: '/profile', signedIn: true, fullPage: true },
   { name: 'publier', path: '/projects/new', signedIn: true, fullPage: true },
   { name: 'projet', path: project, signedIn: true, fullPage: true },
   { name: 'modifier', path: `${project}/edit`, signedIn: true, fullPage: true },
+  // Un projet qui n'existe pas (ou privé) : l'API simulée répond « introuvable ».
+  {
+    name: 'projet-introuvable',
+    path: '/projects/00000000-0000-4000-8000-000000000000',
+    signedIn: true,
+  },
 ]
 const devices = [
   { name: 'telephone', viewport: { width: 390, height: 844 } },

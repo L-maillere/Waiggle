@@ -6,6 +6,8 @@ import { mockSession, renderWithProviders } from '../testing/render'
 import { ProjectFormScreen } from './ProjectFormScreen'
 
 jest.mock('../accounts/api', () => ({ useSession: jest.fn() }))
+// La barre de navigation (ordinateur) lit le profil pour l'avatar : on remplace l'appel.
+jest.mock('../profile/api', () => ({ getMe: jest.fn() }))
 jest.mock('../projects/api', () => ({
   getProject: jest.fn(),
   createProject: jest.fn(),
@@ -32,11 +34,15 @@ describe('ProjectFormScreen, publishing', () => {
     await fireEvent.changeText(screen.getByLabelText('Titre'), 'Mon agent de recettes')
     await fireEvent.changeText(screen.getByLabelText('Le pitch, en une phrase'), 'Un menu malin.')
     await fireEvent.press(screen.getByRole('radio', { name: 'Testable' }))
-    await fireEvent.press(screen.getByRole('radio', { name: 'Moi seulement' }))
+    // Public par défaut : on le passe en privé.
+    await fireEvent.press(screen.getByRole('switch', { name: 'Public' }))
     await fireEvent.changeText(
       screen.getByLabelText('Lien de démo (facultatif)'),
       'https://recettes.vercel.app',
     )
+    expect(screen.getByText('C’est bon : un site public en https.')).toBeTruthy()
+    // La recette est repliée au départ.
+    await fireEvent.press(screen.getByRole('button', { name: 'Ajouter la recette' }))
     await fireEvent.changeText(
       screen.getByLabelText('Outils et modèles utilisés'),
       'Claude, Cursor',
@@ -78,6 +84,7 @@ describe('ProjectFormScreen, publishing', () => {
   it('removes a prompt that was added by mistake', async () => {
     await renderWithProviders(<ProjectFormScreen />)
 
+    await fireEvent.press(screen.getByRole('button', { name: 'Ajouter la recette' }))
     await fireEvent.press(screen.getByRole('button', { name: 'Ajouter un prompt' }))
     await fireEvent.press(screen.getByRole('button', { name: 'Retirer le prompt 1' }))
 
@@ -109,7 +116,8 @@ describe('ProjectFormScreen, editing', () => {
       await screen.findByDisplayValue('Mon agent de recettes'),
       'Nouveau titre',
     )
-    expect(screen.getByDisplayValue('Claude Code, Cursor')).toBeTruthy()
+    // La recette existante est dépliée, avec ses outils en pastilles.
+    expect(screen.getByRole('button', { name: 'Retirer Claude Code' })).toBeTruthy()
     await fireEvent.press(screen.getByRole('button', { name: 'Enregistrer' }))
 
     expect(updateProject).toHaveBeenCalledWith(

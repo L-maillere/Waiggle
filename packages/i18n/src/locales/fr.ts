@@ -154,7 +154,8 @@ export const fr = {
   },
   project: {
     new: {
-      title: 'Publier un projet',
+      title: 'Nouveau projet',
+      subtitle: 'Montre à tes proches ce que tu construis. Tu pourras tout modifier ensuite.',
       submit: 'Publier',
     },
     edit: {
@@ -164,15 +165,19 @@ export const fr = {
     fields: {
       title: 'Titre',
       pitch: 'Le pitch, en une phrase',
-      pitchCounter: '{{count}} / {{max}}',
       description: 'Description',
       descriptionHint: 'Mise en forme Markdown : **gras**, *italique*, listes, [liens](https://…).',
       status: 'Où en est-il ?',
-      visibility: 'Qui peut le voir ?',
+      public: 'Public',
+      publicHint: 'Visible par les membres connectés. En privé, il te sert de brouillon.',
       demoUrl: 'Lien de démo (facultatif)',
       demoUrlHint: 'Une adresse https, par exemple https://mon-projet.vercel.app',
+      demoUrlOk: 'C’est bon : un site public en https.',
+      recipe: 'Ajouter la recette',
+      recipeHint: 'Outils, temps passé, prompts clés : facultatif',
       tools: 'Outils et modèles utilisés',
-      toolsHint: 'Sépare-les par des virgules ({{max}} au plus).',
+      toolsLimit: '{{max}} au plus',
+      toolsPlaceholder: 'Ajouter un outil ou un modèle',
       timeSpent: 'Temps passé',
       prompts: 'Prompts clés (facultatif)',
       promptsHint: '{{max}} au plus. Ils sont affichés tels quels.',
@@ -187,10 +192,6 @@ export const fr = {
       done: 'Terminé',
       paused: 'En pause',
     },
-    visibility: {
-      public: 'Les membres de {{appName}}',
-      private: 'Moi seulement',
-    },
     timeSpent: {
       unknown: 'Non précisé',
       hour: 'Moins d’une heure',
@@ -199,8 +200,17 @@ export const fr = {
       weeks: 'Quelques semaines',
       months: 'Plusieurs mois',
     },
+    preview: {
+      title: 'Aperçu dans le fil',
+      hint: 'Il suit ce que tu écris.',
+      now: 'à l’instant',
+      untitled: 'Ton projet',
+      noPitch: 'Ton pitch apparaîtra ici.',
+    },
     page: {
-      by: 'par {{name}}',
+      published: 'publié le {{date}}',
+      external: '{{host}}, un site hors de {{appName}}',
+      description: 'Description',
       private: 'Privé : visible par toi seulement',
       tryDemo: 'Tester la démo',
       noDemo: 'Pas encore de démo',
@@ -210,10 +220,13 @@ export const fr = {
       prompts: 'Prompts clés',
       edit: 'Modifier',
       delete: 'Supprimer',
-      deleteConfirm: 'Supprimer définitivement ce projet ? Cette action ne peut pas être annulée.',
-      deleteConfirmButton: 'Oui, supprimer',
-      cancel: 'Annuler',
-      notFound: 'Ce projet n’existe pas, ou il est privé.',
+      deleteTitle: 'Supprimer « {{title}} » ?',
+      deleteConfirm:
+        'Le projet, sa description et sa recette disparaissent tout de suite. Impossible de revenir en arrière.',
+      deleteConfirmButton: 'Supprimer le projet',
+      notFoundTitle: 'Ce projet est introuvable',
+      notFound: 'Il a peut-être été supprimé, ou le lien est incorrect.',
+      home: 'Retour à l’accueil',
       notMine: 'Seul l’auteur peut modifier ce projet.',
     },
     errors: {
@@ -236,6 +249,7 @@ export const fr = {
     title: 'Tu quittes {{appName}}',
     body: 'Ce lien mène vers un autre site. {{appName}} ne vérifie pas son contenu : n’y entre pas d’informations personnelles si tu as un doute.',
     destination: 'Destination',
+    safety: 'Ce site n’est pas sur {{appName}}. N’y saisis jamais ton mot de passe {{appName}}.',
     continue: 'Continuer vers {{host}}',
     back: 'Revenir',
     invalid:

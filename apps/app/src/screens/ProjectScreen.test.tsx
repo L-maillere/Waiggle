@@ -7,6 +7,8 @@ import { mockSession, renderWithProviders } from '../testing/render'
 import { ProjectScreen } from './ProjectScreen'
 
 jest.mock('../accounts/api', () => ({ useSession: jest.fn() }))
+// La barre de navigation (ordinateur) lit le profil pour l'avatar : on remplace l'appel.
+jest.mock('../profile/api', () => ({ getMe: jest.fn() }))
 jest.mock('../projects/api', () => ({ getProject: jest.fn(), deleteProject: jest.fn() }))
 const mockPush = jest.fn()
 const mockReplace = jest.fn()
@@ -30,7 +32,7 @@ describe('ProjectScreen', () => {
 
     expect(await screen.findByRole('header', { name: 'Mon agent de recettes' })).toBeTruthy()
     expect(screen.getByText('Un menu avec ce qu’il y a au frigo.')).toBeTruthy()
-    expect(screen.getByText('par Léa')).toBeTruthy()
+    expect(screen.getByText('Léa')).toBeTruthy()
     expect(screen.getByText('Testable')).toBeTruthy()
     expect(screen.getByRole('header', { name: 'Comment ça marche' })).toBeTruthy() // la description
     expect(screen.getByText('Claude Code')).toBeTruthy()
@@ -87,7 +89,7 @@ describe('ProjectScreen', () => {
 
     await fireEvent.press(await screen.findByRole('button', { name: 'Supprimer' }))
     expect(deleteProject).not.toHaveBeenCalled() // il faut d'abord confirmer
-    await fireEvent.press(screen.getByRole('button', { name: 'Oui, supprimer' }))
+    await fireEvent.press(screen.getByRole('button', { name: 'Supprimer le projet' }))
 
     expect(deleteProject).toHaveBeenCalledWith(id)
     expect(mockReplace).toHaveBeenCalledWith('/')
@@ -97,7 +99,7 @@ describe('ProjectScreen', () => {
     jest.mocked(getProject).mockRejectedValue(new ApiError('notFound'))
     await renderWithProviders(<ProjectScreen id={id} />)
 
-    expect(await screen.findByText('Ce projet n’existe pas, ou il est privé.')).toBeTruthy()
+    expect(await screen.findByRole('header', { name: 'Ce projet est introuvable' })).toBeTruthy()
   })
 
   it('asks a visitor to sign in', async () => {
