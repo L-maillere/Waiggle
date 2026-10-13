@@ -13,7 +13,7 @@ describe('createBrevoMailer', () => {
     }
     const mailer = createBrevoMailer({
       apiKey: 'test-key',
-      from: { email: 'no-reply@ruche.app', name: 'Ruche' },
+      from: { email: 'no-reply@waiggle.io', name: 'Ruche' },
       fetch: fakeFetch,
     })
 
@@ -24,7 +24,7 @@ describe('createBrevoMailer', () => {
     const headers = new Headers(calls[0]?.init.headers)
     expect(headers.get('api-key')).toBe('test-key')
     expect(JSON.parse(String(calls[0]?.init.body))).toEqual({
-      sender: { email: 'no-reply@ruche.app', name: 'Ruche' },
+      sender: { email: 'no-reply@waiggle.io', name: 'Ruche' },
       to: [{ email: 'lea@example.com' }],
       subject: 'Sujet',
       textContent: 'Texte',
@@ -35,7 +35,7 @@ describe('createBrevoMailer', () => {
   it('fails loudly when Brevo refuses the email', async () => {
     const mailer = createBrevoMailer({
       apiKey: 'bad-key',
-      from: { email: 'no-reply@ruche.app', name: 'Ruche' },
+      from: { email: 'no-reply@waiggle.io', name: 'Ruche' },
       fetch: async () => new Response('unauthorized', { status: 401 }),
     })
 

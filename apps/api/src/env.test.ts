@@ -1,18 +1,23 @@
+import { randomBytes } from 'node:crypto'
 import { appName } from '@ruche/brand'
 import { describe, expect, it } from 'vitest'
 import { loadEnv } from './env'
+
+// Un code d'invitation tiré au hasard à chaque lancement des tests, comme sur le serveur : aucun
+// code qui ressemble à un vrai n'est écrit dans le dépôt.
+const inviteCode = randomBytes(8).toString('hex')
 
 // On passe de fausses variables d'environnement à loadEnv : pas besoin de toucher au vrai système.
 const production = {
   NODE_ENV: 'production',
   DATABASE_URL: 'postgres://ruche:secret@db:5432/ruche',
   BETTER_AUTH_SECRET: 'a'.repeat(32),
-  PUBLIC_API_URL: 'https://api.ruche.app',
-  APP_URL: 'https://ruche.app',
+  PUBLIC_API_URL: 'https://api.waiggle.io',
+  APP_URL: 'https://waiggle.io',
   MAIL_PROVIDER: 'brevo',
   BREVO_API_KEY: 'key',
-  MAIL_FROM_EMAIL: 'no-reply@ruche.app',
-  SIGNUP_INVITE_CODE: 'f3a9c2e17b4d8a06',
+  MAIL_FROM_EMAIL: 'no-reply@waiggle.io',
+  SIGNUP_INVITE_CODE: inviteCode,
 }
 
 describe('loadEnv', () => {
@@ -37,9 +42,9 @@ describe('loadEnv', () => {
       mail: {
         provider: 'brevo',
         apiKey: 'key',
-        from: { email: 'no-reply@ruche.app', name: appName },
+        from: { email: 'no-reply@waiggle.io', name: appName },
       },
-      inviteCode: 'f3a9c2e17b4d8a06',
+      inviteCode,
     })
   })
 

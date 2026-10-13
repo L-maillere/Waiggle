@@ -15,7 +15,7 @@ export const shortDate = (iso: string, language: string, now = new Date()): stri
   }).format(date)
 }
 
-/** Le nom du site d'une adresse : « https://carnet.vercel.app/demo » → « carnet.vercel.app ». */
+/** Le nom du site d'une adresse : « https://carnet.example.com/demo » → « carnet.example.com ». */
 export const hostOf = (url: string): string => {
   try {
     return new URL(url).host

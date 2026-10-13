@@ -43,7 +43,11 @@ describe('toProjectChanges', () => {
   })
 
   it('refuses a demo link that is not a public https address', () => {
-    for (const demoUrl of ['http://site.fr', 'https://192.168.1.2', 'recettes.app']) {
+    for (const demoUrl of [
+      'http://site.example.org',
+      'https://192.168.1.2',
+      'recettes.example.net',
+    ]) {
       expect(toProjectChanges({ ...filled, demoUrl })).toEqual({
         ok: false,
         errors: { demoUrl: 'demoUrlInvalid' },
@@ -89,7 +93,7 @@ describe('formFromProject', () => {
       description: '## Comment ça marche\n\nOn **photographie** le frigo.',
       status: 'testable',
       visibility: 'public',
-      demoUrl: 'https://recettes.vercel.app',
+      demoUrl: 'https://recettes.example.com',
       tools: 'Claude Code, Cursor',
       timeSpent: 'weekend',
       prompts: ['Propose trois recettes avec : {ingrédients}'],

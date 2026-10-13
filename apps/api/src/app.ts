@@ -67,7 +67,7 @@ export const createApp = ({ version, auth, db, storage, appUrl, publicApiUrl }: 
   // Un « middleware » est une fonction exécutée pour chaque requête, avant (et après) la route.
   // secureHeaders ajoute des en-têtes de sécurité standards : interdiction d'afficher le site
   // dans une iframe étrangère, obligation du HTTPS, etc. « same-site » laisse l'appli web
-  // (ruche.app) lire les réponses de l'API (api.ruche.app), qui est sur le même site.
+  // (waiggle.io) lire les réponses de l'API (api.waiggle.io), qui est sur le même site.
   app.use(secureHeaders({ crossOriginResourcePolicy: 'same-site' }))
 
   // Middleware maison : détermine la langue de la requête et l'annonce dans la réponse.

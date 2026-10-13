@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { existingAccountEmail, verificationEmail } from './templates'
 
 describe('verificationEmail', () => {
-  const url = 'https://api.ruche.app/api/auth/verify-email?token=abc'
+  const url = 'https://api.waiggle.io/api/auth/verify-email?token=abc'
 
   it('is written in French, with the link in the text and in the button', () => {
     const email = verificationEmail('fr', { name: 'Léa', url })
@@ -31,7 +31,7 @@ describe('verificationEmail', () => {
 
 describe('existingAccountEmail', () => {
   it('tells the owner someone tried to sign up, and points to sign-in', () => {
-    const signInUrl = 'https://ruche.app/sign-in'
+    const signInUrl = 'https://waiggle.io/sign-in'
     const email = existingAccountEmail('fr', { name: 'Léa', signInUrl })
 
     expect(email.subject).toBe(`Tentative d’inscription sur ${appName}`)

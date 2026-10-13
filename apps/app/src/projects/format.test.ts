@@ -14,6 +14,6 @@ describe('shortDate', () => {
 
 describe('hostOf', () => {
   it('keeps only the name of the website', () => {
-    expect(hostOf('https://carnet-cafes.vercel.app/demo?x=1')).toBe('carnet-cafes.vercel.app')
+    expect(hostOf('https://carnet-cafes.example.com/demo?x=1')).toBe('carnet-cafes.example.com')
   })
 })

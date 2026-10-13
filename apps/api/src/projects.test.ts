@@ -69,7 +69,7 @@ describe('publishing a project', () => {
       ...recipes,
       description: '## Comment ça marche\n\nOn **photographie** le frigo.',
       status: 'testable',
-      demoUrl: 'https://recettes.vercel.app',
+      demoUrl: 'https://recettes.example.com',
       tools: ['Claude Code', 'claude-code', 'Éclair 2.0'],
       timeSpent: 'weekend',
       prompts: ['Propose trois recettes avec : {ingrédients}'],
@@ -77,7 +77,7 @@ describe('publishing a project', () => {
 
     expect(project).toMatchObject({
       status: 'testable',
-      demoUrl: 'https://recettes.vercel.app/', // enregistrée sous sa forme standard
+      demoUrl: 'https://recettes.example.com/', // enregistrée sous sa forme standard
       // « claude-code » est la même étiquette que « Claude Code » : gardée une seule fois.
       tools: [
         { label: 'Claude Code', slug: 'claude-code' },
@@ -117,7 +117,11 @@ describe('publishing a project', () => {
   })
 
   it('refuses a demo link that is not a public https address', async () => {
-    for (const demoUrl of ['http://recettes.app', 'https://192.168.1.10', 'https://nas.local']) {
+    for (const demoUrl of [
+      'http://recettes.example.net',
+      'https://192.168.1.10',
+      'https://nas.local',
+    ]) {
       const res = await send('POST', '/v1/projects', lea, { ...recipes, demoUrl })
       expect(res.status, demoUrl).toBe(400)
     }
@@ -204,7 +208,7 @@ describe('changing a project', () => {
 
     const res = await send('PATCH', `/v1/projects/${id}`, lea, {
       status: 'testable',
-      demoUrl: 'https://recettes.vercel.app',
+      demoUrl: 'https://recettes.example.com',
       visibility: 'private',
     })
 
@@ -212,13 +216,13 @@ describe('changing a project', () => {
     expect(Project.parse(await res.json())).toMatchObject({
       title: recipes.title, // non envoyé : inchangé
       status: 'testable',
-      demoUrl: 'https://recettes.vercel.app/',
+      demoUrl: 'https://recettes.example.com/',
       visibility: 'private',
     })
   })
 
   it('lets the author remove the demo link', async () => {
-    const { id } = await publish({ ...recipes, demoUrl: 'https://recettes.vercel.app' })
+    const { id } = await publish({ ...recipes, demoUrl: 'https://recettes.example.com' })
 
     const res = await send('PATCH', `/v1/projects/${id}`, lea, { demoUrl: null })
 

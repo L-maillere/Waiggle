@@ -69,12 +69,12 @@ describe('DemoUrl', () => {
   const accepted = (url: string) => DemoUrl.safeParse(url).success
 
   it('accepts a public https address', () => {
-    expect(accepted('https://mon-agent.vercel.app')).toBe(true)
-    expect(accepted('https://huggingface.co/spaces/lea/recettes?lang=fr')).toBe(true)
+    expect(accepted('https://mon-agent.example.com')).toBe(true)
+    expect(accepted('https://demos.example.org/lea/recettes?lang=fr')).toBe(true)
   })
 
   it('refuses anything but https', () => {
-    expect(accepted('http://mon-agent.vercel.app')).toBe(false)
+    expect(accepted('http://mon-agent.example.com')).toBe(false)
     expect(accepted('javascript:alert(1)')).toBe(false)
     expect(accepted('ftp://example.com/demo')).toBe(false)
     expect(accepted('pas une adresse')).toBe(false)
@@ -110,8 +110,8 @@ describe('DemoUrl', () => {
   })
 
   it('refuses an address that hides a login, often used to disguise the real site', () => {
-    // « https://ruche.app@pirate.example » mène en réalité à pirate.example.
-    expect(accepted('https://ruche.app@pirate.example')).toBe(false)
+    // « https://waiggle.io@pirate.example » mène en réalité à pirate.example.
+    expect(accepted('https://waiggle.io@pirate.example')).toBe(false)
   })
 })
 
@@ -119,7 +119,7 @@ describe('DemoUrl, normalized and hardened', () => {
   const accepted = (url: string) => DemoUrl.safeParse(url).success
 
   it('stores the address in its standard form', () => {
-    expect(DemoUrl.parse('https://Mon-Agent.Vercel.app')).toBe('https://mon-agent.vercel.app/')
+    expect(DemoUrl.parse('https://Mon-Agent.Example.com')).toBe('https://mon-agent.example.com/')
     // Un nom écrit avec un « а » cyrillique est enregistré sous sa forme réelle, en « xn-- ».
     expect(DemoUrl.parse('https://\u0430pple.com/login')).toBe('https://xn--pple-43d.com/login')
   })
