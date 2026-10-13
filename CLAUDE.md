@@ -50,7 +50,8 @@ Chaque fonctionnalité est une tranche verticale, dans cet ordre :
 4. **Le backend**, jusqu'au vert.
 5. **L'interface**, puis son test.
 6. **`pnpm check`** vert, puis l'agent `security-reviewer` sur la branche.
-7. Une branche et une pull request par fonctionnalité. **Rien n'est fusionné sans relecture de Louis.**
+7. **Le bilan pour Louis**, selon ses consignes personnelles, gardées hors du dépôt.
+8. Une branche et une pull request par fonctionnalité. **Rien n'est fusionné sans relecture de Louis.**
 
 Commence toute fonctionnalité non triviale en mode plan. Si un scénario est ambigu, pose la question
 plutôt que d'inventer une règle métier.
