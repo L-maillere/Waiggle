@@ -18,7 +18,9 @@ export RUCHE_REPO
 # shellcheck source=infra/lib.sh
 source "$RUCHE_REPO/infra/lib.sh"
 
-GITHUB_REPO=L-maillere/ruche
+# Le dépôt dont la CI doit avoir signé les images. Il s'appelait « ruche » avant octobre 2026 : les
+# images publiées sous l'ancien nom portent une signature à l'ancien nom, et sont donc refusées.
+GITHUB_REPO=L-maillere/Waiggle
 SSH=${RUCHE_SSH:-ssh}
 HOST=${RUCHE_SSH_HOST:-waiggle}
 

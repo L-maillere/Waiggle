@@ -16,7 +16,7 @@ set -euo pipefail
 # L'empreinte de la clé qui signe les paquets Docker (publiée sur docs.docker.com). On vérifie
 # que la clé téléchargée est bien celle-là avant de lui faire confiance.
 DOCKER_KEY_FINGERPRINT=9DC858229FC7DD38854AE2D88D81803C0EBFCD88
-REPO_URL=https://github.com/L-maillere/ruche.git
+REPO_URL=https://github.com/L-maillere/Waiggle.git
 RUCHE_HOME=/srv/ruche
 
 die() {
