@@ -206,7 +206,7 @@ miel). Ces scénarios valent pour tous les écrans, présents et à venir.
 
 ## Mise en ligne — Inscription sur invitation
 
-Statut : **à valider par Louis**.
+Statut : **validé par Louis** le 13/10/2026 (avec le plan de mise en ligne).
 
 L'appli est en ligne sur waiggle.io. Pour rester entre proches, il faut un code d'invitation pour
 créer un compte. Louis le choisit et le donne à qui il veut.
