@@ -53,7 +53,7 @@ members() {
 sign_up() {
   web -f -o /dev/null -X POST https://api.localhost/api/auth/sign-up/email \
     -H 'Content-Type: application/json' -H 'Origin: https://localhost' \
-    -d "{\"name\":\"Essai\",\"email\":\"$1\",\"password\":\"stack-test-password\"}"
+    -d "{\"name\":\"Essai\",\"email\":\"$1\",\"password\":\"stack-test-password\",\"inviteCode\":\"$INVITE_CODE\"}"
   sleep 1
   local link
   link=$(compose logs api 2>&1 | grep -o 'https://api.localhost/api/auth/verify-email[^ ]*' | tail -1)
@@ -64,8 +64,10 @@ sign_up() {
 step "Préparation : adresses locales, secrets tirés au hasard"
 printf 'APP_DOMAIN=localhost\nAPI_DOMAIN=api.localhost\nIMAGE_PREFIX=ruche-stack-test\n' >"$RUCHE_SITE_ENV"
 # Le même modèle et les mêmes commandes que infra/server/bootstrap.sh sur le serveur.
+INVITE_CODE=$(openssl rand -hex 8)
 sed -e "s/^POSTGRES_PASSWORD=\$/POSTGRES_PASSWORD=$(openssl rand -hex 32)/" \
   -e "s/^BETTER_AUTH_SECRET=\$/BETTER_AUTH_SECRET=$(openssl rand -hex 32)/" \
+  -e "s/^SIGNUP_INVITE_CODE=\$/SIGNUP_INVITE_CODE=$INVITE_CODE/" \
   infra/.env.example >"$RUCHE_SECRETS"
 printf 'RUCHE_VERSION=stack-test\n' >"$RUCHE_DEPLOYED"
 

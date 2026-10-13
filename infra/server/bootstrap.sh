@@ -276,11 +276,14 @@ EOF
   if [ -f "$secrets" ]; then
     echo "existe déjà : on n'y touche pas"
   else
-    # Le modèle du dépôt, avec deux secrets tirés au hasard ici même. Ils ne quittent jamais le
-    # serveur et ne sont jamais affichés. Les autres (Brevo…) se remplissent à la main ensuite.
+    # Le modèle du dépôt, avec trois valeurs tirées au hasard ici même : le mot de passe de la
+    # base, la clé des sessions et le code d'invitation. Les deux premiers ne quittent jamais le
+    # serveur et ne sont jamais affichés ; le code, on le lit sur le serveur pour le donner à ses
+    # proches. La clé Brevo se remplit à la main ensuite.
     install -m 600 -o "$name" -g "$name" /dev/null "$secrets"
     sed -e "s/^POSTGRES_PASSWORD=\$/POSTGRES_PASSWORD=$(openssl rand -hex 32)/" \
       -e "s/^BETTER_AUTH_SECRET=\$/BETTER_AUTH_SECRET=$(openssl rand -hex 32)/" \
+      -e "s/^SIGNUP_INVITE_CODE=\$/SIGNUP_INVITE_CODE=$(openssl rand -hex 8)/" \
       "$RUCHE_HOME/repo/infra/.env.example" >"$secrets"
     echo "créé (secrets générés, à compléter : voir docs/ops/serveur.md)"
   fi
