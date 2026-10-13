@@ -35,8 +35,9 @@ trap cleanup EXIT
 # GitHub Actions), puis on montre l'état des conteneurs pour comprendre.
 on_error() {
   printf '::error::stack-test.sh, ligne %s : %s\n' "$1" "$2"
-  compose ps -a 2>/dev/null || true
-  compose logs --tail 30 2>/dev/null || true
+  # L'état des conteneurs et la fin de leurs logs, en annotations (lisibles sans ouvrir les logs).
+  { compose ps -a --format '{{.Service}} {{.State}} {{.Status}}'; compose logs --no-log-prefix --tail 8 web api; } 2>&1 |
+    head -40 | sed 's/^/::warning::/' || true
 }
 trap 'on_error "$LINENO" "$BASH_COMMAND"' ERR
 

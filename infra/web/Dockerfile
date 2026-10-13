@@ -42,6 +42,10 @@ COPY --from=build /repo/apps/app/dist /srv/app
 # en cas de faille, il ne pourrait pas les modifier. -S : utilisateur « système », sans mot de
 # passe ni shell de connexion.
 RUN addgroup -S caddy && adduser -S -D -H -G caddy caddy && chown -R caddy:caddy /data /config
+# Le programme caddy de l'image officielle porte un « pouvoir de fichier » (ouvrir les ports 80
+# et 443). Avec no-new-privileges, Linux refuse de lancer un tel programme pour un utilisateur
+# ordinaire : on le lui retire. Les ports sont ouverts autrement (docker-compose.yml, sysctls).
+RUN apk add --no-cache libcap && setcap -r /usr/bin/caddy && apk del libcap
 USER caddy
 # Refuse de construire une image dont le Caddyfile contient une erreur.
 RUN caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
