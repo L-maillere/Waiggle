@@ -36,6 +36,7 @@ for _ in $(seq 1 60); do docker exec smoke-db pg_isready -U ruche -d ruche >/dev
 step "API, avec les mêmes protections que dans infra/docker-compose.yml"
 docker run -d --name smoke-api --network smoke -p 3000:3000 \
   --read-only --tmpfs /tmp --memory 1g -v smoke-media:/app/media \
+  --cap-drop ALL --security-opt no-new-privileges \
   -e DATABASE_URL=postgres://ruche:smoke@smoke-db:5432/ruche \
   -e BETTER_AUTH_SECRET="$(openssl rand -base64 32)" \
   -e PUBLIC_API_URL=$API -e APP_URL=$APP \

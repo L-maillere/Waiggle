@@ -1,0 +1,10 @@
+# Fins de ligne. Sous Windows, Git peut transformer les fins de ligne Unix (LF) en fins de ligne
+# Windows (CRLF). Un script shell en CRLF ne marche plus sur le serveur : on impose LF aux
+# fichiers qui partent sur un serveur Linux, même dans un dépôt cloné sous Windows.
+*.sh text eol=lf
+*.env text eol=lf
+*.env.example text eol=lf
+*.yml text eol=lf
+*.mjs text eol=lf
+Caddyfile text eol=lf
+Dockerfile text eol=lf
