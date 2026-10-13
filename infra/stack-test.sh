@@ -182,7 +182,8 @@ expect "droits de la sauvegarde" "$(stat -c '%a' "$backup.db.dump") $(stat -c '%
 sign_up apres@example.com
 compose exec -T api node -e "require('fs').rmSync('/app/media/avant.txt'); require('fs').writeFileSync('/app/media/apres.txt', 'x')"
 expect "membres après la sauvegarde" "$(members)" 2
-if infra/restore.sh "$backup" 2>/dev/null; then die "la restauration doit exiger une confirmation"; fi
+# GITHUB_ACTIONS vide : ce refus est attendu, il ne doit pas apparaître comme une erreur de la CI.
+if GITHUB_ACTIONS="" infra/restore.sh "$backup" 2>/dev/null; then die "la restauration doit exiger une confirmation"; fi
 infra/restore.sh "$backup" --effacer-les-donnees-actuelles
 expect "membres après la restauration" "$(members)" 1
 compose exec -T api sh -c 'test -f /app/media/avant.txt' || die "avatar sauvegardé absent après restauration"
@@ -206,7 +207,7 @@ publish() {
 }
 api_ref=$(publish api)
 web_ref=$(publish web)
-git init --quiet --bare "$WORK/origin.git"
+git init --quiet --bare --initial-branch=main "$WORK/origin.git"
 # La copie de la CI peut être « superficielle » (sans tout l'historique) : on l'accepte quand même.
 git -C "$WORK/origin.git" config receive.shallowUpdate true
 git push --quiet "$WORK/origin.git" HEAD:refs/heads/main
@@ -227,7 +228,7 @@ for version in "$first" "$second" "$first"; do
 done
 [ -n "$(find "$RUCHE_BACKUPS" -name '*-avant-deploi.db.dump')" ] || die "pas de sauvegarde avant déploiement"
 # Une image d'un autre dépôt d'images : refusée, et la copie du dépôt n'a pas bougé.
-if RUCHE_REPO=$WORK/repo "$WORK/repo/infra/deploy.sh" "$second" "ailleurs.example/ruche-api@${api_ref#*@}" "$web_ref" 2>/dev/null; then
+if GITHUB_ACTIONS="" RUCHE_REPO=$WORK/repo "$WORK/repo/infra/deploy.sh" "$second" "ailleurs.example/ruche-api@${api_ref#*@}" "$web_ref" 2>/dev/null; then
   die "une image d'un autre dépôt a été acceptée"
 fi
 expect "copie du dépôt après un refus" "$(git -C "$WORK/repo" rev-parse HEAD)" "$first"
