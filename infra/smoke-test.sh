@@ -13,6 +13,8 @@ IMAGE=${1:?usage: infra/smoke-test.sh <image>}
 API=http://localhost:3000
 APP=http://localhost:8081 # adresse de l'appli web par défaut, la seule origine autorisée
 WORK=$(mktemp -d)
+# Un code d'invitation tiré au hasard : l'API refuse les codes d'exemple publiés dans le dépôt.
+INVITE=$(openssl rand -hex 8)
 
 cleanup() {
   docker rm -f smoke-api smoke-db >/dev/null 2>&1 || true
@@ -37,7 +39,7 @@ docker run -d --name smoke-api --network smoke -p 3000:3000 \
   -e DATABASE_URL=postgres://ruche:smoke@smoke-db:5432/ruche \
   -e BETTER_AUTH_SECRET="$(openssl rand -base64 32)" \
   -e PUBLIC_API_URL=$API -e APP_URL=$APP \
-  -e SIGNUP_INVITE_CODE=smoke-test-invite-code \
+  -e SIGNUP_INVITE_CODE="$INVITE" \
   "$IMAGE" >/dev/null
 for _ in $(seq 1 60); do curl -fsS $API/health >/dev/null 2>&1 && break; sleep 1; done
 curl -fsS $API/health
@@ -59,7 +61,7 @@ echo "ok"
 step "Inscription, puis lien de vérification (les e-mails sont écrits dans les logs)"
 curl -fsS -o /dev/null -X POST $API/api/auth/sign-up/email \
   -H 'Content-Type: application/json' -H "Origin: $APP" \
-  -d '{"name":"Smoke","email":"smoke@example.com","password":"smoke-test-password","inviteCode":"smoke-test-invite-code"}'
+  -d "{\"name\":\"Smoke\",\"email\":\"smoke@example.com\",\"password\":\"smoke-test-password\",\"inviteCode\":\"$INVITE\"}"
 sleep 1
 LINK=$(docker logs smoke-api 2>&1 | grep -o "$API/api/auth/verify-email[^ ]*" | tail -1)
 curl -fsS -o /dev/null -c "$WORK/cookies" "$LINK"
