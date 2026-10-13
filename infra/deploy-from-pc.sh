@@ -24,8 +24,40 @@ GITHUB_REPO=L-maillere/Waiggle
 SSH=${RUCHE_SSH:-ssh}
 HOST=${RUCHE_SSH_HOST:-waiggle}
 
+# La copie des sauvegardes sur ce PC (infra/offsite/) : une copie trop ancienne veut dire qu'elle
+# ne se fait plus, sans que personne l'ait remarqué. On prévient, sans bloquer le déploiement.
+# Le script de copie note son état dans AppData\Local\Waiggle\etat-copie.txt.
+check_offsite_copy() {
+  # Seulement sous Windows (Git Bash) : cygpath convertit un chemin Windows en chemin Git Bash.
+  [ -n "${LOCALAPPDATA:-}" ] && command -v cygpath >/dev/null || return 0
+  step "Copie des sauvegardes sur ce PC"
+  local state latest outcome limit tomorrow
+  state="$(cygpath -u "$LOCALAPPDATA")/Waiggle/etat-copie.txt"
+  if [ ! -f "$state" ]; then
+    echo "ATTENTION : pas encore installée (docs/ops/serveur.md, « Copie hors du serveur »)"
+    return 0
+  fi
+  # tr -d '\r' : le fichier est écrit sous Windows, avec ses fins de ligne.
+  latest=$(sed -n 's/^derniere=//p' "$state" | tr -d '\r')
+  outcome=$(sed -n 's/^resultat=//p' "$state" | tr -d '\r')
+  limit=$(date -d '3 days ago' +%Y-%m-%d)
+  tomorrow=$(date -d tomorrow +%Y-%m-%d)
+  # Le nom commence par la date de la sauvegarde (2026-10-13_…) : deux dates écrites ainsi se
+  # comparent comme des mots, dans l'ordre alphabétique.
+  if [[ ! ${latest:0:10} =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || [[ ${latest:0:10} < $limit ]]; then
+    echo "ATTENTION : dernière copie « ${latest:-aucune} », plus de 3 jours. Lire journal.txt, dans le dossier des copies."
+  elif [[ ${latest:0:10} > $tomorrow ]]; then
+    echo "ATTENTION : dernière copie datée du futur (« $latest ») : anomalie, prévenir Louis."
+  elif [ "$outcome" != ok ]; then
+    echo "ATTENTION : le dernier passage a échoué (dernière copie : $latest). Lire journal.txt."
+  else
+    echo "ok : dernière copie $latest"
+  fi
+}
+
 main() {
   command -v gh >/dev/null || die "GitHub CLI (gh) introuvable : l'installer, puis « gh auth login »"
+  check_offsite_copy
   local sha=${1:-}
   if [ -z "$sha" ]; then
     sha=$(git ls-remote "https://github.com/$GITHUB_REPO" refs/heads/main | cut -f1)

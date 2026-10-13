@@ -6,6 +6,8 @@
 #   secrets.env    les secrets (mots de passe, clés), lisibles par leur seul propriétaire
 #   deployed.env   la version déployée (RUCHE_VERSION=<numéro de commit>)
 #   backups/       les sauvegardes
+# Et à côté, dans /srv/sauvegardes-chiffrees/copies : les copies chiffrées des sauvegardes, que
+# le PC de Louis vient chercher chaque jour (infra/offsite/).
 # Chaque chemin peut être changé par une variable d'environnement : la CI s'en sert pour tout
 # essayer dans un dossier temporaire (infra/stack-test.sh).
 # shellcheck shell=bash
@@ -16,6 +18,8 @@ RUCHE_SITE_ENV=${RUCHE_SITE_ENV:-$RUCHE_REPO/infra/site.env}
 RUCHE_SECRETS=${RUCHE_SECRETS:-$RUCHE_HOME/secrets.env}
 RUCHE_DEPLOYED=${RUCHE_DEPLOYED:-$RUCHE_HOME/deployed.env}
 RUCHE_BACKUPS=${RUCHE_BACKUPS:-$RUCHE_HOME/backups}
+RUCHE_OFFSITE=${RUCHE_OFFSITE:-/srv/sauvegardes-chiffrees/copies}
+RUCHE_OFFSITE_RECIPIENTS=${RUCHE_OFFSITE_RECIPIENTS:-$RUCHE_REPO/infra/offsite/recipients.txt}
 
 # Arrête le script avec un message clair. Dans GitHub Actions, le message devient aussi une
 # « annotation », visible directement sur la page de la vérification.

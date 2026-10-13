@@ -8,6 +8,8 @@
 #   (vérifier que « ssh louis@<IP> » fonctionne, dans un autre terminal)
 #   ssh root@<IP> 'bash -s -- lock-ssh louis' < infra/server/bootstrap.sh   fermer root et les mots de passe
 #   ssh louis@<IP> 'sudo bash -s -- base louis' < infra/server/bootstrap.sh  pare-feu, Docker, sauvegardes…
+#   ssh louis@<IP> 'sudo bash -s -- offsite louis' < infra/server/bootstrap.sh
+#       le compte qui laisse le PC copier les sauvegardes chiffrées (après le premier déploiement)
 #
 # « bash -s » lit le script sur l'entrée standard : rien n'a besoin d'être copié sur le serveur.
 # Chaque étape peut être relancée sans dégâts : elle ne refait que ce qui manque.
@@ -18,6 +20,14 @@ set -euo pipefail
 DOCKER_KEY_FINGERPRINT=9DC858229FC7DD38854AE2D88D81803C0EBFCD88
 REPO_URL=https://github.com/L-maillere/Waiggle.git
 RUCHE_HOME=/srv/ruche
+# Les réglages du serveur SSH écrits par ce script (étapes lock-ssh et offsite).
+SSH_MAIN_CONF=/etc/ssh/sshd_config.d/00-ruche.conf
+SSH_OFFSITE_CONF=/etc/ssh/sshd_config.d/10-ruche-sauvegarde.conf
+# Le compte qui ne sert qu'à laisser le PC copier les sauvegardes chiffrées (étape offsite), le
+# dossier où il est enfermé, et la liste des clés qui peuvent s'en servir.
+OFFSITE_USER=sauvegarde
+OFFSITE_ROOT=/srv/sauvegardes-chiffrees
+OFFSITE_KEYS=/etc/ssh/ruche-sauvegarde.keys
 
 die() {
   printf 'ÉCHEC : %s\n' "$*" >&2
@@ -117,6 +127,27 @@ user() {
   printf '\nÀ vérifier maintenant, dans un autre terminal : ssh %s@<IP> sudo true\n' "$name"
 }
 
+# Les réglages principaux du serveur SSH. Les étapes lock-ssh et offsite l'écrivent toutes les
+# deux, à l'identique : relancer l'une ne défait pas l'autre. Les fichiers de sshd_config.d sont
+# lus dans l'ordre alphabétique, et pour chaque réglage c'est la PREMIÈRE valeur lue qui compte :
+# « 00- » passe avant ceux de l'hébergeur.
+write_ssh_main_conf() {
+  local name=$1 allowed=$1
+  # AllowUsers : les seuls comptes qui peuvent se connecter. « sauvegarde » n'en fait partie que
+  # si ses limites existent (10-ruche-sauvegarde.conf, étape offsite) : jamais l'un sans l'autre.
+  if [ -f "$SSH_OFFSITE_CONF" ] && id "$OFFSITE_USER" >/dev/null 2>&1; then allowed="$allowed $OFFSITE_USER"; fi
+  cat >"$SSH_MAIN_CONF.new" <<EOF
+# Écrit par infra/server/bootstrap.sh (étapes lock-ssh et offsite). Ne pas modifier à la main.
+PermitRootLogin no
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PubkeyAuthentication yes
+AllowUsers $allowed
+X11Forwarding no
+EOF
+  mv "$SSH_MAIN_CONF.new" "$SSH_MAIN_CONF"
+}
+
 # --- lock-ssh : plus de connexion root, plus de mot de passe -----------------------------------
 lock_ssh() {
   require_root
@@ -131,29 +162,25 @@ lock_ssh() {
     die "/etc/ssh/sshd_config ne lit pas sshd_config.d : réglage à faire à la main"
 
   step "Réglages du serveur SSH"
-  # Les fichiers de sshd_config.d sont lus dans l'ordre alphabétique, et pour chaque réglage
-  # c'est la PREMIÈRE valeur lue qui compte : « 00- » passe avant ceux de l'hébergeur.
-  local conf=/etc/ssh/sshd_config.d/00-ruche.conf
-  cat >"$conf.new" <<EOF
-# Écrit par infra/server/bootstrap.sh (étape lock-ssh). Ne pas modifier à la main.
-PermitRootLogin no
-PasswordAuthentication no
-KbdInteractiveAuthentication no
-PubkeyAuthentication yes
-AllowUsers $name
-X11Forwarding no
-EOF
-  mv "$conf.new" "$conf"
+  # Les réglages d'avant (s'il y en a), mis de côté pour les remettre tels quels au moindre
+  # problème. Les supprimer rendrait la main aux réglages de l'hébergeur (root, mots de passe).
+  if [ -f "$SSH_MAIN_CONF" ]; then cp -p "$SSH_MAIN_CONF" "$SSH_MAIN_CONF.avant"; fi
+  undo_lock_ssh() {
+    if [ -f "$SSH_MAIN_CONF.avant" ]; then mv "$SSH_MAIN_CONF.avant" "$SSH_MAIN_CONF"; else rm -f "$SSH_MAIN_CONF"; fi
+    die "$1 ; les réglages SSH d'avant sont remis, rien n'a été appliqué"
+  }
+  write_ssh_main_conf "$name"
   # sshd -t vérifie toute la configuration avant de l'appliquer.
-  sshd -t || { rm -f "$conf"; die "configuration SSH invalide, rien n'a été appliqué"; }
+  sshd -t || undo_lock_ssh "configuration SSH invalide"
   # sshd -T affiche les réglages réellement en vigueur, après lecture de tous les fichiers.
   local effective
-  effective=$(sshd -T)
+  effective=$(sshd -T) || undo_lock_ssh "sshd -T a échoué"
   for expected in 'permitrootlogin no' 'passwordauthentication no' 'kbdinteractiveauthentication no'; do
-    grep -qx "$expected" <<<"$effective" || { rm -f "$conf"; die "réglage non appliqué : $expected"; }
+    grep -qx "$expected" <<<"$effective" || undo_lock_ssh "réglage non appliqué : $expected"
   done
+  rm -f "$SSH_MAIN_CONF.avant"
   systemctl reload ssh 2>/dev/null || systemctl restart ssh
-  echo "ok : connexion par clé seulement, pour « $name » seulement"
+  echo "ok : connexion par clé seulement, pour « $name » seulement (et « $OFFSITE_USER » s'il existe)"
   printf '\nVérifie maintenant (une session root déjà ouverte reste ouverte, en cas de problème) :\n'
   printf '  ssh %s@<IP> true        doit marcher\n  ssh root@<IP> true       doit être refusé\n' "$name"
 }
@@ -346,10 +373,134 @@ EOF
   printf '\nServeur prêt. Prochaine étape : compléter %s, puis déployer (docs/ops/serveur.md).\n' "$secrets"
 }
 
+# --- offsite : laisser le PC copier les sauvegardes chiffrées ----------------------------------
+# Chaque nuit, backup.sh dépose une copie chiffrée de la sauvegarde dans $OFFSITE_ROOT/copies
+# (infra/offsite/export.sh). Le PC de Louis vient la chercher avec le compte « sauvegarde », qui ne
+# peut que lire ce dossier. Se lance après un déploiement qui contient la clé de téléchargement
+# du PC (infra/offsite/download.pub). Relançable : c'est aussi comme ça qu'on change cette clé.
+offsite() {
+  require_root
+  require_name "${1:-}"
+  local name=$1
+  id "$name" >/dev/null 2>&1 || die "le compte « $name » n'existe pas : lancer d'abord l'étape « user »"
+  require_supported_os
+  [ -f "$SSH_MAIN_CONF" ] || die "lancer d'abord l'étape « lock-ssh »"
+  local pub=$RUCHE_HOME/repo/infra/offsite/download.pub
+
+  step "Outil de chiffrement : age"
+  if ! command -v age >/dev/null; then
+    apt-get update -q
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -q age
+  fi
+  age --version
+
+  step "Clé de téléchargement du PC"
+  [ -f "$pub" ] || die "introuvable : $pub (déployer d'abord une version qui la contient)"
+  # Les lignes utiles : ni vides, ni commentaires. tr retire un éventuel retour chariot Windows.
+  local keys line
+  keys=$(grep -vE '^[[:space:]]*(#|$)' "$pub" | tr -d '\r' || true)
+  [ -n "$keys" ] || die "aucune clé dans $pub : y ajouter la clé publique de téléchargement du PC"
+  : >"$OFFSITE_KEYS.new"
+  while IFS= read -r line; do
+    # Une clé ed25519 et son commentaire, rien d'autre : une option glissée en début de ligne
+    # (command=…, from=…) changerait ce que la clé a le droit de faire.
+    if [[ ! $line =~ ^ssh-ed25519\ [A-Za-z0-9+/]+=*(\ [^[:cntrl:]]*)?$ ]] ||
+      ! ssh-keygen -l -f /dev/stdin <<<"$line" >/dev/null 2>&1; then
+      rm -f "$OFFSITE_KEYS.new"
+      die "ligne inattendue dans $pub (une clé ssh-ed25519 par ligne) : $line"
+    fi
+    # restrict : ni terminal, ni tunnel, ni redirection, même si un réglage venait à l'oublier.
+    printf 'restrict %s\n' "$line" >>"$OFFSITE_KEYS.new"
+  done <<<"$keys"
+  # Le fichier appartient à root : le compte « sauvegarde » ne peut pas y ajouter de clé.
+  install -m 644 -o root -g root "$OFFSITE_KEYS.new" "$OFFSITE_KEYS"
+  rm -f "$OFFSITE_KEYS.new"
+  ssh-keygen -l -f "$OFFSITE_KEYS"
+
+  step "Compte « $OFFSITE_USER »"
+  if id "$OFFSITE_USER" >/dev/null 2>&1; then
+    echo "existe déjà"
+  else
+    # --system : un compte de service, sans mot de passe ni dossier personnel. nologin : même
+    # si une connexion lui donnait un terminal, il n'aurait aucun programme à lancer.
+    useradd --system --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin "$OFFSITE_USER"
+    echo "créé"
+  fi
+
+  step "Dossier des copies chiffrées : $OFFSITE_ROOT/copies"
+  # Le compte y est enfermé (« chroot ») : pour lui, $OFFSITE_ROOT devient la racine, et le
+  # reste du serveur n'existe pas. SSH l'exige : ce dossier appartient à root, et personne
+  # d'autre ne peut y écrire. Le sous-dossier « copies » appartient à « $name », qui y dépose
+  # les copies (backup.sh tourne sous son nom) ; les autres peuvent seulement le lire.
+  install -d -m 755 -o root -g root "$OFFSITE_ROOT"
+  install -d -m 755 -o "$name" -g "$name" "$OFFSITE_ROOT/copies"
+  echo "ok"
+
+  step "Réglages du serveur SSH"
+  # Les réglages d'avant, mis de côté pour pouvoir les remettre tels quels au moindre problème.
+  cp -p "$SSH_MAIN_CONF" "$SSH_MAIN_CONF.avant"
+  if [ -f "$SSH_OFFSITE_CONF" ]; then cp -p "$SSH_OFFSITE_CONF" "$SSH_OFFSITE_CONF.avant"; fi
+  undo_offsite_ssh() {
+    mv "$SSH_MAIN_CONF.avant" "$SSH_MAIN_CONF"
+    if [ -f "$SSH_OFFSITE_CONF.avant" ]; then
+      mv "$SSH_OFFSITE_CONF.avant" "$SSH_OFFSITE_CONF"
+    else
+      rm -f "$SSH_OFFSITE_CONF"
+    fi
+    die "$1 ; les réglages SSH d'avant sont remis, rien n'a été appliqué"
+  }
+  # Match User : ces réglages-là ne valent que pour le compte « sauvegarde ».
+  # - ForceCommand internal-sftp : quoi qu'il demande, il n'obtient que le transfert de fichiers
+  #   (SFTP) intégré à SSH ; -R : en lecture seule ; -d : il arrive directement dans « copies ».
+  # - ChrootDirectory : enfermé dans $OFFSITE_ROOT.
+  # - AuthorizedKeysFile : ses clés sont dans un fichier de root, qu'il ne peut pas modifier ; et
+  #   aucun autre moyen de trouver des clés (AuthorizedKeysCommand none).
+  # - DisableForwarding : aucun tunnel d'aucune sorte ; PermitTTY no : aucun terminal.
+  # Les limites d'abord, l'accès ensuite : AllowUsers ne l'admet que si ce fichier existe.
+  cat >"$SSH_OFFSITE_CONF" <<EOF
+# Écrit par infra/server/bootstrap.sh (étape offsite). Ne pas modifier à la main.
+# Le compte « $OFFSITE_USER » ne sert qu'au PC de Louis, pour copier les sauvegardes chiffrées.
+Match User $OFFSITE_USER
+  AuthorizedKeysFile $OFFSITE_KEYS
+  AuthorizedKeysCommand none
+  ChrootDirectory $OFFSITE_ROOT
+  ForceCommand internal-sftp -R -d /copies
+  DisableForwarding yes
+  AllowTcpForwarding no
+  AllowAgentForwarding no
+  AllowStreamLocalForwarding no
+  PermitTunnel no
+  PermitTTY no
+  X11Forwarding no
+EOF
+  write_ssh_main_conf "$name"
+  sshd -t || undo_offsite_ssh "configuration SSH invalide"
+  # sshd -T -C : les réglages en vigueur pour une connexion donnée. On vérifie les deux comptes :
+  # « sauvegarde » est bien bridé, et « $name » ne l'est pas (sinon, plus d'administration).
+  local for_backup for_admin expected
+  for_backup=$(sshd -T -C "user=$OFFSITE_USER,host=pc,addr=192.0.2.1") || undo_offsite_ssh "sshd -T a échoué"
+  for_admin=$(sshd -T -C "user=$name,host=pc,addr=192.0.2.1") || undo_offsite_ssh "sshd -T a échoué"
+  for expected in "chrootdirectory $OFFSITE_ROOT" 'forcecommand internal-sftp -R -d /copies' \
+    "authorizedkeysfile $OFFSITE_KEYS" 'authorizedkeyscommand none' 'disableforwarding yes' \
+    'allowtcpforwarding no' 'allowagentforwarding no' 'allowstreamlocalforwarding no' \
+    'permittunnel no' 'permittty no' 'x11forwarding no' 'passwordauthentication no'; do
+    grep -qxF "$expected" <<<"$for_backup" || undo_offsite_ssh "réglage non appliqué pour « $OFFSITE_USER » : $expected"
+  done
+  for expected in 'chrootdirectory none' 'forcecommand none' 'permitrootlogin no' 'passwordauthentication no'; do
+    grep -qxF "$expected" <<<"$for_admin" || undo_offsite_ssh "réglage inattendu pour « $name » : il faudrait $expected"
+  done
+  grep -qxF "allowusers $OFFSITE_USER" <<<"$for_backup" || undo_offsite_ssh "« $OFFSITE_USER » n'est pas admis par AllowUsers"
+  rm -f "$SSH_MAIN_CONF.avant" "$SSH_OFFSITE_CONF.avant"
+  systemctl reload ssh 2>/dev/null || systemctl restart ssh
+  echo "ok : « $OFFSITE_USER » peut lire $OFFSITE_ROOT/copies, et rien d'autre"
+  printf '\nSur le PC : installer la copie quotidienne (docs/ops/serveur.md, « Copie hors du serveur »).\n'
+}
+
 case "${1:-}" in
 check) check ;;
 user) user "${2:-}" ;;
 lock-ssh) lock_ssh "${2:-}" ;;
 base) base "${2:-}" ;;
-*) die "étape inconnue : « ${1:-} ». Étapes : check, user <nom>, lock-ssh <nom>, base <nom>" ;;
+offsite) offsite "${2:-}" ;;
+*) die "étape inconnue : « ${1:-} ». Étapes : check, user <nom>, lock-ssh <nom>, base <nom>, offsite <nom>" ;;
 esac

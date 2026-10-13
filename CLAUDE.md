@@ -133,7 +133,8 @@ le serveur depuis le Claude Code installé sur le PC de Louis, par `ssh waiggle`
     puis lance `infra/deploy.sh` sur le serveur) ;
   - `infra/backup.sh`, `infra/restore.sh` ;
   - `infra/server/bootstrap.sh` ;
-  - `infra/lib.sh`, pour `compose`.
+  - `infra/lib.sh`, pour `compose` ;
+  - `infra/offsite/` : la copie chiffrée des sauvegardes sur le PC (ADR 0004).
 
   Rien ne se modifie à la main sur le serveur, sauf `secrets.env`. Un changement passe par une
   pull request, puis par un déploiement.
@@ -143,7 +144,9 @@ le serveur depuis le Claude Code installé sur le PC de Louis, par `ssh waiggle`
   - donc jamais de commande qui les affiche : `cat secrets.env`, `compose config`,
     `docker inspect`, `env` ou `printenv` dans un conteneur ;
   - le code d'invitation, c'est Louis qui le lit sur le serveur ;
-  - les clés (Brevo…), les phrases de passe et les mots de passe, c'est Louis qui les tape.
+  - les clés (Brevo…), les phrases de passe et les mots de passe, c'est Louis qui les tape ;
+  - la clé de déchiffrement des sauvegardes (`~/.ssh/waiggle-dechiffrement`, sans `.pub`) n'est jamais lue,
+    copiée ni envoyée ; `verify-on-pc.ps1`, qui demande sa phrase de passe, c'est Louis qui le lance.
 - **Avant d'agir** :
   - une sauvegarde avant de toucher aux données ;
   - un instantané Hostinger avant de toucher à SSH ou au pare-feu ;
