@@ -8,9 +8,3 @@
 *.mjs text eol=lf
 Caddyfile text eol=lf
 Dockerfile text eol=lf
-
-# Les clés publiques lues sur le serveur. Les scripts PowerShell aussi, pour qu'un fichier ait la
-# même forme partout (Windows PowerShell lit très bien les fins de ligne LF).
-infra/offsite/*.txt text eol=lf
-infra/offsite/*.pub text eol=lf
-*.ps1 text eol=lf

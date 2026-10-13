@@ -42,7 +42,7 @@ jobs:
       - run: node infra/web/check-web.mjs apps/app/dist infra/Caddyfile
       # Relecture des scripts du serveur : shellcheck repère les erreurs classiques du shell
       # (guillemets oubliés, variables vides…). Il est déjà installé sur les machines de GitHub.
-      - run: shellcheck -x infra/*.sh infra/server/*.sh infra/offsite/*.sh
+      - run: shellcheck -x infra/*.sh infra/server/*.sh
 
   # Photographie l'appli web (catalogue des composants et écrans, sur téléphone et ordinateur, de
   # jour et de nuit) et joint les images à la vérification : page de la vérification, rubrique
@@ -123,32 +123,7 @@ jobs:
       # Pour la visite dans le navigateur (apps/app/scripts/site-check.mjs).
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @ruche/app exec playwright install --with-deps chromium
-      # age, l'outil qui chiffre la copie des sauvegardes envoyée au PC (infra/offsite/export.sh).
-      - run: sudo apt-get update -q && sudo apt-get install -y -q age
       - run: infra/stack-test.sh
-
-  # La copie des sauvegardes hors du serveur, de bout en bout : un serveur Debian 13 jetable
-  # préparé par les vraies étapes de bootstrap.sh, le compte « sauvegarde » (qui ne doit rien
-  # pouvoir faire d'autre que lire), et le script du PC lancé avec PowerShell 7.
-  offsite:
-    name: Offsite backup copy
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v5
-      - run: sudo apt-get update -q && sudo apt-get install -y -q age
-      - run: infra/offsite-test.sh
-
-  # Les scripts du PC avec Windows PowerShell 5.1, celui du PC de Louis : lecture des accents,
-  # clé de téléchargement, tâche planifiée, échec propre quand le serveur ne répond pas.
-  offsite-windows:
-    name: Offsite backup copy on Windows
-    runs-on: windows-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v5
-      - run: powershell -NoProfile -ExecutionPolicy Bypass -File infra\offsite\windows-test.ps1
-        shell: pwsh
 
   # Publie les images de l'API et de la porte d'entrée web sur ghcr.io. Seulement après une fusion
   # sur main, et seulement si toutes les vérifications ci-dessus sont vertes. Le serveur les
@@ -158,7 +133,7 @@ jobs:
   publish:
     name: Publish images
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [check, shots, secrets, audit, docker, stack, offsite, offsite-windows]
+    needs: [check, shots, secrets, audit, docker, stack]
     runs-on: ubuntu-latest
     permissions:
       contents: read

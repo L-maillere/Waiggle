@@ -12,10 +12,7 @@
 # Ils ne sont lisibles que par leur propriétaire : ils contiennent les données des membres.
 #
 # Rotation automatique : 14 jours de sauvegardes quotidiennes, les 5 dernières des autres.
-# C'est le seul endroit où des sauvegardes sont effacées (avec infra/offsite/export.sh, qui fait
-# de même pour leurs copies chiffrées).
-#
-# La sauvegarde quotidienne part aussi, chiffrée, vers le PC de Louis (infra/offsite/export.sh).
+# C'est le seul endroit où des sauvegardes sont effacées.
 set -euo pipefail
 # shellcheck source=infra/lib.sh
 source "$(dirname "$0")/lib.sh"
@@ -65,13 +62,6 @@ main() {
   find "$RUCHE_BACKUPS" -maxdepth 1 -type f -name '*.partiel' -mmin +60 -print -delete
 
   printf '\nSauvegarde terminée : %s.{db.dump,media.tar.gz}\n' "$base"
-
-  # La sauvegarde de la nuit part aussi, chiffrée, vers le PC de Louis : si le serveur disparaît,
-  # ses sauvegardes disparaissent avec lui. Les autres (avant-deploi…) servent à revenir en
-  # arrière sur le serveur lui-même : elles restent ici.
-  if [ "$label" = quotidien ]; then
-    "$(dirname "$0")/offsite/export.sh" "$base"
-  fi
 }
 
 main "$@"

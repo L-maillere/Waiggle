@@ -73,8 +73,7 @@ confort.
   (`apps/app/scripts/site-check.mjs`).
 - **Les sauvegardes** :
   - une sauvegarde chaque nuit sur le serveur, gardée 14 jours, plus une avant chaque déploiement ;
-  - une copie chiffrée de celle de la nuit, que le PC de Louis vient chercher
-    ([ADR 0004](0004-copie-hors-du-serveur.md)).
+  - les sauvegardes hebdomadaires de Hostinger couvrent le serveur entier.
   - La CI vérifie la boucle « sauvegarder, puis restaurer » à chaque pull request : une
     sauvegarde jamais restaurée ne prouve rien.
 
@@ -87,6 +86,7 @@ confort.
   contiennent aucun secret.
 - Le domaine est écrit dans l'image web, au moment de la construction. Changer de domaine
   demande donc une nouvelle publication (`infra/site.env`).
-- Les sauvegardes quittent le serveur chaque jour, chiffrées, vers le PC de Louis
-  ([ADR 0004](0004-copie-hors-du-serveur.md)).
+- Les sauvegardes ne quittent pas encore Hostinger. Une copie hors du serveur, automatique et
+  chiffrée, viendra quand il y aura plus de données. En attendant, une copie peut être rapatriée
+  sur le PC à la demande.
 - Le serveur n'a pas de surveillance automatique (disponibilité, disque). C'est à ajouter.
