@@ -26,6 +26,12 @@ pnpm --filter @ruche/api dev    # API on http://localhost:3000
 pnpm --filter @ruche/app web    # app in the browser
 ```
 
+## Deployment
+
+The app runs on a VPS behind Caddy, from Docker images built by the CI and published on ghcr.io.
+Server setup, deployment and backups are described (in French) in
+[docs/ops/serveur.md](docs/ops/serveur.md).
+
 ## Contributing
 
 Work happens in vertical slices: scenario, failing tests, backend, then UI. Project rules live in
