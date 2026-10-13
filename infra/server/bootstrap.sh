@@ -134,6 +134,14 @@ lock_ssh() {
   # Les fichiers de sshd_config.d sont lus dans l'ordre alphabétique, et pour chaque réglage
   # c'est la PREMIÈRE valeur lue qui compte : « 00- » passe avant ceux de l'hébergeur.
   local conf=/etc/ssh/sshd_config.d/00-ruche.conf
+  # Les réglages d'avant (si l'étape a déjà tourné), mis de côté pour les remettre tels quels au
+  # moindre problème. Les supprimer rendrait la main aux réglages de l'hébergeur (connexion root,
+  # mots de passe).
+  if [ -f "$conf" ]; then cp -p "$conf" "$conf.avant"; fi
+  undo_lock_ssh() {
+    if [ -f "$conf.avant" ]; then mv "$conf.avant" "$conf"; else rm -f "$conf"; fi
+    die "$1 ; les réglages SSH d'avant sont remis, rien n'a été appliqué"
+  }
   cat >"$conf.new" <<EOF
 # Écrit par infra/server/bootstrap.sh (étape lock-ssh). Ne pas modifier à la main.
 PermitRootLogin no
@@ -145,13 +153,14 @@ X11Forwarding no
 EOF
   mv "$conf.new" "$conf"
   # sshd -t vérifie toute la configuration avant de l'appliquer.
-  sshd -t || { rm -f "$conf"; die "configuration SSH invalide, rien n'a été appliqué"; }
+  sshd -t || undo_lock_ssh "configuration SSH invalide"
   # sshd -T affiche les réglages réellement en vigueur, après lecture de tous les fichiers.
   local effective
-  effective=$(sshd -T)
+  effective=$(sshd -T) || undo_lock_ssh "sshd -T a échoué"
   for expected in 'permitrootlogin no' 'passwordauthentication no' 'kbdinteractiveauthentication no'; do
-    grep -qx "$expected" <<<"$effective" || { rm -f "$conf"; die "réglage non appliqué : $expected"; }
+    grep -qx "$expected" <<<"$effective" || undo_lock_ssh "réglage non appliqué : $expected"
   done
+  rm -f "$conf.avant"
   systemctl reload ssh 2>/dev/null || systemctl restart ssh
   echo "ok : connexion par clé seulement, pour « $name » seulement"
   printf '\nVérifie maintenant (une session root déjà ouverte reste ouverte, en cas de problème) :\n'

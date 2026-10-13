@@ -14,7 +14,7 @@ Internet ──443──▶ web (Caddy + appli construite) ─┬─ waiggle.io 
 
 | Quoi | Où |
 | --- | --- |
-| Hébergeur | Hostinger, VPS KVM 1, en France |
+| Hébergeur | Hostinger, VPS KVM 2 (2 processeurs, 8 Go de mémoire), à Paris |
 | Système | Debian 13, compte d'administration `louis` (root fermé) |
 | Domaines | waiggle.io (appli), api.waiggle.io (API), www.waiggle.io (renvoie vers waiggle.io) |
 | Images | `ghcr.io/l-maillere/ruche-api` et `ruche-web`, publiées par la CI après chaque fusion sur main |
@@ -45,11 +45,12 @@ Claude ne tape jamais un mot de passe, une clé ou un numéro de carte : ces ét
    - **Système** : il doit être sous Debian 13. Sinon, réinstalle-le avec Debian 13 depuis hPanel
      tant qu'il est vide.
    - **Instantané** : fais-en un. Il permet de revenir à cet état si la mise en route tourne mal.
-   - **Sauvegardes** : vérifie que les sauvegardes hebdomadaires de Hostinger sont actives.
-2. **Une clé SSH sur ton PC**, dans un terminal :
+   - **Sauvegardes** : la sauvegarde hebdomadaire du VPS entier est incluse dans l'offre. Vérifie
+     qu'elle est active (« Planification actuelle des sauvegardes : Hebdomadaires »).
+2. **Une clé SSH sur ton PC**, dans PowerShell :
 
-   ```bash
-   ssh-keygen -t ed25519 -C "louis@pc"
+   ```powershell
+   ssh-keygen -t ed25519 -f $env:USERPROFILE\.ssh\hostinger
    ```
 
    - Choisis une **phrase de passe**. Elle protège le fichier de la clé si ton PC est volé. Une
@@ -57,16 +58,18 @@ Claude ne tape jamais un mot de passe, une clé ou un numéro de carte : ces ét
      Windows peut s'en servir : installe seulement des logiciels de confiance. Plus sûr encore, si
      tu as une clé de sécurité physique (YubiKey…) : `ssh-keygen -t ed25519-sk`, qui demande de la
      toucher à chaque connexion.
-   - Ajoute la clé publique au VPS : dans hPanel, rubrique « Clés SSH », colle le contenu de
-     `C:\Users\<toi>\.ssh\id_ed25519.pub` (le fichier en **.pub**, jamais l'autre).
+   - Ajoute la clé publique au VPS : dans hPanel, rubrique « Clés SSH », colle ce qu'affiche
+     `Get-Content $env:USERPROFILE\.ssh\hostinger.pub` (le fichier en **.pub**, jamais l'autre).
    - Charge la clé dans l'agent SSH de Windows, pour ne pas retaper la phrase de passe à chaque
-     commande. Dans PowerShell en administrateur :
+     commande. D'abord dans un PowerShell **administrateur** (Windows + X, « Terminal
+     (administrateur) ») : sans ces droits, Windows répond « Accès refusé ».
 
      ```powershell
      Get-Service ssh-agent | Set-Service -StartupType Automatic
      Start-Service ssh-agent
-     ssh-add
      ```
+
+     Puis dans un PowerShell normal : `ssh-add $env:USERPROFILE\.ssh\hostinger`.
 
 3. **Le raccourci « waiggle »**, dans `C:\Users\<toi>\.ssh\config` (crée le fichier s'il n'existe
    pas) :
@@ -75,8 +78,22 @@ Claude ne tape jamais un mot de passe, une clé ou un numéro de carte : ces ét
    Host waiggle
      HostName <adresse IPv4 du VPS>
      User louis
-     IdentityFile ~/.ssh/id_ed25519
+     IdentityFile ~/.ssh/hostinger
      IdentitiesOnly yes
+   ```
+
+   En une commande, dans PowerShell (`Add-Content` ajoute à la fin du fichier sans rien effacer ;
+   `ascii`, parce que SSH lit mal d'autres formats) :
+
+   ```powershell
+   $ip = "<adresse IPv4 du VPS>"
+   Add-Content -Encoding ascii -Path $env:USERPROFILE\.ssh\config -Value @"
+   Host waiggle
+     HostName $ip
+     User louis
+     IdentityFile ~/.ssh/hostinger
+     IdentitiesOnly yes
+   "@
    ```
 
 4. **Brevo** (l'envoi des e-mails) :
@@ -98,6 +115,18 @@ Claude ne tape jamais un mot de passe, une clé ou un numéro de carte : ces ét
 Ces commandes se lancent depuis le dossier du dépôt cloné sur le PC, dans Git Bash (le terminal
 qu'utilise Claude Code sous Windows ; PowerShell ne connaît pas le `<` utilisé ici). Chaque étape
 se termine par une vérification. On ne passe à la suivante que si elle est bonne.
+
+**Sous Windows, `ssh` veut dire ici celui de Windows.** Le `ssh` de Git Bash ne connaît pas
+l'agent de clés de Windows : il demanderait la phrase de passe à chaque commande, et Claude Code
+ne peut pas la taper. Dans les commandes de ce document, Claude Code écrit donc, à la place de
+`ssh` :
+
+```bash
+MSYS_NO_PATHCONV=1 /c/Windows/System32/OpenSSH/ssh.exe
+```
+
+`MSYS_NO_PATHCONV=1` empêche Git Bash de transformer les chemins du serveur (`/srv/…`) en chemins
+Windows. Pour `infra/deploy-from-pc.sh`, c'est la variable `RUCHE_SSH` (étape 6).
 
 ### Étape 1 : état des lieux (ne modifie rien)
 
@@ -334,14 +363,9 @@ pas** : on prévient Louis.
 
 - **La liste** : `ssh waiggle 'ls -lh /srv/ruche/backups'`.
 - **Une sauvegarde maintenant** : `ssh waiggle /srv/ruche/repo/infra/backup.sh manuel`.
-- **Une copie sur le PC**, hors du dépôt, jamais dans le dossier du code. Ces fichiers contiennent
-  les données des membres : choisis un dossier qui n'est pas synchronisé avec un service en ligne
-  (`Documents` l'est souvent avec OneDrive), ou chiffre la copie avant.
-
-  ```bash
-  scp 'waiggle:/srv/ruche/backups/<nom>.*' /c/waiggle-sauvegardes/
-  ```
-
+- **Hors du serveur** : la sauvegarde hebdomadaire de Hostinger, qui copie le VPS entier (donc
+  aussi ce dossier). Les sauvegardes ne sont pas copiées sur le PC : elles contiennent les données
+  des membres (ADR 0003).
 - **Restaurer** : seulement avec l'accord explicite de Louis (voir « Revenir en arrière »).
   `restore.sh` sauvegarde d'abord l'état actuel (étiquette `avant-restauration`), puis restaure à
   côté de la base actuelle. Si la sauvegarde est abîmée, il s'arrête sans rien changer. Si
@@ -406,10 +430,10 @@ images inutilisées depuis plus d'une semaine.
   `/health`, puis relancer `infra/deploy-from-pc.sh <même commit>`. Le déploiement peut être
   rejoué sans risque.
 - **Plus d'accès SSH** : la console de hPanel (VNC). Elle ne passe pas par SSH.
-- **Le serveur est perdu** :
-  - restaurer la dernière sauvegarde Hostinger (le serveur entier), ou bien
-  - recréer un VPS : partie 3 du présent document, puis `restore.sh` avec une sauvegarde
-    rapatriée sur le PC.
+- **Le serveur est perdu** : restaurer la dernière sauvegarde hebdomadaire de Hostinger (le
+  serveur entier, dans hPanel), avec l'accord explicite de Louis. Elle contient aussi les
+  sauvegardes quotidiennes de `/srv/ruche/backups` : `restore.sh` permet ensuite de revenir à la
+  plus récente d'entre elles, si elle est plus récente que l'état restauré.
 
 ## 6. Autonomie de Claude Code
 
