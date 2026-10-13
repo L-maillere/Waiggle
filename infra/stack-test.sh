@@ -16,7 +16,7 @@
 # Demande Docker, les dépendances (pnpm install) et Chromium
 # (pnpm --filter @ruche/app exec playwright install chromium).
 # Tout est supprimé à la fin.
-set -euo pipefail
+set -Eeuo pipefail # -E : le piège ERR (plus bas) vaut aussi dans les fonctions
 
 WORK=$(mktemp -d)
 export RUCHE_HOME=$WORK
@@ -31,6 +31,14 @@ cleanup() {
   rm -rf "$WORK"
 }
 trap cleanup EXIT
+# Une commande qui échoue sans passer par « die » est signalée avec sa ligne (annotation dans
+# GitHub Actions), puis on montre l'état des conteneurs pour comprendre.
+on_error() {
+  printf '::error::stack-test.sh, ligne %s : %s\n' "$1" "$2"
+  compose ps -a 2>/dev/null || true
+  compose logs --tail 30 2>/dev/null || true
+}
+trap 'on_error "$LINENO" "$BASH_COMMAND"' ERR
 
 # Échoue avec un message si deux valeurs diffèrent.
 expect() {

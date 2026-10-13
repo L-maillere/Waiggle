@@ -17,9 +17,11 @@ RUCHE_SECRETS=${RUCHE_SECRETS:-$RUCHE_HOME/secrets.env}
 RUCHE_DEPLOYED=${RUCHE_DEPLOYED:-$RUCHE_HOME/deployed.env}
 RUCHE_BACKUPS=${RUCHE_BACKUPS:-$RUCHE_HOME/backups}
 
-# Arrête le script avec un message clair.
+# Arrête le script avec un message clair. Dans GitHub Actions, le message devient aussi une
+# « annotation », visible directement sur la page de la vérification.
 die() {
   printf 'ÉCHEC : %s\n' "$*" >&2
+  if [ -n "${GITHUB_ACTIONS:-}" ]; then printf '::error::%s\n' "$*"; fi
   exit 1
 }
 
