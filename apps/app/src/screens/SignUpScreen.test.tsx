@@ -7,12 +7,18 @@ import { SignUpScreen } from './SignUpScreen'
 
 jest.mock('../accounts/api', () => ({ signUp: jest.fn() }))
 const mockPush = jest.fn()
-jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush, replace: jest.fn() }) }))
+// Les paramètres de l'adresse de la page (/sign-up?code=…), modifiables test par test.
+let mockParams: Record<string, string> = {}
+jest.mock('expo-router', () => ({
+  useRouter: () => ({ push: mockPush, replace: jest.fn() }),
+  useLocalSearchParams: () => mockParams,
+}))
 
 // jest.mocked donne le bon type au faux appel pour lui dicter sa réponse.
 const signUpMock = jest.mocked(signUp)
 
-const fillForm = async (password = 'correct-horse-battery') => {
+const fillForm = async (password = 'correct-horse-battery', inviteCode = 'miel-2026-noel') => {
+  await fireEvent.changeText(screen.getByLabelText('Code d’invitation'), inviteCode)
   await fireEvent.changeText(screen.getByLabelText('Prénom ou pseudo'), 'Léa')
   await fireEvent.changeText(screen.getByLabelText('Adresse e-mail'), 'lea@example.com')
   await fireEvent.changeText(screen.getByLabelText('Mot de passe'), password)
@@ -22,6 +28,7 @@ const fillForm = async (password = 'correct-horse-battery') => {
 beforeEach(() => {
   signUpMock.mockReset()
   mockPush.mockReset()
+  mockParams = {}
 })
 
 describe('SignUpScreen', () => {
@@ -71,6 +78,7 @@ describe('SignUpScreen', () => {
       name: 'Léa',
       email: 'lea@example.com',
       password: 'correct-horse-battery',
+      inviteCode: 'miel-2026-noel',
       language: 'fr',
     })
     expect(mockPush).toHaveBeenCalledWith({
@@ -87,5 +95,42 @@ describe('SignUpScreen', () => {
 
     expect(screen.getByText('Trop de tentatives. Réessaie dans quelques minutes.')).toBeTruthy()
     expect(mockPush).not.toHaveBeenCalled()
+  })
+
+  it('asks for the invite code before sending anything', async () => {
+    await renderWithI18n(<SignUpScreen />)
+
+    await fillForm('correct-horse-battery', '   ')
+
+    expect(screen.getByText('Indique le code d’invitation que tu as reçu.')).toBeTruthy()
+    expect(signUpMock).not.toHaveBeenCalled()
+  })
+
+  it('explains that the invite code was refused', async () => {
+    signUpMock.mockResolvedValue({ ok: false, error: 'inviteInvalid' })
+    await renderWithI18n(<SignUpScreen />)
+
+    await fillForm()
+
+    expect(
+      screen.getByText(
+        'Ce code d’invitation n’est pas valide. Demande-le à la personne qui t’a invité·e.',
+      ),
+    ).toBeTruthy()
+    expect(mockPush).not.toHaveBeenCalled()
+  })
+
+  it('fills in the code from an invitation link', async () => {
+    mockParams = { code: 'Miel-2026-Noel' }
+    await renderWithI18n(<SignUpScreen />)
+
+    expect(screen.getByLabelText('Code d’invitation').props.value).toBe('Miel-2026-Noel')
+  })
+
+  it('ignores a code in the link that could not be a real one', async () => {
+    mockParams = { code: 'a'.repeat(101) }
+    await renderWithI18n(<SignUpScreen />)
+
+    expect(screen.getByLabelText('Code d’invitation').props.value).toBe('')
   })
 })
