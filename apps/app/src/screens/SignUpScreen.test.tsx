@@ -7,10 +7,11 @@ import { SignUpScreen } from './SignUpScreen'
 
 jest.mock('../accounts/api', () => ({ signUp: jest.fn() }))
 const mockPush = jest.fn()
+const mockSetParams = jest.fn()
 // Les paramètres de l'adresse de la page (/sign-up?code=…), modifiables test par test.
 let mockParams: Record<string, string> = {}
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: mockPush, replace: jest.fn() }),
+  useRouter: () => ({ push: mockPush, replace: jest.fn(), setParams: mockSetParams }),
   useLocalSearchParams: () => mockParams,
 }))
 
@@ -28,6 +29,7 @@ const fillForm = async (password = 'correct-horse-battery', inviteCode = 'miel-2
 beforeEach(() => {
   signUpMock.mockReset()
   mockPush.mockReset()
+  mockSetParams.mockReset()
   mockParams = {}
 })
 
@@ -125,6 +127,8 @@ describe('SignUpScreen', () => {
     await renderWithI18n(<SignUpScreen />)
 
     expect(screen.getByLabelText('Code d’invitation').props.value).toBe('Miel-2026-Noel')
+    // Le code ne reste pas dans l'adresse de la page.
+    expect(mockSetParams).toHaveBeenCalledWith({ code: undefined })
   })
 
   it('ignores a code in the link that could not be a real one', async () => {

@@ -12,7 +12,7 @@ const production = {
   MAIL_PROVIDER: 'brevo',
   BREVO_API_KEY: 'key',
   MAIL_FROM_EMAIL: 'no-reply@ruche.app',
-  SIGNUP_INVITE_CODE: 'Miel-2026-Noel',
+  SIGNUP_INVITE_CODE: 'f3a9c2e17b4d8a06',
 }
 
 describe('loadEnv', () => {
@@ -39,7 +39,7 @@ describe('loadEnv', () => {
         apiKey: 'key',
         from: { email: 'no-reply@ruche.app', name: appName },
       },
-      inviteCode: 'Miel-2026-Noel',
+      inviteCode: 'f3a9c2e17b4d8a06',
     })
   })
 
@@ -81,5 +81,13 @@ describe('loadEnv', () => {
     expect(() => loadEnv({ ...production, SIGNUP_INVITE_CODE: '  miel-2026  ' })).toThrow(
       /SIGNUP_INVITE_CODE/,
     )
+  })
+
+  it('refuses the example codes published in this repository, which anyone can read', () => {
+    for (const example of ['Miel-2026-Noel', ' SMOKE-test-invite-code ']) {
+      expect(() => loadEnv({ ...production, SIGNUP_INVITE_CODE: example })).toThrow(
+        /SIGNUP_INVITE_CODE/,
+      )
+    }
   })
 })

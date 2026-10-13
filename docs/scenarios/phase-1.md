@@ -243,6 +243,21 @@ créer un compte. Louis le choisit et le donne à qui il veut.
 - **Seule l'inscription change** : la connexion, la vérification de l'adresse et le reste du
   compte fonctionnent comme avant.
 
+### Notes de réalisation (inscription sur invitation)
+
+Ajouts après la relecture de sécurité :
+
+- **Un code tiré au hasard** : la documentation conseille `openssl rand -hex 8` (16 caractères).
+  Le serveur refuse de démarrer avec un code qui sert d'exemple dans le dépôt (« Miel-2026-Noel »…) :
+  le dépôt est public, n'importe qui pourrait le lire.
+- **Le code quitte l'adresse** : une fois le champ rempli par un lien d'invitation, le code est
+  retiré de l'adresse de la page (historique du navigateur, partage d'écran).
+- **Une seule porte d'entrée** : quand un code est réglé, seule l'inscription par e-mail peut
+  créer un compte. Une future connexion par Google ou par lien magique ne pourra pas passer à
+  côté. La route de relais du plugin Expo (connexion par un autre site sur téléphone, inutilisée)
+  est désactivée : elle renvoyait vers n'importe quel site.
+- **Accents** : « Noël » tapé sur deux claviers différents donne le même code.
+
 ## Tranche 4 — Suivre et le fil
 
 **Suivre**

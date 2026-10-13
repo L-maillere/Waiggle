@@ -160,10 +160,14 @@ export const createAuth = ({
       },
     },
 
-    // Routes génériques de Better Auth que l'appli n'utilise pas. update-user permettrait de
-    // changer son nom ou son image sans passer par nos règles (image hébergée n'importe où,
-    // qui révélerait l'adresse IP de chaque visiteur) : le profil passe par PATCH /v1/me.
-    disabledPaths: ['/update-user'],
+    // Routes de Better Auth que l'appli n'utilise pas :
+    // - update-user permettrait de changer son nom ou son image sans passer par nos règles (image
+    //   hébergée n'importe où, qui révélerait l'adresse IP de chaque visiteur) : le profil passe
+    //   par PATCH /v1/me ;
+    // - expo-authorization-proxy (plugin Expo) ne sert qu'à la connexion par Google, Apple… sur
+    //   téléphone, que l'appli ne propose pas. Elle renvoie vers n'importe quelle adresse donnée
+    //   dans le lien : un lien sur notre domaine pourrait mener vers un faux site (hameçonnage).
+    disabledPaths: ['/update-user', '/expo-authorization-proxy'],
 
     rateLimit: {
       ...authSchemaOptions.rateLimit,
@@ -232,6 +236,11 @@ export const createAuth = ({
           // On lit la demande d'origine (context.body) : à ce stade, `user.language` vaut déjà
           // la valeur par défaut 'fr' même si l'appli n'a rien envoyé.
           before: async (user, context) => {
+            // Défense en profondeur : avec un code d'invitation, seule l'inscription par e-mail
+            // (qui vérifie le code, voir hooks ci-dessus) peut créer un compte. Si un jour une
+            // connexion par Google ou par lien magique est ajoutée, elle ne pourra pas créer de
+            // compte en passant à côté du code. « return false » annule la création.
+            if (inviteCode !== null && context?.path !== '/sign-up/email') return false
             const requested: unknown = context?.body?.language
             const header =
               context?.headers?.get('accept-language') ??

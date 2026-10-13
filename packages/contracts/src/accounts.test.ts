@@ -46,6 +46,13 @@ describe('normalizeInviteCode', () => {
     expect(normalizeInviteCode('  Miel-2026-NOEL ')).toBe(normalizeInviteCode('miel-2026-noel'))
   })
 
+  it('treats the two ways of typing an accented letter as the same code', () => {
+    // « ë » en un seul caractère, ou « e » suivi du tréma (U+0308).
+    expect(normalizeInviteCode('no\u00EBl-en-famille')).toBe(
+      normalizeInviteCode('noe\u0308l-en-famille'),
+    )
+  })
+
   it('keeps the spaces inside the code', () => {
     expect(normalizeInviteCode('miel 2026')).not.toBe(normalizeInviteCode('miel2026'))
   })

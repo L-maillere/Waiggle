@@ -24,8 +24,10 @@ export const InviteCode = z.string().trim().min(1).max(INVITE_CODE_MAX_LENGTH)
 /**
  * La forme « comparable » d'un code : sans espaces autour et en minuscules. Ainsi
  * « Miel-2026-Noel » et « miel-2026-noel » sont le même code.
+ * normalize('NFKC') : un « ë » peut s'écrire d'un seul caractère ou de deux (« e » suivi du
+ * tréma), selon le clavier. Les deux écritures deviennent identiques.
  */
-export const normalizeInviteCode = (code: string) => code.trim().toLowerCase()
+export const normalizeInviteCode = (code: string) => code.normalize('NFKC').trim().toLowerCase()
 
 export const SignUpRequest = z.object({
   name: DisplayName, // 1 à 80 caractères, sans caractère invisible (voir text.ts)

@@ -113,3 +113,25 @@ describe('signing up without any invite code set (development)', () => {
     }
   })
 })
+
+describe('no other way in', () => {
+  it('disables the Expo sign-in relay, which could send visitors to any site', async () => {
+    const res = await ctx.request(
+      '/api/auth/expo-authorization-proxy?authorizationURL=https://evil.example/&oauthState=a',
+    )
+
+    expect(res.status).toBe(404)
+  })
+
+  it('lets no route other than the sign-up with the code create an account', async () => {
+    // Le garde-fou de la base de données (auth.ts), appelé comme le ferait une future connexion
+    // par Google (/callback/:id) : la création est annulée.
+    const beforeCreate = ctx.auth.options.databaseHooks?.user?.create?.before
+    if (!beforeCreate) throw new Error('no user creation hook')
+    const user = { name: 'Max', email: 'max@example.com', emailVerified: true } as never
+    const from = (path: string) => ({ path }) as never
+
+    expect(await beforeCreate(user, from('/callback/:id'))).toBe(false)
+    expect(await beforeCreate(user, from('/sign-up/email'))).not.toBe(false)
+  })
+})

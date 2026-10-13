@@ -53,8 +53,12 @@ export function SignUpScreen() {
   const codeFromLink = firstParam(params.code) ?? ''
   const hydrated = useHydrated()
   useEffect(() => {
-    if (hydrated && InviteCode.safeParse(codeFromLink).success) setInviteCode(codeFromLink)
-  }, [hydrated, codeFromLink])
+    if (!hydrated || !InviteCode.safeParse(codeFromLink).success) return
+    setInviteCode(codeFromLink)
+    // Puis on retire le code de l'adresse affichée : il ne reste ni dans l'historique du
+    // navigateur, ni à l'écran pendant un partage d'écran.
+    router.setParams({ code: undefined })
+  }, [hydrated, codeFromLink, router])
 
   const submit = async () => {
     // 1. Vérification locale avec le même schéma que l'API (packages/contracts).

@@ -2,7 +2,11 @@
 // Elles arrivent toujours sous forme de texte, et peuvent manquer ou être fausses :
 // on les vérifie toutes au démarrage avec Zod, pour échouer tout de suite et clairement.
 import { appName } from '@ruche/brand'
-import { INVITE_CODE_MAX_LENGTH, INVITE_CODE_MIN_LENGTH } from '@ruche/contracts'
+import {
+  INVITE_CODE_MAX_LENGTH,
+  INVITE_CODE_MIN_LENGTH,
+  normalizeInviteCode,
+} from '@ruche/contracts'
 import { z } from 'zod'
 
 // Les chaînes vides ("") sont traitées comme absentes : c'est ce que produit souvent un .env mal rempli.
@@ -62,10 +66,29 @@ const EnvSchema = z
         })
       }
     }
+    if (
+      env.SIGNUP_INVITE_CODE &&
+      PUBLIC_EXAMPLE_INVITE_CODES.includes(normalizeInviteCode(env.SIGNUP_INVITE_CODE))
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['SIGNUP_INVITE_CODE'],
+        message:
+          'this code is a public example of the repository: choose another one (openssl rand -hex 8)',
+      })
+    }
     if (env.MAIL_PROVIDER === 'brevo' && !env.BREVO_API_KEY) {
       ctx.addIssue({ code: 'custom', path: ['BREVO_API_KEY'], message: 'required to send emails' })
     }
   })
+
+// Les codes d'invitation qui servent d'exemples dans ce dépôt (documentation, tests). Le dépôt est
+// public : un serveur réglé avec l'un d'eux serait ouvert à tous.
+const PUBLIC_EXAMPLE_INVITE_CODES = [
+  'miel-2026-noel',
+  'smoke-test-invite-code',
+  'stack-test-invite-code',
+]
 
 // Secret de secours, uniquement hors production : il est public (il est dans ce fichier !).
 const DEVELOPMENT_SECRET = 'development-only-secret-do-not-use-in-production'
