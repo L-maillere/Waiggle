@@ -42,6 +42,8 @@ services:
       BREVO_API_KEY: ${BREVO_API_KEY:-}
       MAIL_FROM_EMAIL: ${MAIL_FROM_EMAIL:-no-reply@example.com}
       MAIL_FROM_NAME: ${MAIL_FROM_NAME:-}
+      # Le code d'invitation demandé à l'inscription : sans lui, l'API refuse de démarrer.
+      SIGNUP_INVITE_CODE: ${SIGNUP_INVITE_CODE:?Définir SIGNUP_INVITE_CODE dans infra/.env}
       MEDIA_DIR: /app/media
     volumes:
       # Les avatars des membres. À sauvegarder avec la base de données.

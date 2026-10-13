@@ -43,6 +43,8 @@ export const fr = {
       password: 'Mot de passe',
       passwordHint: 'Au moins {{min}} caractères.',
       passwordMin: '{{min}} caractères minimum',
+      inviteCode: 'Code d’invitation',
+      inviteCodeHint: 'Demande-le à la personne qui t’a invité·e.',
     },
     passwordMeter: {
       remaining_one: 'Encore {{count}} caractère',
@@ -83,6 +85,9 @@ export const fr = {
       emailNotVerified:
         'Ton adresse n’est pas encore vérifiée : nous venons de te renvoyer le lien par e-mail.',
       tooManyAttempts: 'Trop de tentatives. Réessaie dans quelques minutes.',
+      inviteRequired: 'Indique le code d’invitation que tu as reçu.',
+      inviteInvalid:
+        'Ce code d’invitation n’est pas valide. Demande-le à la personne qui t’a invité·e.',
       generic: 'Une erreur est survenue. Réessaie dans un instant.',
     },
   },

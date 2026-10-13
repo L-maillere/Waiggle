@@ -11,9 +11,19 @@ export const TEST_APP_URL = 'http://localhost:8081'
 export const TEST_API_URL = 'http://localhost:3000'
 
 type Credentials = { email: string; password: string }
-type SignUpBody = Credentials & { name: string; language?: string }
+type SignUpBody = Credentials & { name: string; language?: string; inviteCode?: string }
 
-export const createTestContext = async ({ version = 'test' }: { version?: string } = {}) => {
+/**
+ * Une API complète pour un test. `inviteCode` : le code d'invitation exigé à l'inscription, comme
+ * en production ; sans lui, l'inscription est libre (comme en développement).
+ */
+export const createTestContext = async ({
+  version = 'test',
+  inviteCode = null,
+}: {
+  version?: string
+  inviteCode?: string | null
+} = {}) => {
   const { db, close } = await createPgliteDb()
   const mailer = createMemoryMailer()
   const storage = createMemoryStorage()
@@ -25,6 +35,7 @@ export const createTestContext = async ({ version = 'test' }: { version?: string
     publicApiUrl: TEST_API_URL,
     appUrl: TEST_APP_URL,
     rateLimit: true,
+    inviteCode,
   })
   const app = createApp({
     version,

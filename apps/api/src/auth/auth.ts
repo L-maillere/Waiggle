@@ -3,15 +3,22 @@
 // Écrire soi-même ces mécanismes est risqué (stockage des mots de passe, jetons, attaques) :
 // on s'appuie sur une bibliothèque éprouvée, et on règle ici son comportement pour Ruche.
 
+import { createHash, timingSafeEqual } from 'node:crypto'
 import { expo } from '@better-auth/expo'
 import { appName } from '@ruche/brand'
-import { DisplayName, PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from '@ruche/contracts'
+import {
+  DisplayName,
+  normalizeInviteCode,
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+} from '@ruche/contracts'
 import { type Database, schema } from '@ruche/db'
 import {
   defaultLanguage,
   type Language,
   parseAcceptLanguage,
   resolveLanguage,
+  resources,
   supportedLanguages,
 } from '@ruche/i18n'
 import { betterAuth } from 'better-auth'
@@ -37,7 +44,23 @@ export type AuthOptions = {
   appUrl: string
   /** Limitation de débit (anti-force brute). Désactivable pour certains tests. */
   rateLimit: boolean
+  /** Le code d'invitation exigé à l'inscription ; null : inscription libre (développement). */
+  inviteCode: string | null
 }
+
+// L'empreinte (SHA-256) d'un code d'invitation, sous sa forme comparable (voir
+// normalizeInviteCode). Deux empreintes ont toujours la même longueur : c'est ce que demande
+// timingSafeEqual, ci-dessous.
+const inviteDigest = (code: string) =>
+  createHash('sha256').update(normalizeInviteCode(code)).digest()
+
+/**
+ * Le code envoyé est-il le bon ? timingSafeEqual compare les deux empreintes en un temps qui ne
+ * dépend pas de leur contenu. Une comparaison ordinaire s'arrête au premier caractère différent :
+ * en chronométrant les réponses, un attaquant pourrait deviner le code caractère par caractère.
+ */
+const isRightInviteCode = (sent: unknown, expected: string) =>
+  typeof sent === 'string' && timingSafeEqual(inviteDigest(sent), inviteDigest(expected))
 
 const isLanguage = (value: unknown): value is Language =>
   typeof value === 'string' && (supportedLanguages as readonly string[]).includes(value)
@@ -56,6 +79,7 @@ export const createAuth = ({
   publicApiUrl,
   appUrl,
   rateLimit,
+  inviteCode,
 }: AuthOptions) => {
   // Avatars à effacer après la suppression d'un compte (identifiant du membre → fichier).
   const avatarsToDelete = new Map<string, string>()
@@ -169,15 +193,30 @@ export const createAuth = ({
       disableCSRFCheck: false,
     },
 
-    // Un « hook » qui s'exécute avant chaque route de Better Auth. À l'inscription, le nom doit
-    // suivre les mêmes règles que dans le profil (1 à 80 caractères, aucun caractère invisible).
-    // Ce contrôle a lieu AVANT que Better Auth ne regarde si l'adresse existe déjà : la réponse est
-    // la même dans les deux cas, elle ne révèle pas qui a un compte.
+    // Un « hook » qui s'exécute avant chaque route de Better Auth. À l'inscription :
+    // 1. le code d'invitation doit être le bon (s'il y en a un de réglé) ;
+    // 2. le nom doit suivre les mêmes règles que dans le profil (1 à 80 caractères, aucun
+    //    caractère invisible).
+    // Ces contrôles ont lieu AVANT que Better Auth ne regarde si l'adresse existe déjà : la réponse
+    // est la même dans les deux cas, elle ne révèle pas qui a un compte.
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
         if (ctx.path !== '/sign-up/email') return
-        const body: unknown = ctx.body
-        const name = typeof body === 'object' && body !== null && 'name' in body ? body.name : ''
+        const body: object = typeof ctx.body === 'object' && ctx.body !== null ? ctx.body : {}
+        if (inviteCode !== null) {
+          const sent = 'inviteCode' in body ? body.inviteCode : undefined
+          if (!isRightInviteCode(sent, inviteCode)) {
+            // Le message, dans la langue du visiteur ; le code, pour l'appli (accounts/errors.ts).
+            const header =
+              ctx.headers?.get('accept-language') ?? ctx.request?.headers.get('accept-language')
+            const language = resolveLanguage(parseAcceptLanguage(header))
+            throw new APIError('FORBIDDEN', {
+              code: 'INVITE_CODE_INVALID',
+              message: resources[language].translation.auth.errors.inviteInvalid,
+            })
+          }
+        }
+        const name = 'name' in body ? body.name : ''
         if (!DisplayName.safeParse(name).success) {
           throw new APIError('BAD_REQUEST', { message: 'Invalid name' })
         }

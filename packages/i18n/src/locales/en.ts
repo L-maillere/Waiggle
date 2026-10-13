@@ -41,6 +41,8 @@ export const en: Translation = {
       password: 'Password',
       passwordHint: 'At least {{min}} characters.',
       passwordMin: '{{min}} characters minimum',
+      inviteCode: 'Invite code',
+      inviteCodeHint: 'Ask the person who invited you for it.',
     },
     passwordMeter: {
       remaining_one: '{{count}} more character',
@@ -80,6 +82,8 @@ export const en: Translation = {
       invalidCredentials: 'Incorrect email or password.',
       emailNotVerified: 'Your email is not verified yet: we just sent you the link again.',
       tooManyAttempts: 'Too many attempts. Try again in a few minutes.',
+      inviteRequired: 'Enter the invite code you received.',
+      inviteInvalid: 'This invite code is not valid. Ask the person who invited you for it.',
       generic: 'Something went wrong. Please try again in a moment.',
     },
   },

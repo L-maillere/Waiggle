@@ -2,6 +2,7 @@
 // Elles arrivent toujours sous forme de texte, et peuvent manquer ou être fausses :
 // on les vérifie toutes au démarrage avec Zod, pour échouer tout de suite et clairement.
 import { appName } from '@ruche/brand'
+import { INVITE_CODE_MAX_LENGTH, INVITE_CODE_MIN_LENGTH } from '@ruche/contracts'
 import { z } from 'zod'
 
 // Les chaînes vides ("") sont traitées comme absentes : c'est ce que produit souvent un .env mal rempli.
@@ -32,6 +33,12 @@ const EnvSchema = z
       (value) => (value === '' ? undefined : value),
       z.string().default(appName),
     ),
+    // Le code d'invitation demandé à l'inscription (docs/scenarios/phase-1.md). trim() retire les
+    // espaces autour avant de compter les caractères : 12 au moins, pour qu'on ne le devine pas.
+    // Absent : inscription libre, ce qui n'est permis qu'en développement et dans les tests.
+    SIGNUP_INVITE_CODE: optional(
+      z.string().trim().min(INVITE_CODE_MIN_LENGTH).max(INVITE_CODE_MAX_LENGTH),
+    ),
   })
   // superRefine : des règles qui dépendent de plusieurs variables à la fois.
   .superRefine((env, ctx) => {
@@ -44,6 +51,14 @@ const EnvSchema = z
           code: 'custom',
           path: ['BETTER_AUTH_SECRET'],
           message: 'required in production, at least 32 characters (openssl rand -base64 32)',
+        })
+      }
+      // En production, l'inscription est fermée par défaut : sans code, le serveur ne démarre pas.
+      if (!env.SIGNUP_INVITE_CODE) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['SIGNUP_INVITE_CODE'],
+          message: `required in production, at least ${INVITE_CODE_MIN_LENGTH} characters`,
         })
       }
     }
@@ -70,6 +85,8 @@ export type Env = {
   publicApiUrl: string
   appUrl: string
   mail: MailConfig
+  /** Le code d'invitation exigé à l'inscription ; null : inscription libre (développement). */
+  inviteCode: string | null
 }
 
 /**
@@ -103,5 +120,6 @@ export const loadEnv = (source: Record<string, string | undefined>): Env => {
             from: { email: env.MAIL_FROM_EMAIL, name: env.MAIL_FROM_NAME },
           }
         : { provider: 'console' },
+    inviteCode: env.SIGNUP_INVITE_CODE ?? null,
   }
 }

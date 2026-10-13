@@ -37,6 +37,7 @@ docker run -d --name smoke-api --network smoke -p 3000:3000 \
   -e DATABASE_URL=postgres://ruche:smoke@smoke-db:5432/ruche \
   -e BETTER_AUTH_SECRET="$(openssl rand -base64 32)" \
   -e PUBLIC_API_URL=$API -e APP_URL=$APP \
+  -e SIGNUP_INVITE_CODE=smoke-test-invite-code \
   "$IMAGE" >/dev/null
 for _ in $(seq 1 60); do curl -fsS $API/health >/dev/null 2>&1 && break; sleep 1; done
 curl -fsS $API/health
@@ -48,10 +49,17 @@ fi
 docker exec smoke-api node -e "require('fs').writeFileSync('/app/media/probe', 'x')"
 echo "ok"
 
+step "Sans le code d'invitation, l'inscription est refusée"
+STATUS=$(curl -s -o /dev/null -w '%{http_code}' -X POST $API/api/auth/sign-up/email \
+  -H 'Content-Type: application/json' -H "Origin: $APP" \
+  -d '{"name":"Smoke","email":"smoke@example.com","password":"smoke-test-password"}')
+test "$STATUS" = 403
+echo "ok"
+
 step "Inscription, puis lien de vérification (les e-mails sont écrits dans les logs)"
 curl -fsS -o /dev/null -X POST $API/api/auth/sign-up/email \
   -H 'Content-Type: application/json' -H "Origin: $APP" \
-  -d '{"name":"Smoke","email":"smoke@example.com","password":"smoke-test-password"}'
+  -d '{"name":"Smoke","email":"smoke@example.com","password":"smoke-test-password","inviteCode":"smoke-test-invite-code"}'
 sleep 1
 LINK=$(docker logs smoke-api 2>&1 | grep -o "$API/api/auth/verify-email[^ ]*" | tail -1)
 curl -fsS -o /dev/null -c "$WORK/cookies" "$LINK"
