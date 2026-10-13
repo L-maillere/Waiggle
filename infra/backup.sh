@@ -6,8 +6,9 @@
 #   infra/backup.sh avant-deploi   → sauvegarde faite par deploy.sh avant chaque mise à jour
 #
 # Chaque sauvegarde, ce sont deux fichiers portant la même date :
-#   2026-10-13_0330-quotidien.db.dump      la base (format de pg_dump, relu par pg_restore)
-#   2026-10-13_0330-quotidien.media.tar.gz les avatars
+#   2026-10-13_033000-quotidien.db.dump      la base (format de pg_dump, relu par pg_restore)
+#   2026-10-13_033000-quotidien.media.tar.gz les avatars
+# (la rotation, plus bas, s'appuie sur ce format exact : date_heure-étiquette)
 # Ils ne sont lisibles que par leur propriétaire : ils contiennent les données des membres.
 #
 # Rotation automatique : 14 jours de sauvegardes quotidiennes, les 5 dernières des autres.

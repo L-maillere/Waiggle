@@ -56,8 +56,13 @@ deployed_value() {
 take_lock() {
   [ -z "${RUCHE_LOCKED:-}" ] || return 0
   mkdir -p "$RUCHE_HOME"
-  exec 9>"$RUCHE_HOME/.lock"
-  flock -w 600 9 || die "un autre script (déploiement, sauvegarde ou restauration) tourne encore"
+  # 9 : un numéro de « descripteur de fichier », une poignée ouverte sur le fichier du verrou.
+  exec 9>>"$RUCHE_HOME/.lock" ||
+    die "verrou $RUCHE_HOME/.lock inaccessible (créé par root ? sudo chown $(id -un) $RUCHE_HOME/.lock)"
+  if ! flock -n 9; then
+    echo "Un autre script (déploiement, sauvegarde ou restauration) tourne : attente, 10 minutes au plus…"
+    flock -w 600 9 || die "l'autre script tourne toujours : réessayer plus tard"
+  fi
   export RUCHE_LOCKED=1
 }
 

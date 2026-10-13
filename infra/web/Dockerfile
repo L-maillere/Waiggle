@@ -41,7 +41,10 @@ COPY --from=build /repo/apps/app/dist /srv/app
 # /config (les certificats) ; les fichiers de l'appli et le Caddyfile appartiennent à root : même
 # en cas de faille, il ne pourrait pas les modifier. -S : utilisateur « système », sans mot de
 # passe ni shell de connexion.
-RUN addgroup -S caddy && adduser -S -D -H -G caddy caddy && chown -R caddy:caddy /data /config
+# Un numéro d'utilisateur fixe (10001) : les volumes des certificats lui appartiennent, il ne doit
+# pas changer d'une image de base à l'autre, sinon Caddy ne pourrait plus y écrire.
+RUN addgroup -S -g 10001 caddy && adduser -S -D -H -u 10001 -G caddy caddy \
+  && chown -R caddy:caddy /data /config
 # Le programme caddy de l'image officielle porte un « pouvoir de fichier » (ouvrir les ports 80
 # et 443). Avec no-new-privileges, Linux refuse de lancer un tel programme pour un utilisateur
 # ordinaire : on le lui retire. Les ports sont ouverts autrement (docker-compose.yml, sysctls).

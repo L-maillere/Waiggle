@@ -83,7 +83,8 @@ Claude ne tape jamais un mot de passe, une clé ou un numéro de carte : ces ét
    - **Compte et domaine** : crée le compte, puis ajoute et authentifie le domaine waiggle.io. Brevo
      donne des enregistrements DNS : garde-les pour l'étape « DNS ».
    - **Clé API** : crée-en une (rubrique « SMTP & API »).
-   - **IP autorisées** : dans les réglages de sécurité de Brevo, ajoute les adresses IP du VPS.
+   - **IP autorisées** : dans les réglages de sécurité de Brevo, ajoute les adresses IP du VPS,
+     IPv4 **et** IPv6.
      Sinon, Brevo bloque les envois venus d'une adresse inconnue.
 5. **GitHub CLI** sur le PC (`winget install GitHub.cli`), puis `gh auth login`. Il sert à
    vérifier la provenance des images avant chaque déploiement.
@@ -218,6 +219,16 @@ Le script vérifie tout lui-même. Il affiche chaque étape et s'arrête au prem
 Sous Windows, si `ssh` ne trouve pas la clé chargée dans l'agent de Windows, indique le bon
 programme : `RUCHE_SSH=/c/Windows/System32/OpenSSH/ssh.exe infra/deploy-from-pc.sh`.
 
+**Au tout premier déploiement**, vérifie aussi la vérification elle-même : l'empreinte affichée
+par `deploy-from-pc.sh` doit être celle que donne le dépôt d'images.
+
+```bash
+ssh waiggle "docker buildx imagetools inspect ghcr.io/l-maillere/ruche-api:<commit> --format '{{json .Manifest.Digest}}'"
+```
+
+Et un commit de main sans images (par exemple le commit `ad7488c`, antérieur à la publication)
+doit être refusé : `infra/deploy-from-pc.sh <son numéro complet>`.
+
 Au premier lancement, Caddy demande les certificats : il faut que le DNS pointe déjà vers le VPS.
 Si le DNS n'était pas prêt, Caddy réessaie tout seul. Pour accélérer une fois le DNS prêt :
 `ssh waiggle 'source /srv/ruche/repo/infra/lib.sh && compose restart web'`.
@@ -239,7 +250,7 @@ Claude Code les fait toutes, et en donne le résultat à Louis :
   tous les visiteurs IPv6 partageraient la même limite de tentatives. La réponse doit être 0 :
 
   ```bash
-  ssh waiggle 'source /srv/ruche/repo/infra/lib.sh && db_query' <<< "select count(*) from session where ip_address like '172.%' or ip_address like 'fd%';"
+  ssh waiggle 'source /srv/ruche/repo/infra/lib.sh && db_query' <<< "select count(*) from session where ip_address::inet << '172.16.0.0/12' or ip_address::inet << 'fc00::/7';"
   ```
 - **Navigateur** :
   - `node apps/app/scripts/site-check.mjs https://waiggle.io` : aucun blocage de la CSP, aucune
@@ -251,6 +262,8 @@ Claude Code les fait toutes, et en donne le résultat à Louis :
   - restaurer cette sauvegarde dans une base jetable, puis comparer le nombre de membres. Les
     commandes sont dans la partie 4, « Vérifier une sauvegarde ».
 - **Redémarrage** : `ssh waiggle sudo reboot`, puis le site revient seul en une à deux minutes.
+- **IPv6 qui tient** : juste après, puis le lendemain, `ssh waiggle 'ip -6 route show default'`
+  montre une route, et `ssh waiggle 'curl -6 -sI https://www.debian.org | head -1'` répond.
 - **Le parcours réel, par Louis** :
   1. inscription avec le code, sur téléphone puis sur ordinateur ;
   2. l'e-mail arrive hors des indésirables. Dans « Afficher l'original », on doit lire
@@ -371,8 +384,8 @@ un nouveau code au hasard : `openssl rand -hex 8`.
 
 ### Espace disque
 
-`ssh waiggle 'df -h / && docker system df'`. `deploy.sh` ne garde que les images de la version
-actuelle et de la précédente.
+`ssh waiggle 'df -h / && docker system df'`. Après chaque déploiement, `deploy.sh` supprime les
+images inutilisées depuis plus d'une semaine.
 
 ## 5. En cas de problème
 
@@ -386,6 +399,9 @@ actuelle et de la précédente.
   - le journal des envois de Brevo (« Transactionnel », puis « Logs ») ;
   - les IP autorisées dans Brevo ;
   - les logs de `api`.
+- **La connexion SSH a coupé pendant un déploiement** : regarder `compose ps` et la version de
+  `/health`, puis relancer `infra/deploy-from-pc.sh <même commit>`. Le déploiement peut être
+  rejoué sans risque.
 - **Plus d'accès SSH** : la console de hPanel (VNC). Elle ne passe pas par SSH.
 - **Le serveur est perdu** :
   - restaurer la dernière sauvegarde Hostinger (le serveur entier), ou bien
@@ -395,14 +411,22 @@ actuelle et de la précédente.
 ## 6. Autonomie de Claude Code
 
 Par défaut, Claude Code demande ton accord avant chaque commande. Pour qu'il travaille plus seul,
-autorise dans tes réglages locaux (jamais dans le dépôt) **seulement des commandes précises** :
+autorise dans tes réglages locaux (jamais dans le dépôt) **seulement des commandes exactes, sans
+joker** :
 
 - le déploiement : `infra/deploy-from-pc.sh` ;
-- l'état et les logs : `ssh waiggle 'source /srv/ruche/repo/infra/lib.sh && compose ps'` et
-  `… compose logs …` ;
+- l'état des conteneurs : `ssh waiggle 'source /srv/ruche/repo/infra/lib.sh && compose ps'` ;
 - une sauvegarde : `ssh waiggle /srv/ruche/repo/infra/backup.sh manuel`.
 
-N'autorise pas tout ce qui commence par `ssh waiggle` : ce serait un accès complet au serveur
-sans confirmation. Or Claude lit des logs qui contiennent des textes écrits par les membres, et un
-texte piégé pourrait tenter de lui faire faire autre chose. Les règles de la section « Serveur »
-de CLAUDE.md restent valables : jamais d'action irréversible sans ton accord explicite.
+À ne jamais autoriser d'avance :
+
+- tout ce qui commence par `ssh waiggle` : ce serait un accès complet au serveur sans
+  confirmation. Or Claude lit des logs qui contiennent des textes écrits par les membres, et un
+  texte piégé pourrait tenter de lui faire faire autre chose ;
+- une règle avec joker comme `ssh waiggle 'source … && compose logs …'` : on peut glisser
+  `; autre commande` à la place des points de suspension ;
+- `ssh waiggle …/deploy.sh` directement : sur le serveur, `deploy.sh` accepte toute image du bon
+  dépôt d'images. C'est `deploy-from-pc.sh` qui vérifie sa provenance.
+
+Les règles de la section « Serveur » de CLAUDE.md restent valables : jamais d'action
+irréversible sans ton accord explicite.

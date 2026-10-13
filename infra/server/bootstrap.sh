@@ -269,6 +269,21 @@ EOF
   docker --version
   docker compose version
 
+  step "IPv6 : garder la route annoncée par l'hébergeur"
+  # Docker active le routage IPv6 (le réseau de la porte d'entrée parle IPv6). Un serveur qui
+  # route n'écoute plus, par défaut, les « annonces de routeur » qui lui donnent sa route IPv6 :
+  # il perdrait l'IPv6 au bout de quelques heures. accept_ra=2 les écoute quand même.
+  local iface
+  iface=$(ip -6 route show default 2>/dev/null |
+    awk '/proto ra/ {for (i = 1; i < NF; i++) if ($i == "dev") {print $(i + 1); exit}}')
+  if [ -n "$iface" ]; then
+    echo "net.ipv6.conf.$iface.accept_ra=2" >/etc/sysctl.d/91-ruche-ipv6.conf
+    sysctl -q -p /etc/sysctl.d/91-ruche-ipv6.conf
+    echo "ok : annonces écoutées sur $iface"
+  else
+    echo "route IPv6 fixe, sans annonces de routeur : rien à faire"
+  fi
+
   step "Dossier de l'appli : $RUCHE_HOME"
   install -d -m 750 -o "$name" -g "$name" "$RUCHE_HOME"
   install -d -m 700 -o "$name" -g "$name" "$RUCHE_HOME/backups"

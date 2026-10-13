@@ -30,13 +30,14 @@ main() {
   fi
   [[ $sha =~ ^[0-9a-f]{40}$ ]] || die "commit invalide : « $sha » (40 caractères attendus)"
 
-  step "Les adresses et le dépôt d'images de la version ${sha:0:7}"
-  # Ceux de cette version précise (infra/site.env à ce commit), pas ceux de la copie locale.
+  step "Le dépôt d'images de la version ${sha:0:7}"
   git -C "$RUCHE_REPO" fetch --quiet origin main
-  RUCHE_SITE_ENV=$(mktemp)
-  git -C "$RUCHE_REPO" show "$sha:infra/site.env" >"$RUCHE_SITE_ENV"
-  load_site
-  rm -f "$RUCHE_SITE_ENV"
+  git -C "$RUCHE_REPO" merge-base --is-ancestor "$sha" origin/main ||
+    die "ce commit n'est pas sur main : on ne déploie que ce qui a été relu et fusionné"
+  # Celui de cette version précise (infra/site.env à ce commit), lu comme du texte, sans
+  # l'exécuter, et vérifié comme le fait la CI.
+  IMAGE_PREFIX=$(git -C "$RUCHE_REPO" show "$sha:infra/site.env" | sed -n 's/^IMAGE_PREFIX=//p')
+  [[ $IMAGE_PREFIX =~ ^ghcr\.io/[a-z0-9._/-]+$ ]] || die "IMAGE_PREFIX invalide dans infra/site.env : « $IMAGE_PREFIX »"
   echo "$IMAGE_PREFIX"
 
   step "Vérification de la provenance des images"

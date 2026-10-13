@@ -69,7 +69,8 @@ main() {
   compose run --rm --no-deps -T --entrypoint sh api -c \
     'find /app/media -mindepth 1 -maxdepth 1 ! -name .restauration -exec rm -rf {} \; &&
      find /app/media/.restauration -mindepth 1 -maxdepth 1 -exec mv {} /app/media/ \; &&
-     rmdir /app/media/.restauration'
+     rmdir /app/media/.restauration' ||
+    die "base restaurée, mais l'échange des avatars s'est interrompu : ils sont dans le dossier caché .restauration du volume des avatars (voir docs/ops/serveur.md)"
 
   step "Redémarrage de l'API"
   compose up -d --wait api
