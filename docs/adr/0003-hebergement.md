@@ -87,7 +87,12 @@ confort.
 - Le domaine est écrit dans l'image web, au moment de la construction. Changer de domaine
   demande donc une nouvelle publication (`infra/site.env`).
 - Les sauvegardes restent chez Hostinger : celles du serveur (14 jours) et la sauvegarde
-  hebdomadaire du VPS entier, incluse dans l'offre. Un compte Hostinger perdu ou piraté les
-  emporterait toutes : risque accepté par Louis, réduit par la double authentification du compte.
-  Une copie chiffrée sur le PC a été écrite puis retirée (pull request #11).
+  hebdomadaire du VPS entier, incluse dans l'offre. Risques acceptés par Louis :
+  - si le VPS disparaît, on revient à la dernière sauvegarde hebdomadaire : jusqu'à 7 jours de
+    données perdus ;
+  - un compte Hostinger perdu ou piraté emporterait toutes les sauvegardes. La double
+    authentification du compte réduit ce risque.
+
+  Une copie chiffrée sur le PC a été écrite (ADR 0004, retirée, pull request #11), puis
+  abandonnée au profit de la sauvegarde hebdomadaire de Hostinger.
 - Le serveur n'a pas de surveillance automatique (disponibilité, disque). C'est à ajouter.

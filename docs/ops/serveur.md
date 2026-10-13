@@ -47,6 +47,9 @@ Claude ne tape jamais un mot de passe, une clé ou un numéro de carte : ces ét
    - **Instantané** : fais-en un. Il permet de revenir à cet état si la mise en route tourne mal.
    - **Sauvegardes** : la sauvegarde hebdomadaire du VPS entier est incluse dans l'offre. Vérifie
      qu'elle est active (« Planification actuelle des sauvegardes : Hebdomadaires »).
+   - **Double authentification** : active-la sur ton compte Hostinger, et sur GitHub (la
+     provenance des images en dépend), avec une application ou une clé de sécurité plutôt que le
+     SMS. Toutes les sauvegardes sont chez Hostinger : ce compte est la clé de tout.
 2. **Une clé SSH sur ton PC**, dans PowerShell :
 
    ```powershell
@@ -83,11 +86,13 @@ Claude ne tape jamais un mot de passe, une clé ou un numéro de carte : ces ét
    ```
 
    En une commande, dans PowerShell (`Add-Content` ajoute à la fin du fichier sans rien effacer ;
-   `ascii`, parce que SSH lit mal d'autres formats) :
+   `ascii`, parce que SSH lit mal d'autres formats ; la ligne vide du début évite de coller le
+   raccourci à la dernière ligne du fichier) :
 
    ```powershell
    $ip = "<adresse IPv4 du VPS>"
    Add-Content -Encoding ascii -Path $env:USERPROFILE\.ssh\config -Value @"
+
    Host waiggle
      HostName $ip
      User louis
@@ -431,9 +436,13 @@ images inutilisées depuis plus d'une semaine.
   rejoué sans risque.
 - **Plus d'accès SSH** : la console de hPanel (VNC). Elle ne passe pas par SSH.
 - **Le serveur est perdu** : restaurer la dernière sauvegarde hebdomadaire de Hostinger (le
-  serveur entier, dans hPanel), avec l'accord explicite de Louis. Elle contient aussi les
-  sauvegardes quotidiennes de `/srv/ruche/backups` : `restore.sh` permet ensuite de revenir à la
-  plus récente d'entre elles, si elle est plus récente que l'état restauré.
+  serveur entier, dans hPanel), avec l'accord explicite de Louis.
+  - **Ce qui est perdu** : tout ce qui a été écrit depuis cette sauvegarde, jusqu'à 7 jours.
+  - **Si la base ne repart pas proprement** (l'image a été prise pendant que PostgreSQL
+    tournait) : `restore.sh` avec la sauvegarde de la nuit qui précède l'image, dans
+    `/srv/ruche/backups`, toujours avec l'accord de Louis.
+  - **Si le serveur a été piraté** : choisir une sauvegarde antérieure à l'intrusion, puis changer
+    tous les secrets (`secrets.env`, la clé Brevo, le code d'invitation) et les clés SSH.
 
 ## 6. Autonomie de Claude Code
 
