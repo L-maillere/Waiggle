@@ -12,6 +12,7 @@ const production = {
   MAIL_PROVIDER: 'brevo',
   BREVO_API_KEY: 'key',
   MAIL_FROM_EMAIL: 'no-reply@ruche.app',
+  SIGNUP_INVITE_CODE: 'f3a9c2e17b4d8a06',
 }
 
 describe('loadEnv', () => {
@@ -23,6 +24,8 @@ describe('loadEnv', () => {
       publicApiUrl: 'http://localhost:3000',
       appUrl: 'http://localhost:8081',
       mail: { provider: 'console' },
+      // Pas de code : en développement, l'inscription reste libre.
+      inviteCode: null,
     })
   })
 
@@ -36,6 +39,7 @@ describe('loadEnv', () => {
         apiKey: 'key',
         from: { email: 'no-reply@ruche.app', name: appName },
       },
+      inviteCode: 'f3a9c2e17b4d8a06',
     })
   })
 
@@ -61,5 +65,39 @@ describe('loadEnv', () => {
 
   it('refuses to send real emails without an API key', () => {
     expect(() => loadEnv({ ...production, BREVO_API_KEY: undefined })).toThrow(/BREVO_API_KEY/)
+  })
+
+  it('refuses to start in production without an invite code: sign-up stays closed by default', () => {
+    expect(() => loadEnv({ ...production, SIGNUP_INVITE_CODE: undefined })).toThrow(
+      /SIGNUP_INVITE_CODE/,
+    )
+    expect(() => loadEnv({ ...production, SIGNUP_INVITE_CODE: '' })).toThrow(/SIGNUP_INVITE_CODE/)
+  })
+
+  it('refuses an invite code shorter than 12 characters, spaces around it not counted', () => {
+    expect(() => loadEnv({ ...production, SIGNUP_INVITE_CODE: 'miel-2026' })).toThrow(
+      /SIGNUP_INVITE_CODE/,
+    )
+    expect(() => loadEnv({ ...production, SIGNUP_INVITE_CODE: '  miel-2026  ' })).toThrow(
+      /SIGNUP_INVITE_CODE/,
+    )
+  })
+
+  it('refuses the example codes published in this repository, which anyone can read', () => {
+    for (const example of ['Miel-2026-Noel', ' SMOKE-test-invite-code ']) {
+      expect(() => loadEnv({ ...production, SIGNUP_INVITE_CODE: example })).toThrow(
+        /SIGNUP_INVITE_CODE/,
+      )
+    }
+  })
+
+  it('refuses to write emails in the logs in production, unless allowed for a trial', () => {
+    const consoleMail = { ...production, MAIL_PROVIDER: 'console', BREVO_API_KEY: undefined }
+    expect(() => loadEnv(consoleMail)).toThrow(/MAIL_PROVIDER/)
+    expect(loadEnv({ ...consoleMail, ALLOW_CONSOLE_MAIL: 'true' }).mail).toEqual({
+      provider: 'console',
+    })
+    // En développement, les e-mails dans le terminal restent le réglage par défaut.
+    expect(loadEnv({}).mail).toEqual({ provider: 'console' })
   })
 })

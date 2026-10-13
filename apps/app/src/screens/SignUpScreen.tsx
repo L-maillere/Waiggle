@@ -1,15 +1,22 @@
-// Écran d'inscription : prénom, e-mail, mot de passe. Après envoi, le membre doit cliquer sur le
-// lien reçu par e-mail avant de pouvoir se connecter.
+// Écran d'inscription : code d'invitation, prénom, e-mail, mot de passe. Après envoi, le membre doit
+// cliquer sur le lien reçu par e-mail avant de pouvoir se connecter.
+// Un lien d'invitation (/sign-up?code=…) remplit tout seul le code.
 
 import { sourceUrl } from '@ruche/brand'
-import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, SignUpRequest } from '@ruche/contracts'
-import { useRouter } from 'expo-router'
-import { useState } from 'react'
+import {
+  InviteCode,
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+  SignUpRequest,
+} from '@ruche/contracts'
+import { useLocalSearchParams, useRouter } from 'expo-router'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { signUp } from '../accounts/api'
 import type { AuthErrorKey } from '../accounts/errors'
 import { type FieldErrors, fieldErrorsFrom } from '../accounts/validation'
 import { useOpenOutside } from '../navigation/links'
+import { firstParam } from '../navigation/params'
 import { Button } from '../ui/Button'
 import { HoneyMeter } from '../ui/HoneyMeter'
 import { Notice } from '../ui/Notice'
@@ -17,6 +24,7 @@ import { Screen } from '../ui/Screen'
 import { Row, Stack } from '../ui/Stack'
 import { FieldGroup, TextField } from '../ui/TextField'
 import { TextLink } from '../ui/TextLink'
+import { useHydrated } from '../ui/theme/hydration'
 import { WelcomeHero } from '../ui/WelcomeHero'
 
 // Paramètres des messages qui citent les longueurs de mot de passe.
@@ -29,6 +37,7 @@ export function SignUpScreen() {
 
   // useState garde une valeur qui change (ce que tape le membre) et redessine l'écran à chaque
   // changement. Il renvoie la valeur et la fonction pour la modifier.
+  const [inviteCode, setInviteCode] = useState('')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -36,9 +45,30 @@ export function SignUpScreen() {
   const [error, setError] = useState<AuthErrorKey | null>(null)
   const [loading, setLoading] = useState(false)
 
+  // Le code d'un lien d'invitation (/sign-up?code=…). L'adresse de la page n'est connue que dans le
+  // navigateur, pas pendant la préparation de la page web : on attend donc d'y être (voir
+  // ui/theme/hydration.ts) pour remplir le champ. N'importe qui peut fabriquer un lien : on ne
+  // reprend que ce qui a la forme d'un code.
+  const params = useLocalSearchParams<{ code?: string }>()
+  const codeFromLink = firstParam(params.code) ?? ''
+  const hydrated = useHydrated()
+  useEffect(() => {
+    if (!hydrated || !InviteCode.safeParse(codeFromLink).success) return
+    setInviteCode(codeFromLink)
+    // Puis on retire le code de l'adresse affichée : il ne reste ni dans l'historique du
+    // navigateur, ni à l'écran pendant un partage d'écran.
+    router.setParams({ code: undefined })
+  }, [hydrated, codeFromLink, router])
+
   const submit = async () => {
     // 1. Vérification locale avec le même schéma que l'API (packages/contracts).
-    const parsed = SignUpRequest.safeParse({ name, email, password, language: i18n.language })
+    const parsed = SignUpRequest.safeParse({
+      name,
+      email,
+      password,
+      inviteCode,
+      language: i18n.language,
+    })
     if (!parsed.success) {
       setFieldErrors(fieldErrorsFrom(parsed.error))
       return
@@ -79,6 +109,15 @@ export function SignUpScreen() {
       }
     >
       {error ? <Notice message={t(`auth.errors.${error}`, lengths)} /> : null}
+      <TextField
+        label={t('auth.fields.inviteCode')}
+        value={inviteCode}
+        onChangeText={setInviteCode}
+        hint={t('auth.fields.inviteCodeHint')}
+        autoCapitalize="none"
+        autoComplete="off"
+        error={fieldMessage(fieldErrors.inviteCode)}
+      />
       <FieldGroup>
         <TextField
           label={t('auth.fields.name')}

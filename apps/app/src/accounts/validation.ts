@@ -4,7 +4,10 @@
 import type { AuthErrorKey } from './errors'
 
 export type FieldErrors = Partial<
-  Record<'name' | 'email' | 'password', AuthErrorKey | 'nameRequired'>
+  Record<
+    'name' | 'email' | 'password' | 'inviteCode',
+    AuthErrorKey | 'nameRequired' | 'inviteRequired'
+  >
 >
 
 // La forme d'une erreur Zod qui nous intéresse : une liste de problèmes, chacun avec le chemin
@@ -17,6 +20,7 @@ export const fieldErrorsFrom = (error: ValidationError): FieldErrors => {
     const field = issue.path[0]
     if (field === 'name') errors.name = 'nameRequired'
     if (field === 'email') errors.email = 'invalidEmail'
+    if (field === 'inviteCode') errors.inviteCode = 'inviteRequired'
     if (field === 'password') {
       // too_small : trop court ; too_big : trop long.
       errors.password = issue.code === 'too_big' ? 'passwordTooLong' : 'passwordTooShort'

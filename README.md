@@ -23,7 +23,7 @@ apps/
 packages/
   contracts/    Schémas Zod partagés et contrat d'API
   i18n/         Traductions fr/en et choix de la langue
-infra/          Docker Compose et Caddy
+infra/          Docker Compose, Caddy et scripts du serveur
 docs/           Scénarios et décisions
 ```
 
@@ -45,10 +45,17 @@ s'affichent dans le terminal.
 Base de données, API et proxy HTTPS en conteneurs :
 
 ```bash
-cp infra/.env.example infra/.env     # puis renseigner POSTGRES_PASSWORD
+cp infra/.env.example infra/.env     # puis renseigner POSTGRES_PASSWORD, BETTER_AUTH_SECRET
+                                     # et SIGNUP_INVITE_CODE (voir les commentaires du fichier)
 docker compose -f infra/docker-compose.yml up --build
-curl -k https://localhost/health
+curl -k https://api.localhost/health # l'API ; l'appli web est sur https://localhost
 ```
+
+## Mise en ligne
+
+L'appli tourne sur un VPS, derrière Caddy. Les images Docker sont construites par la CI et
+publiées sur ghcr.io. La mise en route du serveur, le déploiement et les sauvegardes sont décrits
+dans [docs/ops/serveur.md](docs/ops/serveur.md).
 
 ## Contribuer
 

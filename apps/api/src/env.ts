@@ -2,6 +2,11 @@
 // Elles arrivent toujours sous forme de texte, et peuvent manquer ou être fausses :
 // on les vérifie toutes au démarrage avec Zod, pour échouer tout de suite et clairement.
 import { appName } from '@ruche/brand'
+import {
+  INVITE_CODE_MAX_LENGTH,
+  INVITE_CODE_MIN_LENGTH,
+  normalizeInviteCode,
+} from '@ruche/contracts'
 import { z } from 'zod'
 
 // Les chaînes vides ("") sont traitées comme absentes : c'est ce que produit souvent un .env mal rempli.
@@ -26,11 +31,21 @@ const EnvSchema = z
     APP_URL: z.url().default('http://localhost:8081'),
     MAIL_PROVIDER: z.enum(['console', 'brevo']).default('console'),
     BREVO_API_KEY: optional(z.string()),
+    // « true » autorise les e-mails écrits dans les logs (console) en production. Seulement pour
+    // les essais (tests de la pile Docker) : sinon les liens des e-mails, qui connectent au compte,
+    // finiraient dans les logs du serveur.
+    ALLOW_CONSOLE_MAIL: optional(z.enum(['true'])),
     MAIL_FROM_EMAIL: z.email().default('no-reply@localhost.localdomain'),
     // Nom de l'expéditeur des e-mails. Vide : le nom de l'appli (@ruche/brand).
     MAIL_FROM_NAME: z.preprocess(
       (value) => (value === '' ? undefined : value),
       z.string().default(appName),
+    ),
+    // Le code d'invitation demandé à l'inscription (docs/scenarios/phase-1.md). trim() retire les
+    // espaces autour avant de compter les caractères : 12 au moins, pour qu'on ne le devine pas.
+    // Absent : inscription libre, ce qui n'est permis qu'en développement et dans les tests.
+    SIGNUP_INVITE_CODE: optional(
+      z.string().trim().min(INVITE_CODE_MIN_LENGTH).max(INVITE_CODE_MAX_LENGTH),
     ),
   })
   // superRefine : des règles qui dépendent de plusieurs variables à la fois.
@@ -46,11 +61,49 @@ const EnvSchema = z
           message: 'required in production, at least 32 characters (openssl rand -base64 32)',
         })
       }
+      // En production, l'inscription est fermée par défaut : sans code, le serveur ne démarre pas.
+      if (!env.SIGNUP_INVITE_CODE) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['SIGNUP_INVITE_CODE'],
+          message: `required in production, at least ${INVITE_CODE_MIN_LENGTH} characters`,
+        })
+      }
+    }
+    if (
+      env.SIGNUP_INVITE_CODE &&
+      PUBLIC_EXAMPLE_INVITE_CODES.includes(normalizeInviteCode(env.SIGNUP_INVITE_CODE))
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['SIGNUP_INVITE_CODE'],
+        message:
+          'this code is a public example of the repository: choose another one (openssl rand -hex 8)',
+      })
+    }
+    if (
+      env.NODE_ENV === 'production' &&
+      env.MAIL_PROVIDER === 'console' &&
+      env.ALLOW_CONSOLE_MAIL !== 'true'
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['MAIL_PROVIDER'],
+        message: 'console writes the sign-in links in the logs: use brevo in production',
+      })
     }
     if (env.MAIL_PROVIDER === 'brevo' && !env.BREVO_API_KEY) {
       ctx.addIssue({ code: 'custom', path: ['BREVO_API_KEY'], message: 'required to send emails' })
     }
   })
+
+// Les codes d'invitation qui servent d'exemples dans ce dépôt (documentation, tests). Le dépôt est
+// public : un serveur réglé avec l'un d'eux serait ouvert à tous.
+const PUBLIC_EXAMPLE_INVITE_CODES = [
+  'miel-2026-noel',
+  'smoke-test-invite-code',
+  'stack-test-invite-code',
+]
 
 // Secret de secours, uniquement hors production : il est public (il est dans ce fichier !).
 const DEVELOPMENT_SECRET = 'development-only-secret-do-not-use-in-production'
@@ -70,6 +123,8 @@ export type Env = {
   publicApiUrl: string
   appUrl: string
   mail: MailConfig
+  /** Le code d'invitation exigé à l'inscription ; null : inscription libre (développement). */
+  inviteCode: string | null
 }
 
 /**
@@ -103,5 +158,6 @@ export const loadEnv = (source: Record<string, string | undefined>): Env => {
             from: { email: env.MAIL_FROM_EMAIL, name: env.MAIL_FROM_NAME },
           }
         : { provider: 'console' },
+    inviteCode: env.SIGNUP_INVITE_CODE ?? null,
   }
 }

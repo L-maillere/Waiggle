@@ -8,6 +8,7 @@ export type AuthErrorKey =
   | 'passwordTooShort'
   | 'passwordTooLong'
   | 'invalidEmail'
+  | 'inviteInvalid'
   | 'generic'
 
 // Correspondance code Better Auth → clé de message. Record<string, …> : un dictionnaire.
@@ -17,6 +18,8 @@ const byCode: Record<string, AuthErrorKey> = {
   PASSWORD_TOO_SHORT: 'passwordTooShort',
   PASSWORD_TOO_LONG: 'passwordTooLong',
   INVALID_EMAIL: 'invalidEmail',
+  // Code d'invitation faux ou absent (apps/api/src/auth/auth.ts).
+  INVITE_CODE_INVALID: 'inviteInvalid',
 }
 
 export const authErrorKey = ({

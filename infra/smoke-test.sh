@@ -13,6 +13,8 @@ IMAGE=${1:?usage: infra/smoke-test.sh <image>}
 API=http://localhost:3000
 APP=http://localhost:8081 # adresse de l'appli web par défaut, la seule origine autorisée
 WORK=$(mktemp -d)
+# Un code d'invitation tiré au hasard : l'API refuse les codes d'exemple publiés dans le dépôt.
+INVITE=$(openssl rand -hex 8)
 
 cleanup() {
   docker rm -f smoke-api smoke-db >/dev/null 2>&1 || true
@@ -34,9 +36,11 @@ for _ in $(seq 1 60); do docker exec smoke-db pg_isready -U ruche -d ruche >/dev
 step "API, avec les mêmes protections que dans infra/docker-compose.yml"
 docker run -d --name smoke-api --network smoke -p 3000:3000 \
   --read-only --tmpfs /tmp --memory 1g -v smoke-media:/app/media \
+  --cap-drop ALL --security-opt no-new-privileges \
   -e DATABASE_URL=postgres://ruche:smoke@smoke-db:5432/ruche \
   -e BETTER_AUTH_SECRET="$(openssl rand -base64 32)" \
   -e PUBLIC_API_URL=$API -e APP_URL=$APP \
+  -e SIGNUP_INVITE_CODE="$INVITE" -e ALLOW_CONSOLE_MAIL=true \
   "$IMAGE" >/dev/null
 for _ in $(seq 1 60); do curl -fsS $API/health >/dev/null 2>&1 && break; sleep 1; done
 curl -fsS $API/health
@@ -48,10 +52,17 @@ fi
 docker exec smoke-api node -e "require('fs').writeFileSync('/app/media/probe', 'x')"
 echo "ok"
 
+step "Sans le code d'invitation, l'inscription est refusée"
+STATUS=$(curl -s -o /dev/null -w '%{http_code}' -X POST $API/api/auth/sign-up/email \
+  -H 'Content-Type: application/json' -H "Origin: $APP" \
+  -d '{"name":"Smoke","email":"smoke@example.com","password":"smoke-test-password"}')
+test "$STATUS" = 403
+echo "ok"
+
 step "Inscription, puis lien de vérification (les e-mails sont écrits dans les logs)"
 curl -fsS -o /dev/null -X POST $API/api/auth/sign-up/email \
   -H 'Content-Type: application/json' -H "Origin: $APP" \
-  -d '{"name":"Smoke","email":"smoke@example.com","password":"smoke-test-password"}'
+  -d "{\"name\":\"Smoke\",\"email\":\"smoke@example.com\",\"password\":\"smoke-test-password\",\"inviteCode\":\"$INVITE\"}"
 sleep 1
 LINK=$(docker logs smoke-api 2>&1 | grep -o "$API/api/auth/verify-email[^ ]*" | tail -1)
 curl -fsS -o /dev/null -c "$WORK/cookies" "$LINK"

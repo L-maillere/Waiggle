@@ -204,6 +204,60 @@ miel). Ces scénarios valent pour tous les écrans, présents et à venir.
 - Les polices sont livrées avec l'appli : afficher une page n'envoie aucune requête à un service
   extérieur (Google Fonts, par exemple)
 
+## Mise en ligne — Inscription sur invitation
+
+Statut : **validé par Louis** le 13/10/2026 (avec le plan de mise en ligne).
+
+L'appli est en ligne sur waiggle.io. Pour rester entre proches, il faut un code d'invitation pour
+créer un compte. Louis le choisit et le donne à qui il veut.
+
+**S'inscrire avec le bon code**
+- Étant donné un visiteur qui a reçu le code d'invitation
+- Quand il s'inscrit avec son nom, son adresse e-mail, son mot de passe et ce code
+- Alors l'inscription se passe comme aujourd'hui : il reçoit l'e-mail de vérification
+
+**Refuser un code faux ou absent**
+- Quand quelqu'un s'inscrit sans code, ou avec un code faux
+- Alors l'inscription est refusée avec le message « Ce code d'invitation n'est pas valide.
+  Demande-le à la personne qui t'a invité·e. »
+- Et aucun compte n'est créé, aucun e-mail n'est envoyé
+- Et le code est vérifié avant tout le reste : la réponse ne révèle jamais si l'adresse a déjà un
+  compte
+
+**Ne pas pouvoir deviner le code**
+- La limite qui existe déjà (10 inscriptions par heure et par adresse IP) compte aussi les essais
+  de code : en essayer des milliers est impossible
+
+**Partager un lien d'invitation**
+- Quand un visiteur ouvre `https://waiggle.io/sign-up?code=…`
+- Alors le champ « Code d'invitation » est déjà rempli
+
+### Précisions (inscription sur invitation)
+
+- **Le code** : au moins 12 caractères. Les majuscules, les minuscules et les espaces au début ou
+  à la fin sont ignorés (« Miel-2026-Noel » et « miel-2026-noel » sont le même code).
+- **Où il vit** : sur le serveur (variable `SIGNUP_INVITE_CODE`), jamais dans le code du dépôt.
+  Le changer ne touche pas les membres déjà inscrits ; l'ancien code ne marche plus aussitôt.
+- **Fermé par défaut** : en production, le serveur refuse de démarrer si aucun code n'est réglé.
+  En développement et dans les tests, l'inscription reste libre.
+- **Seule l'inscription change** : la connexion, la vérification de l'adresse et le reste du
+  compte fonctionnent comme avant.
+
+### Notes de réalisation (inscription sur invitation)
+
+Ajouts après la relecture de sécurité :
+
+- **Un code tiré au hasard** : la documentation conseille `openssl rand -hex 8` (16 caractères).
+  Le serveur refuse de démarrer avec un code qui sert d'exemple dans le dépôt (« Miel-2026-Noel »…) :
+  le dépôt est public, n'importe qui pourrait le lire.
+- **Le code quitte l'adresse** : une fois le champ rempli par un lien d'invitation, le code est
+  retiré de l'adresse de la page (historique du navigateur, partage d'écran).
+- **Une seule porte d'entrée** : quand un code est réglé, seule l'inscription par e-mail peut
+  créer un compte. Une future connexion par Google ou par lien magique ne pourra pas passer à
+  côté. La route de relais du plugin Expo (connexion par un autre site sur téléphone, inutilisée)
+  est désactivée : elle renvoyait vers n'importe quel site.
+- **Accents** : « Noël » tapé sur deux claviers différents donne le même code.
+
 ## Tranche 4 — Suivre et le fil
 
 **Suivre**

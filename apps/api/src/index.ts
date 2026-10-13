@@ -50,6 +50,7 @@ const auth = createAuth({
   publicApiUrl: env.publicApiUrl,
   appUrl: env.appUrl,
   rateLimit: env.nodeEnv === 'production',
+  inviteCode: env.inviteCode,
 })
 const app = createApp({
   version,

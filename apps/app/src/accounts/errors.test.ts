@@ -21,6 +21,10 @@ describe('authErrorKey', () => {
     expect(authErrorKey({ status: 400, code: 'PASSWORD_TOO_LONG' })).toBe('passwordTooLong')
   })
 
+  it('recognises a refused invite code', () => {
+    expect(authErrorKey({ status: 403, code: 'INVITE_CODE_INVALID' })).toBe('inviteInvalid')
+  })
+
   it('falls back to a generic message for anything unexpected', () => {
     expect(authErrorKey({ status: 500, code: 'SOMETHING_ELSE' })).toBe('generic')
     expect(authErrorKey({ status: 0 })).toBe('generic')
