@@ -16,6 +16,12 @@ android/
 .env
 .env.*
 !.env.example
+# Fichiers du serveur (voir docs/ops/serveur.md), au cas où l'un d'eux serait copié ici
+secrets.env
+deployed.env
+*.db.dump
+*.media.tar.gz
+*.partiel
 
 # Outils et système
 coverage/
@@ -25,8 +31,9 @@ coverage/
 .vscode/*
 !.vscode/extensions.json
 
-# Claude Code : réglages personnels
+# Claude Code : réglages et consignes personnels
 .claude/settings.local.json
+CLAUDE.local.md
 
 # Base de données locale de développement (PGlite)
 .data/

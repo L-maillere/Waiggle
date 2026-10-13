@@ -5,7 +5,8 @@
 Ruche est un réseau social pour publier ses projets IA, suivre ceux de ses proches, les tester et
 s'encourager mutuellement à en créer de nouveaux. « Ruche » est un nom de code provisoire.
 
-> Projet en phase 0 : le socle technique est posé, les fonctionnalités arrivent en phase 1.
+> Phase 1 en cours : un premier cercle restreint, sur invitation. Pour ses membres, l'appli
+> s'appelle « Waiggle ».
 
 ## Principes
 
@@ -21,10 +22,12 @@ apps/
   api/          API Hono (REST, puis serveur MCP et tâches de fond)
   app/          Appli Expo : iOS, Android et web
 packages/
+  brand/        Nom affiché et jetons de design (couleurs, lettres, formes, mouvement)
   contracts/    Schémas Zod partagés et contrat d'API
+  db/           Tables de la base de données et migrations
   i18n/         Traductions fr/en et choix de la langue
 infra/          Docker Compose, Caddy et scripts du serveur
-docs/           Scénarios et décisions
+docs/           Scénarios, design, décisions et exploitation du serveur
 ```
 
 ## Démarrer
