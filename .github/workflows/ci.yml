@@ -12,10 +12,11 @@ permissions:
   contents: read
 
 # Si on pousse deux fois de suite sur une pull request, la vérification précédente est annulée.
-# Sur main, chaque fusion va jusqu'au bout : chacune doit publier ses images.
+# Sur main, chaque commit a son propre groupe : aucune fusion n'est annulée, chacune publie ses
+# images.
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: true
 
 jobs:
   # Lint, types, tests et construction de l'API et de l'appli web.
@@ -112,6 +113,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # l'essai de deploy.sh simule un dépôt Git avec son historique
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v5
         with:
@@ -139,17 +142,24 @@ jobs:
       attestations: write
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false # le jeton de GitHub ne reste pas dans .git/config
       # Les adresses publiques et le préfixe des images, lus dans infra/site.env. On vérifie leur
-      # forme avant de s'en servir : seuls des noms de domaine et d'image sont acceptés.
+      # forme avant de s'en servir : chaque réglage une seule fois, et seulement des caractères
+      # de noms de domaine et d'images (une valeur piégée ne peut pas ajouter de lignes).
       - name: Read infra/site.env
         id: site
+        shell: bash
         run: |
-          set -eu
-          read_value() { sed -n "s/^$1=//p" infra/site.env; }
+          set -euo pipefail
+          read_value() {
+            [ "$(grep -c "^$1=" infra/site.env)" = 1 ] || { echo "$1 : une et une seule ligne attendue" >&2; exit 1; }
+            sed -n "s/^$1=//p" infra/site.env
+          }
           app=$(read_value APP_DOMAIN); api=$(read_value API_DOMAIN); prefix=$(read_value IMAGE_PREFIX)
-          echo "$app" | grep -Eqx '[a-z0-9.-]+'
-          echo "$api" | grep -Eqx '[a-z0-9.-]+'
-          echo "$prefix" | grep -Eqx 'ghcr\.io/[a-z0-9._/-]+'
+          [[ $app =~ ^[a-z0-9.-]+$ ]] || { echo "APP_DOMAIN invalide"; exit 1; }
+          [[ $api =~ ^[a-z0-9.-]+$ ]] || { echo "API_DOMAIN invalide"; exit 1; }
+          [[ $prefix =~ ^ghcr\.io/[a-z0-9._/-]+$ ]] || { echo "IMAGE_PREFIX invalide"; exit 1; }
           { echo "app=$app"; echo "api=$api"; echo "prefix=$prefix"; } >>"$GITHUB_OUTPUT"
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0

@@ -90,4 +90,14 @@ describe('loadEnv', () => {
       )
     }
   })
+
+  it('refuses to write emails in the logs in production, unless allowed for a trial', () => {
+    const consoleMail = { ...production, MAIL_PROVIDER: 'console', BREVO_API_KEY: undefined }
+    expect(() => loadEnv(consoleMail)).toThrow(/MAIL_PROVIDER/)
+    expect(loadEnv({ ...consoleMail, ALLOW_CONSOLE_MAIL: 'true' }).mail).toEqual({
+      provider: 'console',
+    })
+    // En développement, les e-mails dans le terminal restent le réglage par défaut.
+    expect(loadEnv({}).mail).toEqual({ provider: 'console' })
+  })
 })

@@ -8,7 +8,8 @@
 #   docker compose -f infra/docker-compose.yml up --build
 #
 # Les valeurs ${...} viennent de infra/site.env (les adresses publiques), du fichier des secrets
-# et de la version déployée. « ${NOM:-défaut} » prend la valeur par défaut si NOM est absent.
+# et de la version déployée (deployed.env, écrit par infra/deploy.sh). « ${NOM:-défaut} » prend la
+# valeur par défaut si NOM est absent.
 name: ruche
 
 services:
@@ -30,16 +31,29 @@ services:
       retries: 5
     # Mémoire maximale : la base ne peut pas priver le reste du serveur de toute sa mémoire.
     mem_limit: 1g
+    # Pouvoirs spéciaux de Linux (« capabilities ») : seulement ceux dont PostgreSQL a besoin au
+    # démarrage, pour préparer son dossier puis passer à son propre utilisateur.
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETGID
+      - SETUID
     # Aucun programme du conteneur ne peut obtenir plus de droits qu'au démarrage.
     security_opt:
       - no-new-privileges:true
+    # Nombre maximal de programmes : une erreur qui en lancerait sans fin ne bloque pas le serveur.
+    pids_limit: 256
     networks:
       - backend
 
-  # L'API. Sur le serveur : l'image publiée pour la version déployée (RUCHE_VERSION, un numéro
-  # de commit). Sur son ordinateur : construite à partir du Dockerfile du dépôt (« --build »).
+  # L'API. Sur le serveur : l'image publiée pour la version déployée, désignée par son empreinte
+  # (API_IMAGE=ghcr.io/…@sha256:…, vérifiée avant le déploiement). Sur son ordinateur : construite
+  # à partir du Dockerfile du dépôt (« --build »).
   api:
-    image: ${IMAGE_PREFIX:-ghcr.io/l-maillere/ruche}-api:${RUCHE_VERSION:-local}
+    image: ${API_IMAGE:-ruche-api:local}
     build:
       context: ..
       dockerfile: apps/api/Dockerfile
@@ -59,6 +73,9 @@ services:
       BREVO_API_KEY: ${BREVO_API_KEY:-}
       MAIL_FROM_EMAIL: ${MAIL_FROM_EMAIL:-no-reply@example.com}
       MAIL_FROM_NAME: ${MAIL_FROM_NAME:-}
+      # E-mails écrits dans les logs au lieu d'être envoyés : refusé en production, sauf pour
+      # essayer (voir infra/.env.example).
+      ALLOW_CONSOLE_MAIL: ${ALLOW_CONSOLE_MAIL:-}
       # Le code d'invitation demandé à l'inscription : sans lui, l'API refuse de démarrer.
       SIGNUP_INVITE_CODE: ${SIGNUP_INVITE_CODE:?Définir SIGNUP_INVITE_CODE dans le fichier des secrets}
       MEDIA_DIR: /app/media
@@ -77,6 +94,7 @@ services:
       - no-new-privileges:true
     # Mémoire maximale : si l'API déraille, elle seule redémarre, la base de données est épargnée.
     mem_limit: 1g
+    pids_limit: 256
     depends_on:
       db:
         condition: service_healthy # attend que la base réponde avant de démarrer
@@ -87,7 +105,7 @@ services:
   # La porte d'entrée : Caddy et l'appli web (infra/web/Dockerfile, infra/Caddyfile). Il gère le
   # HTTPS (certificats automatiques), sert l'appli et transmet les requêtes de l'API.
   web:
-    image: ${IMAGE_PREFIX:-ghcr.io/l-maillere/ruche}-web:${RUCHE_VERSION:-local}
+    image: ${WEB_IMAGE:-ruche-web:local}
     build:
       context: ..
       dockerfile: infra/web/Dockerfile
@@ -111,14 +129,17 @@ services:
     read_only: true
     tmpfs:
       - /tmp
-    # Un seul pouvoir spécial : ouvrir les ports 80 et 443, réservés sous Linux.
+    # Caddy tourne avec son propre utilisateur, sans aucun pouvoir spécial (voir
+    # infra/web/Dockerfile). Sous Linux, les ports en dessous de 1024 (80, 443) sont réservés à
+    # root : ce réglage, valable dans ce conteneur seulement, les ouvre à tous ses programmes.
+    sysctls:
+      net.ipv4.ip_unprivileged_port_start: 0
     cap_drop:
       - ALL
-    cap_add:
-      - NET_BIND_SERVICE
     security_opt:
       - no-new-privileges:true
     mem_limit: 256m
+    pids_limit: 128
     depends_on:
       api:
         condition: service_healthy
@@ -129,7 +150,11 @@ networks:
   # Réseau interne : la base n'est joignable que par l'API, jamais depuis Internet.
   backend:
     internal: true
+  # Réseau de la porte d'entrée, en IPv4 et en IPv6. Sans IPv6 ici, Docker relaierait les
+  # visiteurs IPv6 en leur donnant à tous la même adresse : la limitation de débit les
+  # confondrait (5 échecs de connexion d'un seul bloqueraient tous les autres).
   web:
+    enable_ipv6: true
 
 volumes:
   db-data:

@@ -39,11 +39,24 @@ load_site() {
   set +a
 }
 
-# La version déployée, ou rien avant le tout premier déploiement.
-deployed_version() {
+# Une valeur de la version déployée (RUCHE_VERSION, API_IMAGE, WEB_IMAGE), ou rien avant le tout
+# premier déploiement.
+deployed_value() {
   if [ -f "$RUCHE_DEPLOYED" ]; then
-    sed -n 's/^RUCHE_VERSION=//p' "$RUCHE_DEPLOYED"
+    sed -n "s/^$1=//p" "$RUCHE_DEPLOYED"
   fi
+}
+
+# Un seul de ces scripts à la fois (déploiement, sauvegarde, restauration) : la sauvegarde de la
+# nuit ne doit pas tomber au milieu d'une restauration. flock pose un verrou sur un fichier et
+# attend qu'il se libère (10 minutes au plus). Un script lancé par un autre (restore.sh lance
+# backup.sh) profite du verrou de son parent : RUCHE_LOCKED le lui signale.
+take_lock() {
+  [ -z "${RUCHE_LOCKED:-}" ] || return 0
+  mkdir -p "$RUCHE_HOME"
+  exec 9>"$RUCHE_HOME/.lock"
+  flock -w 600 9 || die "un autre script (déploiement, sauvegarde ou restauration) tourne encore"
+  export RUCHE_LOCKED=1
 }
 
 # Docker Compose, avec tous les bons fichiers. Toujours passer par là, jamais par
@@ -58,4 +71,12 @@ compose() {
     --env-file "$RUCHE_SECRETS" \
     --env-file "$RUCHE_DEPLOYED" \
     "$@"
+}
+
+# psql dans le conteneur de la base, la requête SQL lue sur l'entrée standard. Les $ entre
+# apostrophes sont lus par le shell du conteneur : aucun mot de passe ne passe par ici.
+# Exemple : echo 'select count(*) from "user";' | db_query
+db_query() {
+  # shellcheck disable=SC2016
+  compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tA -v ON_ERROR_STOP=1'
 }

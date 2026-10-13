@@ -31,6 +31,10 @@ const EnvSchema = z
     APP_URL: z.url().default('http://localhost:8081'),
     MAIL_PROVIDER: z.enum(['console', 'brevo']).default('console'),
     BREVO_API_KEY: optional(z.string()),
+    // « true » autorise les e-mails écrits dans les logs (console) en production. Seulement pour
+    // les essais (tests de la pile Docker) : sinon les liens des e-mails, qui connectent au compte,
+    // finiraient dans les logs du serveur.
+    ALLOW_CONSOLE_MAIL: optional(z.enum(['true'])),
     MAIL_FROM_EMAIL: z.email().default('no-reply@localhost.localdomain'),
     // Nom de l'expéditeur des e-mails. Vide : le nom de l'appli (@ruche/brand).
     MAIL_FROM_NAME: z.preprocess(
@@ -75,6 +79,17 @@ const EnvSchema = z
         path: ['SIGNUP_INVITE_CODE'],
         message:
           'this code is a public example of the repository: choose another one (openssl rand -hex 8)',
+      })
+    }
+    if (
+      env.NODE_ENV === 'production' &&
+      env.MAIL_PROVIDER === 'console' &&
+      env.ALLOW_CONSOLE_MAIL !== 'true'
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['MAIL_PROVIDER'],
+        message: 'console writes the sign-in links in the logs: use brevo in production',
       })
     }
     if (env.MAIL_PROVIDER === 'brevo' && !env.BREVO_API_KEY) {

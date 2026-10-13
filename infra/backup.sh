@@ -19,6 +19,7 @@ source "$(dirname "$0")/lib.sh"
 main() {
   local label=${1:-quotidien}
   [[ $label =~ ^[a-z0-9-]+$ ]] || die "étiquette invalide : $label (lettres minuscules, chiffres, tirets)"
+  take_lock
 
   # umask 077 : les fichiers créés ne sont lisibles que par leur propriétaire.
   umask 077
@@ -46,10 +47,12 @@ main() {
 
   step "Rotation"
   # Quotidiennes : on garde 14 jours. -mtime +13 : modifiées il y a plus de 13 jours pleins.
-  find "$RUCHE_BACKUPS" -maxdepth 1 -type f -name '*-quotidien.*' -mtime +13 -print -delete
+  # Les noms complets (date_heure-étiquette) : « deploi » ne doit pas toucher « avant-deploi ».
+  local stamp='????-??-??_??????'
+  find "$RUCHE_BACKUPS" -maxdepth 1 -type f -name "$stamp-quotidien.*" -mtime +13 -print -delete
   # Les autres (avant-deploi, avant-restauration…) : on garde les 5 dernières de chaque étiquette.
   if [ "$label" != quotidien ]; then
-    find "$RUCHE_BACKUPS" -maxdepth 1 -type f -name "*-$label.db.dump" -printf '%f\n' |
+    find "$RUCHE_BACKUPS" -maxdepth 1 -type f -name "$stamp-$label.db.dump" -printf '%f\n' |
       sort -r | tail -n +6 | while read -r old; do
         rm -v -- "$RUCHE_BACKUPS/$old" "$RUCHE_BACKUPS/${old%.db.dump}.media.tar.gz"
       done

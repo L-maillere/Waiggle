@@ -40,7 +40,7 @@ docker run -d --name smoke-api --network smoke -p 3000:3000 \
   -e DATABASE_URL=postgres://ruche:smoke@smoke-db:5432/ruche \
   -e BETTER_AUTH_SECRET="$(openssl rand -base64 32)" \
   -e PUBLIC_API_URL=$API -e APP_URL=$APP \
-  -e SIGNUP_INVITE_CODE="$INVITE" \
+  -e SIGNUP_INVITE_CODE="$INVITE" -e ALLOW_CONSOLE_MAIL=true \
   "$IMAGE" >/dev/null
 for _ in $(seq 1 60); do curl -fsS $API/health >/dev/null 2>&1 && break; sleep 1; done
 curl -fsS $API/health

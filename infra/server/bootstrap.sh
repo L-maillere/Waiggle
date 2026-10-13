@@ -154,7 +154,7 @@ EOF
   done
   systemctl reload ssh 2>/dev/null || systemctl restart ssh
   echo "ok : connexion par clé seulement, pour « $name » seulement"
-  printf '\nGarde cette session ouverte et vérifie dans un autre terminal :\n'
+  printf '\nVérifie maintenant (une session root déjà ouverte reste ouverte, en cas de problème) :\n'
   printf '  ssh %s@<IP> true        doit marcher\n  ssh root@<IP> true       doit être refusé\n' "$name"
 }
 
@@ -196,8 +196,9 @@ base() {
   sysctl -q -p /etc/sysctl.d/90-ruche.conf
 
   step "Mises à jour de sécurité automatiques"
-  # Chaque jour, le système installe seul ses correctifs de sécurité, et redémarre à 4 h si
-  # l'un d'eux l'exige. Les conteneurs repartent seuls (restart: unless-stopped).
+  # Chaque jour, le système installe seul ses correctifs de sécurité (et les mises à jour de
+  # Docker), et redémarre à 4 h si l'un d'eux l'exige. Les conteneurs repartent seuls
+  # (restart: unless-stopped ; live-restore pendant une mise à jour de Docker).
   cat >/etc/apt/apt.conf.d/20auto-upgrades <<'EOF'
 APT::Periodic::Update-Package-Lists "1";
 APT::Periodic::Unattended-Upgrade "1";
@@ -207,14 +208,17 @@ EOF
 Unattended-Upgrade::Automatic-Reboot "true";
 Unattended-Upgrade::Automatic-Reboot-Time "04:00";
 Unattended-Upgrade::Remove-Unused-Dependencies "true";
+// Docker aussi : ses correctifs de sécurité (runc, containerd) n'attendent pas.
+Unattended-Upgrade::Origins-Pattern:: "origin=Docker,label=Docker CE";
 EOF
   echo "ok"
 
   step "Pare-feu : SSH, HTTP et HTTPS seulement"
   ufw default deny incoming >/dev/null
   ufw default allow outgoing >/dev/null
-  # « limit » : plus de 6 connexions SSH en 30 secondes depuis une même adresse sont refusées.
-  ufw limit 22/tcp >/dev/null
+  # SSH n'accepte que les clés : deviner un mot de passe est impossible. On n'ajoute donc pas de
+  # limite de connexions (« ufw limit »), qui bloquerait les séries de commandes de Claude Code.
+  ufw allow 22/tcp >/dev/null
   ufw allow 80/tcp >/dev/null
   ufw allow 443/tcp >/dev/null
   ufw allow 443/udp >/dev/null
@@ -226,7 +230,11 @@ EOF
   local key
   key=$(mktemp)
   curl -fsSL "https://download.docker.com/linux/$ID/gpg" -o "$key"
-  gpg --show-keys --with-colons "$key" | awk -F: '/^fpr:/ {print $10}' | grep -qx "$DOCKER_KEY_FINGERPRINT" ||
+  # Une seule clé principale (« pub »), et son empreinte (la ligne « fpr » qui la suit) doit être
+  # exactement celle attendue. Un fichier qui contiendrait une clé de plus est refusé.
+  local fingerprints
+  fingerprints=$(gpg --show-keys --with-colons "$key" | awk -F: '/^pub:/ {getline; print $10}')
+  [ "$fingerprints" = "$DOCKER_KEY_FINGERPRINT" ] ||
     die "la clé de Docker n'a pas l'empreinte attendue : installation arrêtée"
   install -m 0644 "$key" /etc/apt/keyrings/docker.asc
   rm -f "$key"

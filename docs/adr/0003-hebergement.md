@@ -26,8 +26,12 @@ confort.
    - Chaque image est étiquetée avec le numéro de son commit et accompagnée d'une attestation de
      provenance.
    - Les domaines vivent dans `infra/site.env`, versionné et sans secret.
-4. **Le déploiement est lancé à la main** (`infra/deploy.sh <commit>`) depuis le PC de Louis, par
-   SSH. Ce n'est pas GitHub qui s'en charge.
+4. **Le déploiement est lancé à la main**, depuis le PC de Louis (`infra/deploy-from-pc.sh`). Ce
+   n'est pas GitHub qui s'en charge. Le script :
+   - vérifie avec `gh attestation verify` que chaque image a été construite par la CI de main,
+     depuis ce commit ;
+   - lance `infra/deploy.sh` sur le serveur par SSH, avec l'**empreinte** exacte des images
+     vérifiées (`…@sha256:…`), jamais une étiquette.
 5. **La procédure est versionnée dans le dépôt** :
    - la préparation du serveur (`infra/server/bootstrap.sh`), par étapes ;
    - la sauvegarde quotidienne (`infra/backup.sh`) et la restauration (`infra/restore.sh`) ;
@@ -54,8 +58,15 @@ confort.
     `sudo` n'ajouterait pas de vraie protection ;
   - en revanche, il empêcherait Claude Code de travailler seul, puisque Claude ne tape jamais de
     mot de passe.
-  - La protection réelle est la clé SSH. Elle est protégée par une phrase de passe sur le PC de
-    Louis.
+  - La protection réelle est donc la clé SSH, sur le PC de Louis. Sa phrase de passe protège le
+    fichier en cas de vol du PC. En revanche, une fois la clé chargée dans l'agent, tout programme
+    lancé sous le compte de Louis peut s'en servir : d'où le conseil d'une clé physique
+    (`ed25519-sk`) quand c'est possible.
+- **Vérifier la provenance des images** : une étiquette (`ruche-api:<commit>`) peut être
+  remplacée par n'importe quel workflow qui a le droit d'écrire les paquets, y compris celui
+  d'une pull request venue d'une branche du dépôt. L'attestation, signée par GitHub, dit d'où vient
+  l'image (dépôt, workflow, branche, commit). Déployer par empreinte garantit que l'image lancée
+  est exactement celle qui a été vérifiée.
 - **Caddy** : il obtient et renouvelle seul les certificats HTTPS, et sa configuration tient en
   une page. Il pose aussi les en-têtes de sécurité, dont une CSP stricte. Celle-ci est vérifiée
   à chaque construction (`infra/web/check-web.mjs`) et dans un vrai navigateur
@@ -70,6 +81,7 @@ confort.
 
 - Il faut deux étapes pour mettre en ligne une version : fusionner (Louis), puis déployer (Claude
   Code local, à la demande de Louis).
+- Le PC qui déploie a besoin de GitHub CLI, connecté au compte de Louis.
 - Les paquets ghcr.io doivent être publics. C'est cohérent avec un code public : les images ne
   contiennent aucun secret.
 - Le domaine est écrit dans l'image web, au moment de la construction. Changer de domaine

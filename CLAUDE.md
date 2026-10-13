@@ -141,7 +141,9 @@ Procédure complète : `docs/ops/serveur.md`. Choix : `docs/adr/0003-hebergement
 le serveur depuis le Claude Code installé sur le PC de Louis, par `ssh waiggle`.
 
 - **Toujours par les scripts du dépôt** :
-  - `infra/deploy.sh`, `infra/backup.sh`, `infra/restore.sh` ;
+  - déployer : `infra/deploy-from-pc.sh` (depuis le PC : il vérifie la provenance des images,
+    puis lance `infra/deploy.sh` sur le serveur) ;
+  - `infra/backup.sh`, `infra/restore.sh` ;
   - `infra/server/bootstrap.sh` ;
   - `infra/lib.sh`, pour `compose`.
 
@@ -150,11 +152,15 @@ le serveur depuis le Claude Code installé sur le PC de Louis, par `ssh waiggle`
 - **Les secrets** :
   - jamais affichés, copiés, ni écrits dans une conversation ou un log ;
   - on vérifie leur présence (`grep -c '^NOM=.'`), jamais leur valeur ;
+  - donc jamais de commande qui les affiche : `cat secrets.env`, `compose config`,
+    `docker inspect`, `env` ou `printenv` dans un conteneur ;
+  - le code d'invitation, c'est Louis qui le lit sur le serveur ;
   - les clés (Brevo…), les phrases de passe et les mots de passe, c'est Louis qui les tape.
 - **Avant d'agir** :
   - une sauvegarde avant de toucher aux données ;
   - un instantané Hostinger avant de toucher à SSH ou au pare-feu ;
-  - on ne déploie qu'un commit de main dont la CI est verte (`deploy.sh` le vérifie).
+  - on ne déploie qu'un commit de main dont la CI est verte, et dont la provenance des images est
+    vérifiée (`deploy-from-pc.sh` le fait). Si la vérification échoue, on ne déploie pas.
 - **Jamais sans l'accord explicite de Louis**, pour cette action précise :
   - `restore.sh` ;
   - `compose down -v`, `docker volume rm` ;

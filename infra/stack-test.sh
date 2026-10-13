@@ -8,7 +8,9 @@
 #   - les redirections (HTTP vers HTTPS, www) ;
 #   - l'API derrière Caddy ;
 #   - une visite dans un vrai navigateur (apps/app/scripts/site-check.mjs) ;
-#   - une sauvegarde suivie d'une restauration rend exactement les données sauvegardées.
+#   - une sauvegarde suivie d'une restauration rend exactement les données sauvegardées ;
+#   - infra/deploy.sh : trois déploiements successifs (dont un retour arrière) depuis un dépôt
+#     d'images local, et un déploiement refusé qui ne laisse aucune trace.
 #
 # Usage (depuis la racine du dépôt) : infra/stack-test.sh
 # Demande Docker, les dépendances (pnpm install) et Chromium
@@ -25,6 +27,7 @@ source infra/lib.sh
 
 cleanup() {
   compose down --volumes --remove-orphans >/dev/null 2>&1 || true
+  docker rm -f stack-registry >/dev/null 2>&1 || true
   rm -rf "$WORK"
 }
 trap cleanup EXIT
@@ -44,8 +47,7 @@ web() {
 
 # Le nombre de membres dans la base.
 members() {
-  # shellcheck disable=SC2016 # les $ sont lus par le shell du conteneur
-  compose exec -T db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "select count(*) from \"user\""'
+  echo 'select count(*) from "user";' | db_query
 }
 
 # Inscrit un membre par l'API, en passant par Caddy, puis clique sur le lien de vérification
@@ -65,11 +67,14 @@ step "Préparation : adresses locales, secrets tirés au hasard"
 printf 'APP_DOMAIN=localhost\nAPI_DOMAIN=api.localhost\nIMAGE_PREFIX=ruche-stack-test\n' >"$RUCHE_SITE_ENV"
 # Le même modèle et les mêmes commandes que infra/server/bootstrap.sh sur le serveur.
 INVITE_CODE=$(openssl rand -hex 8)
+# ALLOW_CONSOLE_MAIL : les e-mails sont écrits dans les logs, pour y lire les liens de vérification.
 sed -e "s/^POSTGRES_PASSWORD=\$/POSTGRES_PASSWORD=$(openssl rand -hex 32)/" \
+  -e "s/^ALLOW_CONSOLE_MAIL=\$/ALLOW_CONSOLE_MAIL=true/" \
   -e "s/^BETTER_AUTH_SECRET=\$/BETTER_AUTH_SECRET=$(openssl rand -hex 32)/" \
   -e "s/^SIGNUP_INVITE_CODE=\$/SIGNUP_INVITE_CODE=$INVITE_CODE/" \
   infra/.env.example >"$RUCHE_SECRETS"
-printf 'RUCHE_VERSION=stack-test\n' >"$RUCHE_DEPLOYED"
+printf 'RUCHE_VERSION=stack-test\nAPI_IMAGE=ruche-stack-test-api:stack-test\nWEB_IMAGE=ruche-stack-test-web:stack-test\n' \
+  >"$RUCHE_DEPLOYED"
 
 step "Construction des images et démarrage"
 compose up -d --build --wait --wait-timeout 300
@@ -143,8 +148,13 @@ expect "www → domaine" "$(web -o /dev/null -w '%{http_code} %{redirect_url}' '
   "301 https://localhost/sign-in?a=1"
 echo "ok"
 
-step "Les fichiers de la porte d'entrée ne peuvent pas être modifiés"
+step "Les fichiers de la porte d'entrée ne peuvent pas être modifiés, Caddy ne tourne pas en root"
 if compose exec -T web touch /srv/app/probe 2>/dev/null; then die "/srv/app est modifiable"; fi
+[ "$(compose exec -T web id -u)" != 0 ] || die "Caddy tourne en root"
+echo "ok"
+
+step "Le réseau de la porte d'entrée parle IPv6 (sinon tous les visiteurs IPv6 auraient la même adresse)"
+expect "IPv6 du réseau web" "$(docker network inspect ruche_web --format '{{.EnableIPv6}}')" true
 echo "ok"
 
 step "Dans un vrai navigateur : rien n'est bloqué par la CSP, aucune erreur dans les pages"
@@ -172,4 +182,47 @@ if compose exec -T api sh -c 'test -f /app/media/apres.txt'; then die "fichier p
 expect "version après restauration" "$(web -f https://api.localhost/health | node -e 'process.stdin.on("data", (d) => console.log(JSON.parse(d).version))')" stack-test
 echo "ok"
 
-printf '\n✅ Pile de production prête : pages, en-têtes, redirections, sauvegarde et restauration.\n'
+step "Déploiements avec infra/deploy.sh"
+# Un dépôt d'images local (comme ghcr.io) et un dépôt Git local (comme GitHub), avec deux commits
+# sur main. Les images sont celles construites plus haut.
+docker run -d --name stack-registry -p 127.0.0.1:5000:5000 registry:2.8.3 >/dev/null
+for _ in $(seq 1 30); do curl -fsS http://127.0.0.1:5000/v2/ >/dev/null 2>&1 && break; sleep 1; done
+# Publie une image et renvoie sa référence par empreinte (dépôt@sha256:…).
+publish() {
+  local target=localhost:5000/ruche-stack-test-$1:essai digest
+  docker tag "ruche-stack-test-$1:stack-test" "$target"
+  digest=$(docker push "$target" | sed -n 's/.*digest: \(sha256:[0-9a-f]\{64\}\).*/\1/p')
+  [ -n "$digest" ] || die "publication de l'image $1 dans le dépôt local"
+  echo "localhost:5000/ruche-stack-test-$1@$digest"
+}
+api_ref=$(publish api)
+web_ref=$(publish web)
+git init --quiet --bare "$WORK/origin.git"
+# La copie de la CI peut être « superficielle » (sans tout l'historique) : on l'accepte quand même.
+git -C "$WORK/origin.git" config receive.shallowUpdate true
+git push --quiet "$WORK/origin.git" HEAD:refs/heads/main
+git clone --quiet "$WORK/origin.git" "$WORK/repo"
+first=$(git -C "$WORK/repo" rev-parse HEAD)
+git -C "$WORK/repo" -c user.name=Essai -c user.email=essai@example.com commit --quiet --allow-empty -m essai
+git -C "$WORK/repo" push --quiet origin HEAD:main
+second=$(git -C "$WORK/repo" rev-parse HEAD)
+printf 'APP_DOMAIN=localhost\nAPI_DOMAIN=api.localhost\nIMAGE_PREFIX=localhost:5000/ruche-stack-test\n' >"$RUCHE_SITE_ENV"
+health_version() {
+  web -f https://api.localhost/health | node -e 'process.stdin.on("data", (d) => console.log(JSON.parse(d).version))'
+}
+for version in "$first" "$second" "$first"; do
+  RUCHE_REPO=$WORK/repo "$WORK/repo/infra/deploy.sh" "$version" "$api_ref" "$web_ref"
+  expect "version en ligne" "$(health_version)" "$version"
+  expect "copie du dépôt" "$(git -C "$WORK/repo" rev-parse HEAD)" "$version"
+  echo "ok : ${version:0:7} déployée"
+done
+[ -n "$(find "$RUCHE_BACKUPS" -name '*-avant-deploi.db.dump')" ] || die "pas de sauvegarde avant déploiement"
+# Une image d'un autre dépôt d'images : refusée, et la copie du dépôt n'a pas bougé.
+if RUCHE_REPO=$WORK/repo "$WORK/repo/infra/deploy.sh" "$second" "ailleurs.example/ruche-api@${api_ref#*@}" "$web_ref" 2>/dev/null; then
+  die "une image d'un autre dépôt a été acceptée"
+fi
+expect "copie du dépôt après un refus" "$(git -C "$WORK/repo" rev-parse HEAD)" "$first"
+expect "version après un refus" "$(health_version)" "$first"
+echo "ok : refus sans trace"
+
+printf '\n✅ Pile de production prête : pages, en-têtes, redirections, sauvegarde, restauration et déploiement.\n'

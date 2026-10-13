@@ -37,5 +37,11 @@ RUN node infra/web/check-web.mjs apps/app/dist infra/Caddyfile
 FROM caddy:2.11.7-alpine
 COPY infra/Caddyfile /etc/caddy/Caddyfile
 COPY --from=build /repo/apps/app/dist /srv/app
+# Caddy tourne avec son propre utilisateur, jamais en root. Il ne peut écrire que dans /data et
+# /config (les certificats) ; les fichiers de l'appli et le Caddyfile appartiennent à root : même
+# en cas de faille, il ne pourrait pas les modifier. -S : utilisateur « système », sans mot de
+# passe ni shell de connexion.
+RUN addgroup -S caddy && adduser -S -D -H -G caddy caddy && chown -R caddy:caddy /data /config
+USER caddy
 # Refuse de construire une image dont le Caddyfile contient une erreur.
 RUN caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile

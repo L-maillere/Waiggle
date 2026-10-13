@@ -29,7 +29,9 @@ Ce qui se fait tout seul :
 - **après un redémarrage** : les conteneurs repartent seuls.
 
 Ce qui ne se fait pas tout seul : **déployer une nouvelle version**. Louis fusionne une pull
-request, la CI publie les images, puis Louis demande à Claude Code de déployer.
+request, la CI publie les images, puis Louis demande à Claude Code de déployer. Claude Code lance
+alors `infra/deploy-from-pc.sh`, qui vérifie d'abord que les images ont bien été construites par
+la CI de main (leur « attestation de provenance »), puis les met en ligne par leur empreinte.
 
 ## 2. Ce que Louis fait lui-même
 
@@ -37,6 +39,9 @@ Claude ne tape jamais un mot de passe, une clé ou un numéro de carte : ces ét
 
 1. **Hostinger, le VPS** :
    - **Adresses** : note ses adresses IPv4 et IPv6.
+   - **Mot de passe root** : connais-le (ou réinitialise-le dans hPanel). Il ne servira plus par
+     SSH, mais c'est lui que demande la console de secours de hPanel (VNC), si un jour SSH ne
+     répond plus.
    - **Système** : il doit être sous Debian 13. Sinon, réinstalle-le avec Debian 13 depuis hPanel
      tant qu'il est vide.
    - **Instantané** : fais-en un. Il permet de revenir à cet état si la mise en route tourne mal.
@@ -47,7 +52,11 @@ Claude ne tape jamais un mot de passe, une clé ou un numéro de carte : ces ét
    ssh-keygen -t ed25519 -C "louis@pc"
    ```
 
-   - Choisis une **phrase de passe**. Elle protège la clé si ton PC est volé.
+   - Choisis une **phrase de passe**. Elle protège le fichier de la clé si ton PC est volé. Une
+     fois la clé chargée dans l'agent (ci-dessous), n'importe quel programme lancé sous ton compte
+     Windows peut s'en servir : installe seulement des logiciels de confiance. Plus sûr encore, si
+     tu as une clé de sécurité physique (YubiKey…) : `ssh-keygen -t ed25519-sk`, qui demande de la
+     toucher à chaque connexion.
    - Ajoute la clé publique au VPS : dans hPanel, rubrique « Clés SSH », colle le contenu de
      `C:\Users\<toi>\.ssh\id_ed25519.pub` (le fichier en **.pub**, jamais l'autre).
    - Charge la clé dans l'agent SSH de Windows, pour ne pas retaper la phrase de passe à chaque
@@ -76,7 +85,9 @@ Claude ne tape jamais un mot de passe, une clé ou un numéro de carte : ces ét
    - **Clé API** : crée-en une (rubrique « SMTP & API »).
    - **IP autorisées** : dans les réglages de sécurité de Brevo, ajoute les adresses IP du VPS.
      Sinon, Brevo bloque les envois venus d'une adresse inconnue.
-5. **Après la première publication des images** (la CI de main, une fois la pull request
+5. **GitHub CLI** sur le PC (`winget install GitHub.cli`), puis `gh auth login`. Il sert à
+   vérifier la provenance des images avant chaque déploiement.
+6. **Après la première publication des images** (la CI de main, une fois la pull request
    fusionnée), rends publics les paquets `ruche-api` et `ruche-web` :
    - va sur GitHub, dans l'onglet « Packages » de ton profil ;
    - pour chaque paquet : « Package settings », puis « Change visibility », puis « Public ».
@@ -96,8 +107,13 @@ ssh root@<IP> 'bash -s -- check' < infra/server/bootstrap.sh
 **À vérifier** :
 
 - « ok : système prévu » ;
-- au moins une clé SSH autorisée pour root ;
+- les clés SSH autorisées pour root : **Louis confirme que chacune est bien la sienne**. Elles
+  deviendront toutes des clés du compte `louis`, qui a tous les droits ;
 - la mémoire et le disque disponibles.
+
+À la toute première connexion, SSH affiche l'empreinte de la clé du serveur et demande
+confirmation. Pour être sûr de parler au bon serveur, compare-la avec celle que donne la console
+de hPanel : `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`.
 
 ### Étape 2 : pare-feu Hostinger et DNS
 
@@ -125,6 +141,9 @@ qu'on les fait tôt : ils se propagent pendant les étapes suivantes.
 **À vérifier** : `nslookup waiggle.io` et `nslookup api.waiggle.io` donnent l'adresse du VPS.
 
 ### Étape 3 : le compte `louis`, puis fermeture de root
+
+Avant tout, ouvre une session root dans un **autre** terminal (`ssh root@<IP>`) et laisse-la
+ouverte jusqu'à la fin des vérifications : si quelque chose tourne mal, elle permet de corriger.
 
 ```bash
 ssh root@<IP> 'bash -s -- user louis' < infra/server/bootstrap.sh
@@ -164,7 +183,8 @@ sessions et le code d'invitation. Il reste à brancher Brevo :
 ssh -t waiggle nano /srv/ruche/secrets.env
 ```
 
-Les lignes à modifier :
+Les lignes à modifier (tant que Brevo n'est pas branché, l'API refuse de démarrer en production :
+sans lui, les liens des e-mails, qui connectent au compte, finiraient dans les logs) :
 
 ```text
 MAIL_PROVIDER=brevo
@@ -182,18 +202,21 @@ ssh waiggle "grep -c '^MAIL_PROVIDER=brevo$' /srv/ruche/secrets.env"            
 
 ### Étape 6 : premier déploiement
 
-Le numéro du dernier commit de main, dont la CI a publié les images :
+Depuis le dossier du dépôt, sur le PC :
 
 ```bash
-git ls-remote https://github.com/L-maillere/ruche refs/heads/main
-ssh waiggle /srv/ruche/repo/infra/deploy.sh <numéro complet du commit>
+infra/deploy-from-pc.sh            # le dernier commit de main ; ou : infra/deploy-from-pc.sh <commit>
 ```
 
-`deploy.sh` vérifie tout lui-même. Il affiche chaque étape et s'arrête au premier problème :
+Le script vérifie tout lui-même. Il affiche chaque étape et s'arrête au premier problème :
 
-- le commit est-il sur main ?
-- les images existent-elles ?
+- les deux images ont-elles été construites par la CI de main, depuis ce commit ? (sur le PC,
+  avec `gh attestation verify`) ;
+- le commit est-il sur main ? (sur le serveur, `deploy.sh`) ;
 - l'API répond-elle avec cette version ?
+
+Sous Windows, si `ssh` ne trouve pas la clé chargée dans l'agent de Windows, indique le bon
+programme : `RUCHE_SSH=/c/Windows/System32/OpenSSH/ssh.exe infra/deploy-from-pc.sh`.
 
 Au premier lancement, Caddy demande les certificats : il faut que le DNS pointe déjà vers le VPS.
 Si le DNS n'était pas prêt, Caddy réessaie tout seul. Pour accélérer une fois le DNS prêt :
@@ -211,6 +234,13 @@ Claude Code les fait toutes, et en donne le résultat à Louis :
   - `curl -sI https://www.waiggle.io/` renvoie vers waiggle.io (301).
 - **Ports** : `ssh waiggle 'sudo ss -tlnp'` ne montre que 22, 80 et 443 ouverts vers l'extérieur.
   Le port 5432 (base) et le port 3000 (API) n'apparaissent pas.
+- **Adresses des visiteurs en IPv6** : après une connexion de Louis depuis son téléphone (en
+  4G/5G, souvent en IPv6), aucune session ne doit porter une adresse interne de Docker. Sinon,
+  tous les visiteurs IPv6 partageraient la même limite de tentatives. La réponse doit être 0 :
+
+  ```bash
+  ssh waiggle 'source /srv/ruche/repo/infra/lib.sh && db_query' <<< "select count(*) from session where ip_address like '172.%' or ip_address like 'fd%';"
+  ```
 - **Navigateur** :
   - `node apps/app/scripts/site-check.mjs https://waiggle.io` : aucun blocage de la CSP, aucune
     erreur dans les pages ;
@@ -254,15 +284,15 @@ instructions.
 ### Déployer une nouvelle version
 
 Après la fusion d'une pull request, attendre que la CI de main soit verte : le job « Publish
-images » doit être terminé. Puis :
+images » doit être terminé. Puis, depuis le dossier du dépôt sur le PC :
 
 ```bash
-git ls-remote https://github.com/L-maillere/ruche refs/heads/main
-ssh waiggle /srv/ruche/repo/infra/deploy.sh <commit>
+infra/deploy-from-pc.sh
 ```
 
-`deploy.sh` fait une sauvegarde juste avant (étiquette `avant-deploi`) et affiche la commande pour
-revenir à la version précédente.
+Le déploiement fait une sauvegarde juste avant (étiquette `avant-deploi`) et affiche la commande
+pour revenir à la version précédente. Si la vérification de provenance échoue, **on ne déploie
+pas** : on prévient Louis.
 
 ### Revenir en arrière
 
@@ -270,7 +300,7 @@ revenir à la version précédente.
   la fin du déploiement raté.
 
   ```bash
-  ssh waiggle /srv/ruche/repo/infra/deploy.sh <commit précédent>
+  infra/deploy-from-pc.sh <commit précédent>
   ```
 
 - **Si la version ratée a modifié la base** (une nouvelle migration dans `packages/db/migrations`),
@@ -289,21 +319,25 @@ revenir à la version précédente.
 - **La liste** : `ssh waiggle 'ls -lh /srv/ruche/backups'`.
 - **Une sauvegarde maintenant** : `ssh waiggle /srv/ruche/repo/infra/backup.sh manuel`.
 - **Une copie sur le PC**, hors du dépôt, jamais dans le dossier du code. Ces fichiers contiennent
-  les données des membres :
+  les données des membres : choisis un dossier qui n'est pas synchronisé avec un service en ligne
+  (`Documents` l'est souvent avec OneDrive), ou chiffre la copie avant.
 
   ```bash
-  scp 'waiggle:/srv/ruche/backups/<nom>.*' ~/Documents/waiggle-sauvegardes/
+  scp 'waiggle:/srv/ruche/backups/<nom>.*' /c/waiggle-sauvegardes/
   ```
 
 - **Restaurer** : seulement avec l'accord explicite de Louis (voir « Revenir en arrière »).
-  `restore.sh` sauvegarde d'abord l'état actuel (étiquette `avant-restauration`).
+  `restore.sh` sauvegarde d'abord l'état actuel (étiquette `avant-restauration`), puis restaure à
+  côté de la base actuelle. Si la sauvegarde est abîmée, il s'arrête sans rien changer. Si
+  l'échange final était interrompu, la base restaurée reste disponible sous le nom
+  `ruche_restauration` : on la renomme alors à la main, avec l'accord de Louis.
 - **Vérifier une sauvegarde** sans toucher au site : la restaurer dans une base jetable.
 
   ```bash
   ssh waiggle 'docker run -d --name essai-restauration -e POSTGRES_PASSWORD=essai pgvector/pgvector:0.8.7-pg17'
   ssh waiggle 'sleep 5; docker exec -i essai-restauration pg_restore -U postgres -d postgres --no-owner < /srv/ruche/backups/<nom>.db.dump'
   ssh waiggle 'docker exec essai-restauration psql -U postgres -tAc "select count(*) from \"user\""'
-  ssh waiggle 'docker rm -f essai-restauration'
+  ssh waiggle 'docker rm -f -v essai-restauration'   # -v : efface aussi la copie des données
   ```
 
 ### Changer le code d'invitation
@@ -360,8 +394,15 @@ actuelle et de la précédente.
 
 ## 6. Autonomie de Claude Code
 
-Par défaut, Claude Code demande ton accord avant chaque commande. Pour qu'il travaille plus
-seul, tu peux autoriser, dans tes réglages locaux (jamais dans le dépôt), les commandes qui
-commencent par `ssh waiggle`. Sache qu'il aura alors un accès complet au serveur. Les règles de
-la section « Serveur » de CLAUDE.md restent valables : jamais d'action irréversible sans ton
-accord explicite.
+Par défaut, Claude Code demande ton accord avant chaque commande. Pour qu'il travaille plus seul,
+autorise dans tes réglages locaux (jamais dans le dépôt) **seulement des commandes précises** :
+
+- le déploiement : `infra/deploy-from-pc.sh` ;
+- l'état et les logs : `ssh waiggle 'source /srv/ruche/repo/infra/lib.sh && compose ps'` et
+  `… compose logs …` ;
+- une sauvegarde : `ssh waiggle /srv/ruche/repo/infra/backup.sh manuel`.
+
+N'autorise pas tout ce qui commence par `ssh waiggle` : ce serait un accès complet au serveur
+sans confirmation. Or Claude lit des logs qui contiennent des textes écrits par les membres, et un
+texte piégé pourrait tenter de lui faire faire autre chose. Les règles de la section « Serveur »
+de CLAUDE.md restent valables : jamais d'action irréversible sans ton accord explicite.
