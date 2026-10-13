@@ -113,6 +113,7 @@ done <<'EOF'
 /projects/new projects/new.html
 /projects/0192abcd-ef01-7c2d-9e3f-a1b2c3d4e5f6 projects/[id].html
 /projects/0192abcd-ef01-7c2d-9e3f-a1b2c3d4e5f6/edit projects/[id]/edit.html
+/licences-tierces.txt licences-tierces.txt
 EOF
 
 step "Une adresse inconnue mène à « introuvable », avec le code 404"
