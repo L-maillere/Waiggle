@@ -10,6 +10,7 @@ Markdown (lisible sur GitHub) et en PDF.
 | [02 — Le profil](02-le-profil.md) | Profil, photo nettoyée, images piégées, langue sur tous les appareils |
 | [03 — Publier un projet](03-publier-un-projet.md) | Qui voit quoi, liens sûrs, Markdown sans danger, textes piégés |
 | [04 — Le design Miel](04-le-design-miel.md) | Jetons, composants, garde-fous, jour et nuit, ressorts, pré-rendu web |
+| [05 — Le code d'invitation](05-le-code-d-invitation.md) | Fermé par défaut, comparaison à temps constant, défense en profondeur |
 
 ## Générer un PDF
 
