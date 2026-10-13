@@ -9,7 +9,7 @@ export const recipesProject: Project = {
   description: '## Comment ça marche\n\nOn **photographie** le frigo.',
   status: 'testable',
   visibility: 'public',
-  demoUrl: 'https://recettes.vercel.app',
+  demoUrl: 'https://recettes.example.com',
   tools: [
     { label: 'Claude Code', slug: 'claude-code' },
     { label: 'Cursor', slug: 'cursor' },

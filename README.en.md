@@ -6,7 +6,7 @@ Ruche is a social network where friends and family share their AI projects, foll
 other's work, and encourage one another to build more. "Ruche" (French for *beehive*) is a
 working name.
 
-> Phase 0: the technical foundation is in place; features arrive in phase 1.
+> Phase 1 in progress: a first small circle, invite only. Members know the app as "Waiggle".
 
 ## Principles
 

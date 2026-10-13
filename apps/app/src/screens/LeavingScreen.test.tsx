@@ -19,14 +19,14 @@ afterEach(() => openURL.mockRestore())
 
 describe('LeavingScreen', () => {
   it('shows where the link really leads, then opens it', async () => {
-    await renderWithProviders(<LeavingScreen url="https://recettes.vercel.app/demo?x=1" />)
+    await renderWithProviders(<LeavingScreen url="https://recettes.example.com/demo?x=1" />)
 
-    expect(screen.getByText('https://recettes.vercel.app/demo?x=1')).toBeTruthy()
+    expect(screen.getByText('https://recettes.example.com/demo?x=1')).toBeTruthy()
     await fireEvent.press(
-      screen.getByRole('button', { name: 'Continuer vers recettes.vercel.app' }),
+      screen.getByRole('button', { name: 'Continuer vers recettes.example.com' }),
     )
 
-    expect(openURL).toHaveBeenCalledWith('https://recettes.vercel.app/demo?x=1')
+    expect(openURL).toHaveBeenCalledWith('https://recettes.example.com/demo?x=1')
   })
 
   it('never opens a link that is not https', async () => {
@@ -41,7 +41,7 @@ describe('LeavingScreen', () => {
   })
 
   it('goes back without opening anything', async () => {
-    await renderWithProviders(<LeavingScreen url="https://recettes.vercel.app" />)
+    await renderWithProviders(<LeavingScreen url="https://recettes.example.com" />)
 
     await fireEvent.press(screen.getByRole('button', { name: 'Revenir' }))
 
@@ -50,7 +50,7 @@ describe('LeavingScreen', () => {
   })
 
   it('refuses local machines and disguised addresses', async () => {
-    for (const url of ['https://192.168.1.1/admin', 'https://ruche.app@pirate.example']) {
+    for (const url of ['https://192.168.1.1/admin', 'https://waiggle.io@pirate.example.com']) {
       await renderWithProviders(<LeavingScreen url={url} />)
       expect(screen.queryByRole('button', { name: /Continuer/ })).toBeNull()
     }

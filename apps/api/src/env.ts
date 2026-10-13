@@ -103,6 +103,7 @@ const PUBLIC_EXAMPLE_INVITE_CODES = [
   'miel-2026-noel',
   'smoke-test-invite-code',
   'stack-test-invite-code',
+  'f3a9c2e17b4d8a06', // ancien code des tests, resté lisible dans l'historique du dépôt
 ]
 
 // Secret de secours, uniquement hors production : il est public (il est dans ce fichier !).

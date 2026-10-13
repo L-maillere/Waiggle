@@ -30,8 +30,9 @@ const mailer: Mailer =
     ? createBrevoMailer({ apiKey: env.mail.apiKey, from: env.mail.from })
     : createConsoleMailer()
 
-// En production, des e-mails affichés dans les logs contiendraient des liens de vérification :
-// acceptable pour un premier test sur le VPS, mais à ne pas oublier.
+// En production, des e-mails écrits dans les logs y laisseraient des liens de vérification, qui
+// connectent au compte. env.ts ne le permet que pour les essais (ALLOW_CONSOLE_MAIL=true) : on le
+// rappelle dans les logs, pour ne pas l'oublier.
 if (env.nodeEnv === 'production' && env.mail.provider === 'console') {
   console.warn('MAIL_PROVIDER=console in production: emails (and their links) go to the logs.')
 }

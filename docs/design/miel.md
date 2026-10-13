@@ -10,17 +10,10 @@ un seul endroit, et ce document n'a donc jamais à être mis à jour quand une v
 
 ## Les maquettes
 
-Elles sont privées : il faut le compte de Louis pour les ouvrir.
-
-- [Galerie des maquettes](https://claude.ai/artifact/Ng11XKQo595c6zyQJ525jT) : tous les écrans en
-  images, téléphone et ordinateur, jour et nuit.
-- [Canevas des maquettes](https://claude.ai/artifact/JuDPBcfCkE3eoxtWAMdtSK) : les mêmes écrans,
-  modifiables.
-- [Prototype animé](https://claude.ai/artifact/2yVBVybfvRt1Y3twKa52dD) : la lumière, les ressorts,
-  la publication.
-
-Les maquettes servent de point de départ. Une fois un écran construit, **la référence, c'est
-l'appli** : le catalogue et les captures automatiques (voir plus bas) la montrent à jour.
+Les maquettes de départ (une galerie de tous les écrans, un canevas modifiable et un prototype
+animé) ne sont pas publiées. Elles ont servi de point de départ. Une fois un écran construit, **la
+référence, c'est l'appli** : le catalogue et les captures automatiques (voir plus bas) la montrent
+à jour.
 
 ## Trois étages
 

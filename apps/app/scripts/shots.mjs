@@ -118,7 +118,7 @@ const pages = [
   { name: 'connexion', path: '/sign-in', signedIn: false },
   { name: 'inscription', path: '/sign-up', signedIn: false },
   { name: 'verifier-email', path: '/check-email?email=lea%40example.com', signedIn: false },
-  { name: 'quitter', path: '/out?url=https%3A%2F%2Frecettes.vercel.app', signedIn: false },
+  { name: 'quitter', path: '/out?url=https%3A%2F%2Frecettes.example.com', signedIn: false },
   { name: 'accueil-connecte', path: '/', signedIn: true },
   { name: 'compte', path: '/account', signedIn: true, fullPage: true },
   { name: 'supprimer-compte', path: '/account/delete', signedIn: true, fullPage: true },

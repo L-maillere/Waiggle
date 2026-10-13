@@ -38,7 +38,7 @@ describe('ProjectFormScreen, publishing', () => {
     await fireEvent.press(screen.getByRole('switch', { name: 'Public' }))
     await fireEvent.changeText(
       screen.getByLabelText('Lien de démo (facultatif)'),
-      'https://recettes.vercel.app',
+      'https://recettes.example.com',
     )
     expect(screen.getByText('C’est bon : un site public en https.')).toBeTruthy()
     // La recette est repliée au départ.
@@ -58,7 +58,7 @@ describe('ProjectFormScreen, publishing', () => {
       description: '',
       status: 'testable',
       visibility: 'private',
-      demoUrl: 'https://recettes.vercel.app/', // forme standard de l'adresse
+      demoUrl: 'https://recettes.example.com/', // forme standard de l'adresse
       tools: ['Claude', 'Cursor'],
       timeSpent: 'weekend',
       prompts: ['Propose trois recettes'],
@@ -72,7 +72,10 @@ describe('ProjectFormScreen, publishing', () => {
   it('explains what is wrong and sends nothing', async () => {
     await renderWithProviders(<ProjectFormScreen />)
 
-    await fireEvent.changeText(screen.getByLabelText('Lien de démo (facultatif)'), 'http://site.fr')
+    await fireEvent.changeText(
+      screen.getByLabelText('Lien de démo (facultatif)'),
+      'http://site.example.org',
+    )
     await fireEvent.press(screen.getByRole('button', { name: 'Publier' }))
 
     expect(screen.getByText('Donne un titre à ton projet.')).toBeTruthy()

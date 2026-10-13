@@ -50,7 +50,7 @@ Chaque fonctionnalité est une tranche verticale, dans cet ordre :
 4. **Le backend**, jusqu'au vert.
 5. **L'interface**, puis son test.
 6. **`pnpm check`** vert, puis l'agent `security-reviewer` sur la branche.
-7. **La leçon** : un PDF très vulgarisé dans `docs/learn/` (voir plus bas).
+7. **Le bilan pour Louis**, selon ses consignes personnelles, gardées hors du dépôt.
 8. Une branche et une pull request par fonctionnalité. **Rien n'est fusionné sans relecture de Louis.**
 
 Commence toute fonctionnalité non triviale en mode plan. Si un scénario est ambigu, pose la question
@@ -66,24 +66,12 @@ plutôt que d'inventer une règle métier.
   commence par une phrase qui dit à quoi il sert, et chaque notion nouvelle (hook React, middleware,
   schéma Zod, requête SQL…) est expliquée à sa première apparition, en une ou deux phrases simples.
   Expliquer le *pourquoi* plutôt que paraphraser le code.
-- Documentation produit, scénarios et leçons en français.
+- Documentation produit et scénarios en français.
 - Tests : décrire le comportement attendu (`it('refuses a private project to other members')`), pas
   l'implémentation. Un bug corrigé = un test qui le reproduit.
 - Formatage et lint : Biome (`pnpm lint:fix`). Un hook Claude Code formate chaque fichier modifié.
 - Dépendances : versions exactes, ajout justifié. Dans l'appli, passer par `pnpm exec expo install`
   pour rester compatible avec le SDK Expo.
-
-## Leçons (un PDF par fonctionnalité)
-
-À la fin de chaque tranche, écrire `docs/learn/NN-nom.md` puis générer le PDF avec
-`python3 docs/learn/build.py docs/learn/NN-nom.md` (voir `docs/learn/README.md`).
-
-- Public : quelqu'un qui connaît les bases du web mais découvre TypeScript, React Native et le backend.
-- Ton très vulgarisé : une analogie de la vie courante par notion, pas de jargon non expliqué.
-- Structure : ce qu'on a construit et pourquoi ; le chemin d'une action de bout en bout ; les extraits
-  de code importants (courts, commentés, avec le chemin du fichier) ; les notions apprises ;
-  les pièges évités ; un petit exercice pour s'entraîner.
-- Les extraits sont copiés du vrai code du dépôt, jamais inventés.
 
 ## Interface (voir `docs/design/miel.md`)
 

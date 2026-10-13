@@ -47,7 +47,7 @@ describe('ProjectScreen', () => {
 
     expect(mockPush).toHaveBeenCalledWith({
       pathname: '/out',
-      params: { url: 'https://recettes.vercel.app' },
+      params: { url: 'https://recettes.example.com' },
     })
   })
 

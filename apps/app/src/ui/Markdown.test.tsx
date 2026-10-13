@@ -30,13 +30,13 @@ describe('Markdown', () => {
   })
 
   it('opens https links through the warning page handler', async () => {
-    await show('Voir [le site](https://recettes.vercel.app) ou https://autre-site.com')
+    await show('Voir [le site](https://recettes.example.com) ou https://autre-site.example.org')
 
     await fireEvent.press(screen.getByRole('link', { name: 'le site' }))
-    await fireEvent.press(screen.getByRole('link', { name: 'https://autre-site.com' }))
+    await fireEvent.press(screen.getByRole('link', { name: 'https://autre-site.example.org' }))
 
-    expect(onLinkPress).toHaveBeenNthCalledWith(1, 'https://recettes.vercel.app/')
-    expect(onLinkPress).toHaveBeenNthCalledWith(2, 'https://autre-site.com/')
+    expect(onLinkPress).toHaveBeenNthCalledWith(1, 'https://recettes.example.com/')
+    expect(onLinkPress).toHaveBeenNthCalledWith(2, 'https://autre-site.example.org/')
   })
 
   it('never makes a link clickable unless it is https', async () => {
@@ -95,7 +95,7 @@ describe('Markdown', () => {
 
   it('never makes a link clickable unless it leads to a public website', async () => {
     await show(
-      '[ref][x] [box](https://192.168.1.1) [faux](https://ruche.app@pirate.example)\n\n[x]: javascript:alert(1)',
+      '[ref][x] [box](https://192.168.1.1) [faux](https://waiggle.io@pirate.example.com)\n\n[x]: javascript:alert(1)',
     )
 
     expect(screen.queryByRole('link')).toBeNull()
