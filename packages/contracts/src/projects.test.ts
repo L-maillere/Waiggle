@@ -110,8 +110,8 @@ describe('DemoUrl', () => {
   })
 
   it('refuses an address that hides a login, often used to disguise the real site', () => {
-    // « https://waiggle.io@pirate.example » mène en réalité à pirate.example.
-    expect(accepted('https://waiggle.io@pirate.example')).toBe(false)
+    // « https://waiggle.io@pirate.example.com » mène en réalité à pirate.example.com.
+    expect(accepted('https://waiggle.io@pirate.example.com')).toBe(false)
   })
 })
 

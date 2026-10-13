@@ -89,7 +89,7 @@ describe('loadEnv', () => {
   })
 
   it('refuses the example codes published in this repository, which anyone can read', () => {
-    for (const example of ['Miel-2026-Noel', ' SMOKE-test-invite-code ']) {
+    for (const example of ['Miel-2026-Noel', ' SMOKE-test-invite-code ', 'F3A9C2E17B4D8A06']) {
       expect(() => loadEnv({ ...production, SIGNUP_INVITE_CODE: example })).toThrow(
         /SIGNUP_INVITE_CODE/,
       )

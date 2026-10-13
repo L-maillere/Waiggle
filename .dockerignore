@@ -17,3 +17,7 @@ apps/app/dist-shots
 **/deployed.env
 **/*.db.dump
 **/*.media.tar.gz
+**/*.partiel
+**/coverage
+CLAUDE.local.md
+.claude/settings.local.json
