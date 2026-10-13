@@ -6,8 +6,8 @@
 ## Contexte
 
 L'appli quitte l'ordinateur de développement pour être utilisée par les proches de Louis. Louis
-a loué un VPS Hostinger KVM 1, hébergé en France, et acheté le domaine waiggle.io chez Hostinger.
-Le serveur est petit (un seul processeur). Louis veut que Claude puisse le gérer pour lui, depuis
+a loué un VPS Hostinger KVM 2, hébergé à Paris, et acheté le domaine waiggle.io chez Hostinger.
+Le serveur est modeste (2 processeurs, 8 Go de mémoire). Louis veut que Claude puisse le gérer pour lui, depuis
 Claude Code installé sur son PC.
 
 Le dépôt est public, et le serveur héberge les données des membres : la sécurité passe avant le
@@ -43,7 +43,7 @@ confort.
 ## Raisons
 
 - **Des images construites ailleurs** :
-  - Construire l'appli Expo prendrait de longues minutes sur un seul processeur, et beaucoup de
+  - Construire l'appli Expo prendrait de longues minutes sur un serveur aussi modeste, et beaucoup de
     mémoire, pendant que le site tourne.
   - Le serveur n'a besoin ni de Node, ni de pnpm, ni du code source pour construire : moins de
     logiciels installés, c'est moins de failles possibles.
@@ -73,8 +73,7 @@ confort.
   (`apps/app/scripts/site-check.mjs`).
 - **Les sauvegardes** :
   - une sauvegarde chaque nuit sur le serveur, gardée 14 jours, plus une avant chaque déploiement ;
-  - une copie chiffrée de celle de la nuit, que le PC de Louis vient chercher
-    ([ADR 0004](0004-copie-hors-du-serveur.md)).
+  - les sauvegardes hebdomadaires de Hostinger couvrent le serveur entier.
   - La CI vérifie la boucle « sauvegarder, puis restaurer » à chaque pull request : une
     sauvegarde jamais restaurée ne prouve rien.
 
@@ -87,6 +86,13 @@ confort.
   contiennent aucun secret.
 - Le domaine est écrit dans l'image web, au moment de la construction. Changer de domaine
   demande donc une nouvelle publication (`infra/site.env`).
-- Les sauvegardes quittent le serveur chaque jour, chiffrées, vers le PC de Louis
-  ([ADR 0004](0004-copie-hors-du-serveur.md)).
+- Les sauvegardes restent chez Hostinger : celles du serveur (14 jours) et la sauvegarde
+  hebdomadaire du VPS entier, incluse dans l'offre. Risques acceptés par Louis :
+  - si le VPS disparaît, on revient à la dernière sauvegarde hebdomadaire : jusqu'à 7 jours de
+    données perdus ;
+  - un compte Hostinger perdu ou piraté emporterait toutes les sauvegardes. La double
+    authentification du compte réduit ce risque.
+
+  Une copie chiffrée sur le PC a été écrite (ADR 0004, retirée, pull request #11), puis
+  abandonnée au profit de la sauvegarde hebdomadaire de Hostinger.
 - Le serveur n'a pas de surveillance automatique (disponibilité, disque). C'est à ajouter.

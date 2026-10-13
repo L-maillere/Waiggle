@@ -193,35 +193,6 @@ if compose exec -T api sh -c 'test -f /app/media/apres.txt'; then die "fichier p
 expect "version après restauration" "$(web -f https://api.localhost/health | node -e 'process.stdin.on("data", (d) => console.log(JSON.parse(d).version))')" stack-test
 echo "ok"
 
-step "La sauvegarde de la nuit part aussi, chiffrée, pour le PC (infra/offsite/export.sh)"
-# Le reste (le compte en lecture seule, la copie sur le PC) : infra/offsite-test.sh.
-command -v age >/dev/null || die "age introuvable (sudo apt-get install age)"
-export RUCHE_OFFSITE=$WORK/copies-chiffrees RUCHE_OFFSITE_RECIPIENTS=$WORK/destinataires.txt
-mkdir "$RUCHE_OFFSITE"
-# Sans clé de chiffrement : la sauvegarde se fait, la copie chiffrée non.
-printf '# aucune clé\n' >"$RUCHE_OFFSITE_RECIPIENTS"
-infra/backup.sh
-expect "sans clé, aucune copie chiffrée" "$(find "$RUCHE_OFFSITE" -type f | wc -l)" 0
-sleep 1 # deux sauvegardes dans la même seconde porteraient le même nom
-# Avec la clé du « PC » : la copie et son empreinte, lisibles par le compte qui les transmet.
-ssh-keygen -q -t ed25519 -N '' -C essai -f "$WORK/cle-pc"
-cp "$WORK/cle-pc.pub" "$RUCHE_OFFSITE_RECIPIENTS"
-infra/backup.sh
-daily=$(find "$RUCHE_BACKUPS" -name '*-quotidien.db.dump' -newer "$WORK/cle-pc" | head -1)
-daily=$(basename "${daily%.db.dump}")
-expect "copie et empreinte" "$(find "$RUCHE_OFFSITE" -type f -printf '%f\n' | sort | tr '\n' ' ')" \
-  "$daily.tar.age $daily.tar.age.sha256 "
-(cd "$RUCHE_OFFSITE" && sha256sum --check --quiet "$daily.tar.age.sha256") || die "empreinte de la copie fausse"
-expect "droits de la copie chiffrée" "$(stat -c '%a' "$RUCHE_OFFSITE/$daily.tar.age" "$RUCHE_OFFSITE/$daily.tar.age.sha256" | tr '\n' ' ')" "644 644 "
-grep -q PGDMP "$RUCHE_OFFSITE/$daily.tar.age" && die "la base apparaît en clair dans la copie"
-mkdir "$WORK/ouverte"
-age -d -i "$WORK/cle-pc" "$RUCHE_OFFSITE/$daily.tar.age" | tar -C "$WORK/ouverte" -xf -
-for ext in db.dump media.tar.gz; do
-  cmp -s "$WORK/ouverte/$daily.$ext" "$RUCHE_BACKUPS/$daily.$ext" || die "$ext : la copie déchiffrée diffère"
-done
-echo "ok : chiffrée, complète, et identique une fois rouverte"
-unset RUCHE_OFFSITE RUCHE_OFFSITE_RECIPIENTS
-
 step "Déploiements avec infra/deploy.sh"
 # Un dépôt d'images local (comme ghcr.io) et un dépôt Git local (comme GitHub), avec deux commits
 # sur main. Les images sont celles construites plus haut.
