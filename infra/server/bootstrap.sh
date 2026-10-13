@@ -162,15 +162,23 @@ lock_ssh() {
     die "/etc/ssh/sshd_config ne lit pas sshd_config.d : réglage à faire à la main"
 
   step "Réglages du serveur SSH"
+  # Les réglages d'avant (s'il y en a), mis de côté pour les remettre tels quels au moindre
+  # problème. Les supprimer rendrait la main aux réglages de l'hébergeur (root, mots de passe).
+  if [ -f "$SSH_MAIN_CONF" ]; then cp -p "$SSH_MAIN_CONF" "$SSH_MAIN_CONF.avant"; fi
+  undo_lock_ssh() {
+    if [ -f "$SSH_MAIN_CONF.avant" ]; then mv "$SSH_MAIN_CONF.avant" "$SSH_MAIN_CONF"; else rm -f "$SSH_MAIN_CONF"; fi
+    die "$1 ; les réglages SSH d'avant sont remis, rien n'a été appliqué"
+  }
   write_ssh_main_conf "$name"
   # sshd -t vérifie toute la configuration avant de l'appliquer.
-  sshd -t || { rm -f "$SSH_MAIN_CONF"; die "configuration SSH invalide, rien n'a été appliqué"; }
+  sshd -t || undo_lock_ssh "configuration SSH invalide"
   # sshd -T affiche les réglages réellement en vigueur, après lecture de tous les fichiers.
   local effective
-  effective=$(sshd -T)
+  effective=$(sshd -T) || undo_lock_ssh "sshd -T a échoué"
   for expected in 'permitrootlogin no' 'passwordauthentication no' 'kbdinteractiveauthentication no'; do
-    grep -qx "$expected" <<<"$effective" || { rm -f "$SSH_MAIN_CONF"; die "réglage non appliqué : $expected"; }
+    grep -qx "$expected" <<<"$effective" || undo_lock_ssh "réglage non appliqué : $expected"
   done
+  rm -f "$SSH_MAIN_CONF.avant"
   systemctl reload ssh 2>/dev/null || systemctl restart ssh
   echo "ok : connexion par clé seulement, pour « $name » seulement (et « $OFFSITE_USER » s'il existe)"
   printf '\nVérifie maintenant (une session root déjà ouverte reste ouverte, en cas de problème) :\n'

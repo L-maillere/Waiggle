@@ -34,8 +34,12 @@ PC peut être volé.
      qui seraient effacées.
    - Ce qui est effacé dépend de la date d'**arrivée** sur le PC, fixée par le PC, jamais des
      noms donnés par le serveur.
-   - 5 téléchargements et 2 effacements au plus par passage, 2 Go au plus par copie, et 5 Go
-     d'espace libre au minimum.
+   - Une copie par jour au plus, 5 téléchargements et 2 effacements au plus par passage, 2 Go
+     au plus par copie et 30 Go pour le dossier, et 5 Go d'espace libre au minimum.
+   - Le texte venu du serveur (noms refusés, messages d'erreur) est nettoyé avant d'entrer dans
+     le journal, que Claude Code peut lire.
+   - L'essai du mois n'extrait que deux fichiers ordinaires (pas de lien), et efface son dossier
+     temporaire sans suivre de lien.
 3. **Un compte en lecture seule pour le PC.** Le compte `sauvegarde` du serveur
    (`infra/server/bootstrap.sh`, étape offsite) :
    - n'a que le transfert de fichiers de SSH, en lecture seule (`ForceCommand internal-sftp -R`) ;

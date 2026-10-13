@@ -21,8 +21,10 @@ copies déjà sur ce PC, ni remplir son disque. D'où :
     futur passerait devant toutes les vraies copies) ;
   - ce qui est effacé dépend de la date d'ARRIVÉE sur ce PC, que le PC fixe lui-même, jamais des
     noms donnés par le serveur ;
-  - 5 téléchargements et 2 effacements au plus par passage, une taille maximale par copie, et un
-    minimum d'espace libre sur le disque.
+  - une seule copie par jour (le serveur n'en fait qu'une par nuit), 5 téléchargements et 2
+    effacements au plus par passage, une taille maximale par copie et pour tout le dossier, et
+    un minimum d'espace libre sur le disque ;
+  - le texte venu du serveur (noms, messages) est nettoyé avant d'entrer dans le journal.
 
 Les copies restent chiffrées sur ce PC : seule la clé de déchiffrement (avec sa phrase de passe)
 peut les ouvrir. Ce script ne la touche jamais.
@@ -49,6 +51,7 @@ param(
   [ValidateRange(1, 100)][int]$MaxNewPerRun = 5,
   [ValidateRange(1, 100)][int]$MaxDeletionsPerRun = 2,
   [ValidateRange(1, [long]::MaxValue)][long]$MaxBytes = 2GB,
+  [ValidateRange(1, [long]::MaxValue)][long]$MaxTotalBytes = 30GB,
   [ValidateRange(0, [long]::MaxValue)][long]$MinFreeBytes = 5GB,
   # Si le serveur ne répond pas (le PC vient peut-être de démarrer, sans réseau), on réessaie.
   [ValidateRange(1, 10)][int]$Attempts = 3,
@@ -78,6 +81,26 @@ $Journal = Join-Path $Destination 'journal.txt'
 function ConvertTo-Argument([string]$Value) {
   if ($Value.Contains('"')) { throw "chemin inattendu (guillemet) : $Value" }
   return '"' + ($Value -replace '(\\+)$', '$1$1') + '"'
+}
+
+# Du texte venu du serveur, rendu inoffensif pour le journal (que Claude Code peut lire) : des
+# caractères simples seulement, et pas trop long.
+# $Forbidden : ce qui est remplacé par « ? » (par défaut, tout sauf les caractères ASCII visibles).
+function Get-SafeText([string]$Text, [int]$Max = 200, [string]$Forbidden = '[^ -~]') {
+  $clean = ([string]$Text) -replace $Forbidden, '?'
+  if ($clean.Length -gt $Max) { $clean = $clean.Substring(0, $Max) + '…' }
+  return $clean
+}
+
+# La taille actuelle d'un fichier en cours d'écriture par un autre programme. Sous Windows, la
+# taille notée dans le dossier peut retarder : on ouvre le fichier, en lecture partagée.
+function Get-CurrentSize([string]$Path) {
+  try {
+    $stream = [IO.File]::Open($Path, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]'ReadWrite, Delete')
+    try { return $stream.Length } finally { $stream.Dispose() }
+  } catch {
+    return (Get-Item -LiteralPath $Path).Length
+  }
 }
 
 # La date inscrite dans le nom d'une copie, ou $null si le nom n'a pas la forme attendue.
@@ -134,7 +157,7 @@ function Invoke-Sftp([string[]]$Commands, [string]$WatchFile = '', [long]$Limit 
         $process.Kill()
         throw 'sftp tourne depuis 30 minutes : arrêté'
       }
-      if ($WatchFile -and (Test-Path -LiteralPath $WatchFile) -and (Get-Item -LiteralPath $WatchFile).Length -gt $Limit) {
+      if ($WatchFile -and (Test-Path -LiteralPath $WatchFile) -and (Get-CurrentSize $WatchFile) -gt $Limit) {
         $process.Kill()
         throw "copie trop grosse (plus de $Limit octets) : téléchargement arrêté"
       }
@@ -143,7 +166,7 @@ function Invoke-Sftp([string[]]$Commands, [string]$WatchFile = '', [long]$Limit 
     return New-Object PSObject -Property @{
       ExitCode = $process.ExitCode
       Output   = $output.Result
-      Errors   = $errors.Result.Trim()
+      Errors   = Get-SafeText -Text $errors.Result.Trim()
     }
   } finally {
     Remove-Item -LiteralPath $batch -Force -ErrorAction SilentlyContinue
@@ -160,6 +183,11 @@ function Copy-OneBackup([string]$Name) {
     $drive = New-Object System.IO.DriveInfo([IO.Path]::GetPathRoot($Destination))
     if ($drive.AvailableFreeSpace -lt $MinFreeBytes) {
       throw "espace disque insuffisant ($([math]::Round($drive.AvailableFreeSpace / 1GB, 1)) Go libres) : $Name non copiée"
+    }
+    $total = 0
+    foreach ($copy in @(Get-LocalCopy)) { $total += $copy.Length }
+    if ($total -gt $MaxTotalBytes) {
+      throw "dossier des copies plein ($([math]::Round($total / 1GB, 1)) Go, $([math]::Round($MaxTotalBytes / 1GB, 1)) Go au plus) : $Name non copiée"
     }
     # L'empreinte d'abord : un fichier de quelques dizaines d'octets.
     $result = Invoke-Sftp -Commands @("get $Name.sha256 $Name.sha256.partiel") -WatchFile $shaPart -Limit 1KB
@@ -193,7 +221,8 @@ function Get-LocalCopy {
 # chaque mois (gardée un an). Les plus anciennes d'abord.
 function Get-ExpiredCopy([object[]]$Copies) {
   $now = (Get-Date).ToUniversalTime()
-  $old = @($Copies | Where-Object { $_.LastWriteTimeUtc -lt $now.AddDays(-$KeepDays) })
+  # Where-Object { $_ } : un tableau vide passé ici devient $null, qu'on écarte.
+  $old = @($Copies | Where-Object { $_ -and $_.LastWriteTimeUtc -lt $now.AddDays(-$KeepDays) })
   $monthly = @{}
   foreach ($copy in ($old | Where-Object { $_.LastWriteTimeUtc -ge $now.AddDays(-365) } |
         Sort-Object LastWriteTimeUtc, Name)) {
@@ -272,9 +301,16 @@ try {
     }
   }
   if ($refused.Count -gt 0) {
-    $shown = (@($refused | Select-Object -First 3) -join ', ')
+    # Des noms choisis par le serveur : seulement des lettres, chiffres, points et tirets.
+    $shown = (@($refused | Select-Object -First 3 | ForEach-Object { Get-SafeText -Text $_ -Max 40 -Forbidden '[^0-9A-Za-z._-]' }) -join ', ')
     $problems += "$($refused.Count) nom(s) de copie refusé(s) sur le serveur (date future, trop ancienne ou nom inattendu : $shown)"
   }
+  if ($valid.Count -eq 0) {
+    $problems += 'aucune copie valable sur le serveur : la sauvegarde de la nuit tourne-t-elle ?'
+  }
+  # Une copie par jour au plus, la plus récente : le serveur n'en fait qu'une par nuit (deux si
+  # quelqu'un a lancé une sauvegarde à la main). Une avalanche de copies du même jour est ignorée.
+  $valid = @($valid | Group-Object { $_.Substring(0, 10) } | ForEach-Object { @($_.Group | Sort-Object -Descending)[0] })
 
   # 3. Les copies qui manquent ici, les plus récentes d'abord, 5 au plus. Une copie en échec
   # n'empêche pas les autres.
@@ -292,7 +328,7 @@ try {
 
   # 4. Les copies arrivées depuis trop longtemps, 2 au plus par passage.
   $deleted = @()
-  foreach ($copy in @(Get-ExpiredCopy (Get-LocalCopy) | Select-Object -First $MaxDeletionsPerRun)) {
+  foreach ($copy in @(Get-ExpiredCopy -Copies @(Get-LocalCopy) | Select-Object -First $MaxDeletionsPerRun)) {
     Remove-Item -LiteralPath $copy.FullName, "$($copy.FullName).sha256" -Force -ErrorAction SilentlyContinue
     $deleted += $copy.Name -replace '\.tar\.age$', ''
   }

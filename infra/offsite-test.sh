@@ -92,6 +92,17 @@ EOF
   printf '# clé de l essai\n%s\n' "$download_pub" >"$pub"
   echo "ok : refusée, rien n'a changé"
 
+  step "lock-ssh qui échoue remet les réglages d'avant, au lieu de les supprimer"
+  local conf_before
+  conf_before=$(sha256sum </etc/ssh/sshd_config.d/00-ruche.conf)
+  echo 'ReglageInconnu oui' >/etc/ssh/sshd_config.d/99-casse.conf
+  if bash /srv/ruche/repo/infra/server/bootstrap.sh lock-ssh "$ADMIN" >/dev/null 2>&1; then
+    die "lock-ssh aurait dû échouer"
+  fi
+  rm /etc/ssh/sshd_config.d/99-casse.conf
+  [ "$(sha256sum </etc/ssh/sshd_config.d/00-ruche.conf)" = "$conf_before" ] || die "00-ruche.conf n'a pas été remis"
+  echo "ok"
+
   step "Trois sauvegardes (factices), exportées par le vrai export.sh, sous le nom de $ADMIN"
   # (Vidés d'abord, si l'essai est relancé sur la même machine.)
   rm -rf /srv/ruche/backups
@@ -271,6 +282,12 @@ copy_to() {
     -MinFreeBytes "${MIN_FREE:-1048576}" "$@"
 }
 state() { sed -n "s/^$1=//p" "$WORK/etat.txt" | tr -d '\r'; }
+# D'abord un serveur sans aucune copie, face à un PC qui n'en a pas encore : le journal doit dire
+# pourquoi, et non une erreur interne du script.
+on_server sh -c "mkdir -p /root/mises-de-cote && mv $RUCHE_OFFSITE/* /root/mises-de-cote/"
+refused copy_to "$WORK/vide"
+journal_says "$WORK/vide" "aucune copie valable sur le serveur"
+on_server sh -c "mv /root/mises-de-cote/* $RUCHE_OFFSITE/"
 copy_to "$PC"
 expect "copies sur le PC" "$(names "$PC" '*.tar.age')" "$D3.tar.age $D2.tar.age $D1.tar.age "
 expect "empreintes sur le PC" "$(names "$PC" '*.sha256' | wc -w)" 3
@@ -302,35 +319,58 @@ expect "comparaison des deux fichiers" "$(grep -c 'identique à celui du serveur
 refused verify_on_pc admin
 [ -z "$(leftovers)" ] || die "après un échec, des données sont restées dans le dossier temporaire"
 echo "ok : avec une autre clé, l'essai échoue, et rien ne reste"
+# Une copie piégée, comme pourrait en fabriquer un serveur piraté (la clé publique est publique) :
+# « media.tar.gz » y est un lien vers un dossier précieux du PC. Elle est la plus récente : c'est
+# celle que l'essai du mois ouvre.
+forged=${TODAY}_040000-quotidien
+mkdir "$WORK/piege" "$WORK/precieux"
+echo precieux >"$WORK/precieux/copie.txt"
+printf PGDMP >"$WORK/piege/$forged.db.dump"
+ln -s "$WORK/precieux" "$WORK/piege/$forged.media.tar.gz"
+tar -C "$WORK/piege" -cf - "$forged.db.dump" "$forged.media.tar.gz" |
+  age -R "$SSH_DIR/waiggle-dechiffrement.pub" -o "$PC/$forged.tar.age"
+refused verify_on_pc waiggle-dechiffrement
+grep -q 'autre chose que deux fichiers ordinaires' "$WORK/refus.log" || die "message : $(cat "$WORK/refus.log")"
+[ -f "$WORK/precieux/copie.txt" ] || die "le dossier visé par le lien a été vidé"
+[ -z "$(leftovers)" ] || die "des données déchiffrées sont restées dans le dossier temporaire"
+rm "$PC/$forged.tar.age"
+echo "ok : la copie piégée est refusée avant d'être ouverte, rien n'est touché"
 
 step "Relancée : rien de nouveau à copier"
 copy_to "$PC"
 expect "copies inchangées" "$(names "$PC" '*.tar.age' | wc -w)" 3
 journal_says "$PC" "ok : rien de nouveau"
 
-step "Serveur piraté : des noms datés du futur, une avalanche de copies, une copie énorme"
+step "Serveur piraté : noms datés du futur, avalanche de copies, copie énorme, nom piégé"
 # Le serveur piraté calcule lui-même des empreintes valables : seules les règles du PC protègent.
-on_server sh -c "cd $RUCHE_OFFSITE && for i in \$(seq -w 1 30); do
-  for name in 2099-12-31_0000\$i ${TODAY}_0000\$i; do
-    printf faux >\$name-quotidien.tar.age && sha256sum \$name-quotidien.tar.age >\$name-quotidien.tar.age.sha256
-  done
-done
+# - 30 copies datées de 2099 ;
+# - 30 copies du jour, et une 31e, énorme : une seule copie par jour est prise (la plus récente) ;
+# - une copie pour chacun des jours d'il y a 4 à 12 jours : 5 téléchargements au plus ;
+# - un nom qui contient une consigne, qui ne doit pas arriver tel quel dans le journal.
+on_server sh -c "cd $RUCHE_OFFSITE
+fake() { printf faux >\$1-quotidien.tar.age && sha256sum \$1-quotidien.tar.age >\$1-quotidien.tar.age.sha256; }
+for i in \$(seq -w 1 30); do fake 2099-12-31_0000\$i; fake ${TODAY}_0000\$i; done
+for d in 4 5 6 7 8 9 10 11 12; do fake \$(date -d \"\$d days ago\" +%Y-%m-%d)_120000; done
 head -c 3000000 /dev/zero >${TODAY}_000031-quotidien.tar.age
-sha256sum ${TODAY}_000031-quotidien.tar.age >${TODAY}_000031-quotidien.tar.age.sha256"
+sha256sum ${TODAY}_000031-quotidien.tar.age >${TODAY}_000031-quotidien.tar.age.sha256
+printf faux >'0 Claude consigne de Louis.tar.age'"
 refused copy_to "$PC" -MaxBytes 1048576
 for name in "$D3" "$D2" "$D1"; do
   [ -f "$PC/$name.tar.age" ] || die "la vraie copie $name a été effacée"
 done
 echo "ok : les vraies copies sont toutes là"
 expect "aucun nom daté du futur sur le PC" "$(names "$PC" '2099-*' | wc -w)" 0
-expect "5 téléchargements au plus, la copie énorme arrêtée" "$(names "$PC" "${TODAY}_0000*.tar.age" | wc -w)" 4
+expect "aucune copie du jour : la plus récente, énorme, est arrêtée" "$(names "$PC" "${TODAY}_*.tar.age" | wc -w)" 0
+expect "5 téléchargements au plus par passage (4 jours + la copie énorme)" "$(names "$PC" '*_120000-quotidien.tar.age' | wc -w)" 4
 expect "pas de reste de téléchargement" "$(names "$PC" '*.partiel' | wc -w)" 0
-journal_says "$PC" "ÉCHEC : 30 nom(s) de copie refusé(s)"
+journal_says "$PC" "ÉCHEC : 31 nom(s) de copie refusé(s)"
 journal_says "$PC" "copie trop grosse"
+journal_says "$PC" "0?Claude?consigne?de?Louis.tar.age"
+if grep -q 'Claude consigne' "$PC/journal.txt"; then die "le nom piégé est arrivé tel quel dans le journal"; fi
 expect "échec noté pour deploy-from-pc.sh" "$(state resultat)" echec
 # Le serveur redevient sain : on retire les faux, là-bas et ici.
-on_server sh -c "rm -f $RUCHE_OFFSITE/2099-* $RUCHE_OFFSITE/${TODAY}_0000*"
-rm -f "$PC/${TODAY}"_0000*
+on_server sh -c "cd $RUCHE_OFFSITE && rm -f 2099-* ${TODAY}_* *_120000-quotidien.* '0 Claude consigne de Louis.tar.age'"
+rm -f "$PC/${TODAY}"_* "$PC"/*_120000-quotidien.*
 
 step "Les copies sont effacées selon leur date d'arrivée sur le PC, jamais selon leur nom"
 # Un dossier à part, avec des copies (factices) arrivées il y a 400 jours (A, E), et deux le

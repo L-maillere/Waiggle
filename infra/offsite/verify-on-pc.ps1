@@ -52,6 +52,17 @@ function Find-Program([string]$Name, [string]$Hint) {
   throw "$Name introuvable : $Hint"
 }
 
+# Efface un dossier et tout son contenu. [IO.Directory]::Delete ne suit jamais un lien vers un
+# autre dossier (il efface le lien, pas ce vers quoi il pointe) ; Remove-Item -Recurse, dans
+# Windows PowerShell 5.1, ne le garantit pas.
+function Remove-Folder {
+  [CmdletBinding(SupportsShouldProcess)]
+  param([string]$Path)
+  if ($PSCmdlet.ShouldProcess($Path)) {
+    try { [IO.Directory]::Delete($Path, $true) } catch { Write-Verbose $_.Exception.Message }
+  }
+}
+
 # Les premiers octets d'un fichier, pour reconnaître son format.
 function Test-Magic([string]$Path, [byte[]]$Expected) {
   $stream = [IO.File]::OpenRead($Path)
@@ -80,7 +91,7 @@ Write-Output "Copie vérifiée : $copy"
 
 # Les restes d'un essai interrompu (fenêtre fermée en cours de route) : des données en clair.
 foreach ($leftover in @(Get-ChildItem -LiteralPath ([IO.Path]::GetTempPath()) -Directory -Filter 'waiggle-verification-*' -ErrorAction SilentlyContinue)) {
-  Remove-Item -LiteralPath $leftover.FullName -Recurse -Force -ErrorAction SilentlyContinue
+  Remove-Folder $leftover.FullName
 }
 $work = Join-Path ([IO.Path]::GetTempPath()) ('waiggle-verification-' + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $work | Out-Null
@@ -97,17 +108,28 @@ try {
   Write-Output 'ok : déchiffrée'
 
   # 2. Ouvrir, et reconnaître les deux fichiers. L'archive doit contenir exactement ces deux
-  # noms, et seuls ceux-là sont extraits : rien d'autre ne sort de l'archive.
+  # noms, deux fichiers ordinaires (tar -tv : la ligne commence par « - »), et seuls ceux-là sont
+  # extraits. Un lien caché dans une copie piégée pourrait sinon pointer ailleurs sur le PC.
   $expected = @("$Name.db.dump", "$Name.media.tar.gz")
   $listing = @(& $tar -tf $archive)
   if ($LASTEXITCODE -ne 0) { throw "l'archive ne s'ouvre pas" }
   if ($listing.Count -ne 2 -or @($listing | Where-Object { $expected -cnotcontains $_ }).Count -ne 0) {
-    throw "l'archive ne contient pas exactement $($expected -join ' et ') : $($listing -join ', ')"
+    throw "l'archive ne contient pas exactement $($expected -join ' et ')"
+  }
+  $details = @(& $tar -tvf $archive)
+  if ($LASTEXITCODE -ne 0 -or $details.Count -ne 2 -or @($details | Where-Object { -not $_.StartsWith('-') }).Count -ne 0) {
+    throw "l'archive contient autre chose que deux fichiers ordinaires (un lien ?)"
   }
   & $tar -xf $archive -C $work $expected[0] $expected[1]
   if ($LASTEXITCODE -ne 0) { throw "l'archive ne s'ouvre pas" }
   $dump = Join-Path $work $expected[0]
   $media = Join-Path $work $expected[1]
+  foreach ($file in @($dump, $media)) {
+    $item = Get-Item -LiteralPath $file -Force
+    if ($item.PSIsContainer -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+      throw "$(Split-Path -Leaf $file) n'est pas un fichier ordinaire"
+    }
+  }
   # « PGDMP » : le début de tout fichier de pg_dump ; 1F 8B : celui de tout fichier gzip.
   if (-not ((Test-Path -LiteralPath $dump) -and (Test-Magic $dump ([byte[]](0x50, 0x47, 0x44, 0x4D, 0x50))))) {
     throw "la base ($Name.db.dump) manque ou n'est pas une sauvegarde PostgreSQL"
@@ -145,7 +167,7 @@ try {
   # 4. Rien de déchiffré ne reste sur le PC. Un fichier encore ouvert par l'antivirus ou
   # l'indexation peut résister : on réessaie, puis on le signale.
   for ($try = 1; $try -le 3 -and (Test-Path -LiteralPath $work); $try++) {
-    Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Folder $work
     if (Test-Path -LiteralPath $work) { Start-Sleep -Seconds 2 }
   }
 }

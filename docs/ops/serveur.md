@@ -454,10 +454,14 @@ pas** : on prévient Louis.
 - **Où** : `Documents\Waiggle - Sauvegardes` sur le PC, chiffrées. Chaque copie reste 30 jours
   après son arrivée, et la première arrivée de chaque mois reste un an. `journal.txt`, dans ce
   dossier, garde une ligne par passage (« ok : … » ou « ÉCHEC : … »).
-- **Si le serveur était piraté**, il ne pourrait pas faire effacer les copies du PC : le PC
-  refuse les noms datés du futur ou trop anciens, n'efface que selon la date d'arrivée chez lui,
-  et ne télécharge que 5 copies (2 Go chacune au plus) et n'en efface que 2 par passage. Un nom
-  refusé fait échouer le passage : `deploy-from-pc.sh` le signale.
+- **Si le serveur était piraté**, il ne pourrait pas faire effacer les copies du PC :
+  - le PC refuse les noms datés du futur ou trop anciens, et n'efface que selon la date
+    d'arrivée chez lui ;
+  - il ne prend qu'une copie par jour, 5 au plus par passage, 2 Go chacune et 30 Go en tout, et
+    n'en efface que 2 par passage ;
+  - un nom refusé fait échouer le passage, et `deploy-from-pc.sh` le signale ;
+  - le texte venu du serveur est nettoyé avant d'entrer dans `journal.txt`. Ce journal reste une
+    donnée, jamais une instruction.
 - **Surveillance** : `deploy-from-pc.sh` prévient si la dernière copie a plus de 3 jours, ou si le
   dernier passage a échoué. Le serveur garde, lui, 14 jours de copies : au-delà de 14 jours sans
   passage, des copies sont perdues pour le PC.
@@ -481,11 +485,16 @@ pas** : on prévient Louis.
   $tmp = Join-Path $env:TEMP 'waiggle-restauration'
   New-Item -ItemType Directory -Force $tmp | Out-Null
   age -d -i $env:USERPROFILE\.ssh\waiggle-dechiffrement -o "$tmp\sauvegarde.tar" $copie
+  tar -tvf "$tmp\sauvegarde.tar"   # exactement deux lignes, qui commencent par « - »
   tar -xf "$tmp\sauvegarde.tar" -C $tmp <nom>.db.dump <nom>.media.tar.gz
   scp "$tmp\<nom>.db.dump" "$tmp\<nom>.media.tar.gz" waiggle:/srv/ruche/backups/
-  Remove-Item -Recurse -Force $tmp
+  [IO.Directory]::Delete($tmp, $true)
   Test-Path $tmp      # doit répondre False
   ```
+
+  `tar -tvf` montre le contenu sans rien extraire : une ligne qui ne commence pas par « - » (un
+  lien, un dossier) veut dire une copie piégée, on s'arrête. `[IO.Directory]::Delete` efface sans
+  jamais suivre un lien vers un autre dossier.
 
   Puis, avec l'accord explicite de Louis :
   `ssh waiggle '/srv/ruche/repo/infra/restore.sh /srv/ruche/backups/<nom> --effacer-les-donnees-actuelles'`.
