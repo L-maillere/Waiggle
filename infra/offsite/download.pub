@@ -1,0 +1,8 @@
+# La clé publique avec laquelle le PC de Louis télécharge les copies chiffrées des sauvegardes.
+# Une clé par ligne (ssh-ed25519) ; les lignes qui commencent par # sont ignorées.
+#
+# L'étape « offsite » de infra/server/bootstrap.sh l'installe pour le compte « sauvegarde » du
+# serveur, qui ne peut que LIRE ces copies chiffrées : pas de terminal, pas d'écriture, pas de
+# tunnel, rien en dehors de leur dossier. La clé privée correspondante est sur le PC, sans phrase
+# de passe (la copie se fait seule, chaque jour) : volée, elle ne donnerait que des fichiers
+# illisibles.

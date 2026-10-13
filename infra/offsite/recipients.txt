@@ -1,0 +1,9 @@
+# Les clés publiques qui chiffrent les copies des sauvegardes envoyées au PC de Louis
+# (infra/offsite/export.sh). Une clé par ligne ; les lignes qui commencent par # sont ignorées.
+#
+# Ces clés ne servent qu'à fermer : les publier ne donne accès à rien. Pour rouvrir une copie, il
+# faut la clé privée correspondante, qui reste sur le PC de Louis, protégée par une phrase de
+# passe (docs/ops/serveur.md, « Copie hors du serveur »). Ce n'est pas une clé de connexion : elle
+# n'est installée sur aucun serveur.
+#
+# Sans aucune clé ici, le serveur ne fait pas de copie chiffrée.
