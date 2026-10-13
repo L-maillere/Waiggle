@@ -316,6 +316,9 @@ pas** : on prévient Louis.
   infra/deploy-from-pc.sh <commit précédent>
   ```
 
+  Un commit fusionné avant le renommage du dépôt en « Waiggle » (octobre 2026) est refusé : ses
+  images sont signées sous l'ancien nom, « ruche ». C'est voulu, et on ne contourne pas ce refus.
+
 - **Si la version ratée a modifié la base** (une nouvelle migration dans `packages/db/migrations`),
   il faut aussi restaurer la sauvegarde faite juste avant elle. **Avec l'accord explicite de
   Louis**, car tout ce qui a été écrit depuis est perdu :
