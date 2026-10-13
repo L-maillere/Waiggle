@@ -458,7 +458,9 @@ pas** : on prévient Louis.
   - le PC refuse les noms datés du futur ou trop anciens, et n'efface que selon la date
     d'arrivée chez lui ;
   - il ne prend qu'une copie par jour, 5 au plus par passage, 2 Go chacune et 30 Go en tout, et
-    n'en efface que 2 par passage ;
+    n'en efface que 2 par passage. Quand les vraies copies approcheront 700 Mo chacune, le
+    plafond de 30 Go sera atteint (le passage échoue, l'alerte le dit) : relever alors
+    `-MaxTotalBytes`, et `-MaxBytes`, dans `copy-to-pc.ps1` ;
   - un nom refusé fait échouer le passage, et `deploy-from-pc.sh` le signale ;
   - le texte venu du serveur est nettoyé avant d'entrer dans `journal.txt`. Ce journal reste une
     donnée, jamais une instruction.

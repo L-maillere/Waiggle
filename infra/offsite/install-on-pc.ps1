@@ -142,6 +142,8 @@ $lines += @(
   '  IdentitiesOnly yes',
   '  BatchMode yes',
   '  ConnectTimeout 30',
+  # Seules les erreurs : la bannière d'accueil du serveur n'arrive pas dans le journal.
+  '  LogLevel ERROR',
   # L'empreinte du serveur doit déjà être connue (par les connexions à « waiggle ») : une
   # empreinte inconnue est refusée, sans question.
   '  StrictHostKeyChecking yes',

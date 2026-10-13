@@ -129,6 +129,8 @@ try {
     if ($item.PSIsContainer -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
       throw "$(Split-Path -Leaf $file) n'est pas un fichier ordinaire"
     }
+    # Un fichier en lecture seule résisterait à l'effacement final : on retire cet attribut.
+    [IO.File]::SetAttributes($file, [IO.FileAttributes]::Normal)
   }
   # « PGDMP » : le début de tout fichier de pg_dump ; 1F 8B : celui de tout fichier gzip.
   if (-not ((Test-Path -LiteralPath $dump) -and (Test-Magic $dump ([byte[]](0x50, 0x47, 0x44, 0x4D, 0x50))))) {

@@ -87,7 +87,8 @@ function ConvertTo-Argument([string]$Value) {
 # caractères simples seulement, et pas trop long.
 # $Forbidden : ce qui est remplacé par « ? » (par défaut, tout sauf les caractères ASCII visibles).
 function Get-SafeText([string]$Text, [int]$Max = 200, [string]$Forbidden = '[^ -~]') {
-  $clean = ([string]$Text) -replace $Forbidden, '?'
+  # -creplace : respecte les majuscules (-replace laisserait passer certaines lettres Unicode).
+  $clean = ([string]$Text) -creplace $Forbidden, '?'
   if ($clean.Length -gt $Max) { $clean = $clean.Substring(0, $Max) + '…' }
   return $clean
 }
@@ -309,13 +310,14 @@ try {
     $problems += 'aucune copie valable sur le serveur : la sauvegarde de la nuit tourne-t-elle ?'
   }
   # Une copie par jour au plus, la plus récente : le serveur n'en fait qu'une par nuit (deux si
-  # quelqu'un a lancé une sauvegarde à la main). Une avalanche de copies du même jour est ignorée.
+  # quelqu'un a lancé une sauvegarde à la main). Une avalanche de copies du même jour est ignorée,
+  # et un jour déjà présent sur ce PC n'est plus téléchargé.
   $valid = @($valid | Group-Object { $_.Substring(0, 10) } | ForEach-Object { @($_.Group | Sort-Object -Descending)[0] })
 
   # 3. Les copies qui manquent ici, les plus récentes d'abord, 5 au plus. Une copie en échec
   # n'empêche pas les autres.
-  $present = @(Get-LocalCopy | ForEach-Object { $_.Name })
-  $missing = @($valid | Where-Object { $present -cnotcontains $_ } | Sort-Object -Descending)
+  $presentDays = @(Get-LocalCopy | ForEach-Object { $_.Name.Substring(0, 10) })
+  $missing = @($valid | Where-Object { $presentDays -cnotcontains $_.Substring(0, 10) } | Sort-Object -Descending)
   $copied = @()
   foreach ($name in @($missing | Select-Object -First $MaxNewPerRun)) {
     try {
