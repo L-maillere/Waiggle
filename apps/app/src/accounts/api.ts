@@ -1,6 +1,7 @@
 // Tout ce que l'appli peut faire avec un compte, en un seul endroit.
 // Les écrans n'appellent que ces fonctions : ils ne connaissent ni Better Auth, ni l'adresse de
 // l'API. Avantage : dans les tests, on remplace ce fichier par de faux appels (jest.mock).
+import { appName } from '@ruche/brand'
 import type { SignInRequest, SignUpRequest } from '@ruche/contracts'
 import { Platform, Share } from 'react-native'
 import { apiFetch } from '../api/client'
@@ -72,16 +73,19 @@ export const downloadMyData = async (): Promise<Result> => {
   if (!res.ok) return { ok: false, error: authErrorKey({ status: res.status }) }
   const json = await res.text()
 
+  // Le nom du fichier vient du nom de l'appli (« waiggle-export.json ») : le nom de code du dépôt
+  // n'apparaît jamais aux membres.
+  const fileName = `${appName.toLowerCase()}-export.json`
   if (Platform.OS === 'web') {
     // Astuce web classique : un lien invisible vers le fichier, sur lequel on « clique ».
     const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }))
     const link = document.createElement('a')
     link.href = url
-    link.download = 'ruche-export.json'
+    link.download = fileName
     link.click()
     URL.revokeObjectURL(url)
   } else {
-    await Share.share({ message: json, title: 'ruche-export.json' })
+    await Share.share({ message: json, title: fileName })
   }
   return { ok: true }
 }
