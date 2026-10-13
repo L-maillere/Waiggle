@@ -133,9 +133,9 @@ user() {
 # « 00- » passe avant ceux de l'hébergeur.
 write_ssh_main_conf() {
   local name=$1 allowed=$1
-  # AllowUsers : les seuls comptes qui peuvent se connecter. « sauvegarde » en fait partie dès
-  # qu'il existe (étape offsite) ; ses propres limites sont dans 10-ruche-sauvegarde.conf.
-  if id "$OFFSITE_USER" >/dev/null 2>&1; then allowed="$allowed $OFFSITE_USER"; fi
+  # AllowUsers : les seuls comptes qui peuvent se connecter. « sauvegarde » n'en fait partie que
+  # si ses limites existent (10-ruche-sauvegarde.conf, étape offsite) : jamais l'un sans l'autre.
+  if [ -f "$SSH_OFFSITE_CONF" ] && id "$OFFSITE_USER" >/dev/null 2>&1; then allowed="$allowed $OFFSITE_USER"; fi
   cat >"$SSH_MAIN_CONF.new" <<EOF
 # Écrit par infra/server/bootstrap.sh (étapes lock-ssh et offsite). Ne pas modifier à la main.
 PermitRootLogin no
@@ -429,21 +429,35 @@ offsite() {
   echo "ok"
 
   step "Réglages du serveur SSH"
+  # Les réglages d'avant, mis de côté pour pouvoir les remettre tels quels au moindre problème.
   cp -p "$SSH_MAIN_CONF" "$SSH_MAIN_CONF.avant"
-  write_ssh_main_conf "$name"
+  if [ -f "$SSH_OFFSITE_CONF" ]; then cp -p "$SSH_OFFSITE_CONF" "$SSH_OFFSITE_CONF.avant"; fi
+  undo_offsite_ssh() {
+    mv "$SSH_MAIN_CONF.avant" "$SSH_MAIN_CONF"
+    if [ -f "$SSH_OFFSITE_CONF.avant" ]; then
+      mv "$SSH_OFFSITE_CONF.avant" "$SSH_OFFSITE_CONF"
+    else
+      rm -f "$SSH_OFFSITE_CONF"
+    fi
+    die "$1 ; les réglages SSH d'avant sont remis, rien n'a été appliqué"
+  }
   # Match User : ces réglages-là ne valent que pour le compte « sauvegarde ».
   # - ForceCommand internal-sftp : quoi qu'il demande, il n'obtient que le transfert de fichiers
   #   (SFTP) intégré à SSH ; -R : en lecture seule ; -d : il arrive directement dans « copies ».
   # - ChrootDirectory : enfermé dans $OFFSITE_ROOT.
-  # - AuthorizedKeysFile : ses clés sont dans un fichier de root, qu'il ne peut pas modifier.
-  # - Aucun tunnel, aucun terminal.
+  # - AuthorizedKeysFile : ses clés sont dans un fichier de root, qu'il ne peut pas modifier ; et
+  #   aucun autre moyen de trouver des clés (AuthorizedKeysCommand none).
+  # - DisableForwarding : aucun tunnel d'aucune sorte ; PermitTTY no : aucun terminal.
+  # Les limites d'abord, l'accès ensuite : AllowUsers ne l'admet que si ce fichier existe.
   cat >"$SSH_OFFSITE_CONF" <<EOF
 # Écrit par infra/server/bootstrap.sh (étape offsite). Ne pas modifier à la main.
 # Le compte « $OFFSITE_USER » ne sert qu'au PC de Louis, pour copier les sauvegardes chiffrées.
 Match User $OFFSITE_USER
   AuthorizedKeysFile $OFFSITE_KEYS
+  AuthorizedKeysCommand none
   ChrootDirectory $OFFSITE_ROOT
   ForceCommand internal-sftp -R -d /copies
+  DisableForwarding yes
   AllowTcpForwarding no
   AllowAgentForwarding no
   AllowStreamLocalForwarding no
@@ -451,27 +465,24 @@ Match User $OFFSITE_USER
   PermitTTY no
   X11Forwarding no
 EOF
-  # En cas de problème : on remet les réglages d'avant, pour ne jamais rester à moitié configuré.
-  undo_offsite_ssh() {
-    mv "$SSH_MAIN_CONF.avant" "$SSH_MAIN_CONF"
-    rm -f "$SSH_OFFSITE_CONF"
-    die "$1 ; les réglages SSH d'avant sont remis, rien n'a été appliqué"
-  }
+  write_ssh_main_conf "$name"
   sshd -t || undo_offsite_ssh "configuration SSH invalide"
   # sshd -T -C : les réglages en vigueur pour une connexion donnée. On vérifie les deux comptes :
   # « sauvegarde » est bien bridé, et « $name » ne l'est pas (sinon, plus d'administration).
   local for_backup for_admin expected
-  for_backup=$(sshd -T -C "user=$OFFSITE_USER,host=pc,addr=192.0.2.1")
-  for_admin=$(sshd -T -C "user=$name,host=pc,addr=192.0.2.1")
+  for_backup=$(sshd -T -C "user=$OFFSITE_USER,host=pc,addr=192.0.2.1") || undo_offsite_ssh "sshd -T a échoué"
+  for_admin=$(sshd -T -C "user=$name,host=pc,addr=192.0.2.1") || undo_offsite_ssh "sshd -T a échoué"
   for expected in "chrootdirectory $OFFSITE_ROOT" 'forcecommand internal-sftp -R -d /copies' \
-    "authorizedkeysfile $OFFSITE_KEYS" 'allowtcpforwarding no' 'permittty no' 'passwordauthentication no'; do
+    "authorizedkeysfile $OFFSITE_KEYS" 'authorizedkeyscommand none' 'disableforwarding yes' \
+    'allowtcpforwarding no' 'allowagentforwarding no' 'allowstreamlocalforwarding no' \
+    'permittunnel no' 'permittty no' 'x11forwarding no' 'passwordauthentication no'; do
     grep -qxF "$expected" <<<"$for_backup" || undo_offsite_ssh "réglage non appliqué pour « $OFFSITE_USER » : $expected"
   done
   for expected in 'chrootdirectory none' 'forcecommand none' 'permitrootlogin no' 'passwordauthentication no'; do
     grep -qxF "$expected" <<<"$for_admin" || undo_offsite_ssh "réglage inattendu pour « $name » : il faudrait $expected"
   done
   grep -qxF "allowusers $OFFSITE_USER" <<<"$for_backup" || undo_offsite_ssh "« $OFFSITE_USER » n'est pas admis par AllowUsers"
-  rm -f "$SSH_MAIN_CONF.avant"
+  rm -f "$SSH_MAIN_CONF.avant" "$SSH_OFFSITE_CONF.avant"
   systemctl reload ssh 2>/dev/null || systemctl restart ssh
   echo "ok : « $OFFSITE_USER » peut lire $OFFSITE_ROOT/copies, et rien d'autre"
   printf '\nSur le PC : installer la copie quotidienne (docs/ops/serveur.md, « Copie hors du serveur »).\n'

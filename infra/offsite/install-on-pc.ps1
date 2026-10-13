@@ -10,8 +10,10 @@ Ce qu'il fait, et refait sans dégâts s'il est relancé :
   1. la clé de téléchargement (~/.ssh/waiggle-telechargement), créée si elle manque. Elle n'a pas
      de phrase de passe, car la copie se fait sans personne devant l'écran. Elle ne peut que lire
      des copies chiffrées : volée, elle ne donnerait rien de lisible ;
-  2. le raccourci SSH « waiggle-sauvegardes » dans ~/.ssh/config, vers la même adresse que
-     « waiggle », mais avec le compte « sauvegarde » et cette clé ;
+  2. un fichier de réglages SSH à part (AppData\Local\Waiggle\ssh_config), réécrit à chaque
+     installation : le raccourci « waiggle-sauvegardes », vers la même adresse que « waiggle »
+     (lue dans ~/.ssh/config, qui n'est pas modifié), avec le compte « sauvegarde » et cette clé.
+     À part, pour qu'aucun réglage de ~/.ssh/config (un « Host * », par exemple) ne s'y mêle ;
   3. le script de copie, recopié HORS du dépôt (dans AppData\Local\Waiggle) : la tâche planifiée
      lance toujours ce qui a été installé, jamais une version du dépôt en cours de relecture ;
   4. le dossier des copies (« Waiggle - Sauvegardes », dans Documents) ;
@@ -19,7 +21,8 @@ Ce qu'il fait, et refait sans dégâts s'il est relancé :
      PC était éteint à l'heure prévue, elle tourne dès qu'il est allumé.
 Il affiche enfin les clés publiques à ajouter au dépôt (infra/offsite/).
 
-Pour mettre à jour le script de copie après une modification du dépôt : relancer l'installateur.
+Pour mettre à jour le script de copie après une modification du dépôt, ou l'adresse du serveur
+après un changement du raccourci « waiggle » : relancer l'installateur.
 #>
 [CmdletBinding()]
 param(
@@ -48,6 +51,7 @@ if (-not $Destination) {
   $Destination = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'Waiggle - Sauvegardes'
 }
 $Config = Join-Path $SshDir 'config'
+$BackupConfig = Join-Path $InstallDir 'ssh_config'
 $Key = Join-Path $SshDir 'waiggle-telechargement'
 $DecryptionKey = Join-Path $SshDir 'waiggle-dechiffrement'
 
@@ -62,6 +66,13 @@ function Find-OpenSsh([string]$Name) {
   $command = @(Get-Command $Name -CommandType Application -ErrorAction SilentlyContinue)
   if ($command.Count -gt 0) { return $command[0].Path }
   throw "$Name introuvable : installer le « Client OpenSSH » de Windows (Paramètres, Fonctionnalités facultatives)"
+}
+
+# Un argument entre guillemets, pour une ligne de commande Windows. Une barre oblique inverse
+# juste avant le guillemet final le « protégerait » et casserait la ligne : on la double.
+function ConvertTo-Argument([string]$Value) {
+  if ($Value.Contains('"')) { throw "chemin inattendu (guillemet) : $Value" }
+  return '"' + ($Value -replace '(\\+)$', '$1$1') + '"'
 }
 
 # Lance un programme et renvoie ce qu'il affiche ; s'arrête s'il échoue. Les arguments sont
@@ -85,9 +96,6 @@ function Invoke-Program([string]$Program, [string]$Arguments) {
   return $output.Result
 }
 
-foreach ($path in @($Config, $Key, $Destination)) {
-  if ($path.Contains('"')) { throw "chemin inattendu (guillemet) : $path" }
-}
 $Ssh = Find-OpenSsh 'ssh'
 $Keygen = Find-OpenSsh 'ssh-keygen'
 
@@ -96,7 +104,7 @@ if (-not (Test-Path -LiteralPath $Config)) {
   throw "$Config introuvable : crée d'abord le raccourci « $AdminHost » (docs/ops/serveur.md)"
 }
 # ssh -G affiche les réglages qui s'appliqueraient au raccourci, sans se connecter.
-$resolved = (Invoke-Program $Ssh ('-F "{0}" -G {1}' -f $Config, $AdminHost)) -split "`r?`n"
+$resolved = (Invoke-Program $Ssh ('-F {0} -G {1}' -f (ConvertTo-Argument $Config), $AdminHost)) -split "`r?`n"
 $hostName = (@($resolved | Where-Object { $_ -match '^hostname ' }) | Select-Object -First 1) -replace '^hostname ', ''
 $port = (@($resolved | Where-Object { $_ -match '^port ' }) | Select-Object -First 1) -replace '^port ', ''
 if (-not $hostName -or $hostName -eq $AdminHost) {
@@ -109,35 +117,8 @@ if (Test-Path -LiteralPath $Key) {
   Write-Output 'existe déjà'
 } else {
   # -N "" : sans phrase de passe ; -q : sans bavardage.
-  Invoke-Program $Keygen ('-q -t ed25519 -N "" -C "telechargement des sauvegardes Waiggle" -f "{0}"' -f $Key) | Out-Null
+  Invoke-Program $Keygen ('-q -t ed25519 -N "" -C "telechargement des sauvegardes Waiggle" -f {0}' -f (ConvertTo-Argument $Key)) | Out-Null
   Write-Output 'créée'
-}
-
-Write-Step "Le raccourci « $BackupHost », dans $Config"
-if (Select-String -LiteralPath $Config -Pattern "^\s*Host\s+$BackupHost\s*$" -Quiet) {
-  Write-Output 'existe déjà'
-} else {
-  $lines = @(
-    '',
-    "# Ajouté par infra/offsite/install-on-pc.ps1 : la copie quotidienne des sauvegardes chiffrées.",
-    "Host $BackupHost",
-    "  HostName $hostName"
-  )
-  if ($port -and $port -ne '22') { $lines += "  Port $port" }
-  $lines += @(
-    '  User sauvegarde',
-    ('  IdentityFile "{0}"' -f $Key.Replace('\', '/')),
-    '  IdentitiesOnly yes',
-    '  BatchMode yes',
-    '  ConnectTimeout 30'
-  )
-  # Si le fichier ne finit pas par un retour à la ligne, on en ajoute un avant le bloc.
-  $bytes = [IO.File]::ReadAllBytes($Config)
-  $prefix = ''
-  if ($bytes.Length -gt 0 -and $bytes[$bytes.Length - 1] -ne 10) { $prefix = [Environment]::NewLine }
-  $text = $prefix + (($lines -join [Environment]::NewLine) + [Environment]::NewLine)
-  [IO.File]::AppendAllText($Config, $text, $Utf8NoBom)
-  Write-Output 'ajouté'
 }
 
 Write-Step "Le script de copie, installé dans $InstallDir"
@@ -146,13 +127,37 @@ $installed = Join-Path $InstallDir 'copy-to-pc.ps1'
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'copy-to-pc.ps1') -Destination $installed -Force
 Write-Output 'ok'
 
+Write-Step "Le raccourci « $BackupHost », dans $BackupConfig"
+# Les guillemets protègent les chemins qui contiennent une espace ; SSH lit les « / » sous Windows.
+$lines = @(
+  '# Écrit par infra/offsite/install-on-pc.ps1, et réécrit à chaque installation.',
+  '# La copie quotidienne des sauvegardes chiffrées de Waiggle (copy-to-pc.ps1).',
+  "Host $BackupHost",
+  "  HostName $hostName"
+)
+if ($port -and $port -ne '22') { $lines += "  Port $port" }
+$lines += @(
+  '  User sauvegarde',
+  ('  IdentityFile "{0}"' -f $Key.Replace('\', '/')),
+  '  IdentitiesOnly yes',
+  '  BatchMode yes',
+  '  ConnectTimeout 30',
+  # L'empreinte du serveur doit déjà être connue (par les connexions à « waiggle ») : une
+  # empreinte inconnue est refusée, sans question.
+  '  StrictHostKeyChecking yes',
+  ('  UserKnownHostsFile "{0}"' -f (Join-Path $SshDir 'known_hosts').Replace('\', '/'))
+)
+[IO.File]::WriteAllLines($BackupConfig, $lines, $Utf8NoBom)
+Write-Output 'ok'
+
 Write-Step "Le dossier des copies : $Destination"
 if (-not (Test-Path -LiteralPath $Destination)) { New-Item -ItemType Directory -Path $Destination -Force | Out-Null }
 Write-Output 'ok'
 
 if (-not $NoScheduledTask) {
   Write-Step "La tâche planifiée « $TaskName »"
-  $argument = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File "{0}" -SshConfig "{1}" -Destination "{2}"' -f $installed, $Config, $Destination
+  $argument = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File {0} -SshConfig {1} -Destination {2}' -f `
+    (ConvertTo-Argument $installed), (ConvertTo-Argument $BackupConfig), (ConvertTo-Argument $Destination)
   $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument $argument
   $triggers = @(
     (New-ScheduledTaskTrigger -Daily -At '12:30'),

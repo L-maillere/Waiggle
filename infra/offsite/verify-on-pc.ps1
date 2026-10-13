@@ -14,7 +14,8 @@ Ce qu'il fait :
   2. il l'ouvre (tar) et vérifie les deux fichiers : la base (pg_dump) et les avatars (gzip) ;
   3. il compare leurs empreintes à celles de la même sauvegarde sur le serveur (par SSH, avec le
      raccourci « waiggle »), tant qu'elle y est encore (14 jours) ;
-  4. il efface le dossier temporaire : les données déchiffrées ne restent jamais sur le PC.
+  4. il efface le dossier temporaire, et vérifie qu'il a bien disparu : les données déchiffrées
+     ne restent jamais sur le PC. Les restes d'un essai interrompu sont effacés au suivant.
 Il demande age : winget install FiloSottile.age
 #>
 [CmdletBinding()]
@@ -73,27 +74,40 @@ if (-not $Name) {
   if ($newest.Count -eq 0) { throw "aucune copie dans $Destination" }
   $Name = $newest[0].Name -replace '\.tar\.age$', ''
 }
-if ($Name -notmatch '^\d{4}-\d{2}-\d{2}_\d{6}-quotidien$') { throw "nom de copie inattendu : $Name" }
+if ($Name -cnotmatch '^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{6}-quotidien$') { throw "nom de copie inattendu : $Name" }
 $copy = Join-Path $Destination "$Name.tar.age"
 Write-Output "Copie vérifiée : $copy"
 
+# Les restes d'un essai interrompu (fenêtre fermée en cours de route) : des données en clair.
+foreach ($leftover in @(Get-ChildItem -LiteralPath ([IO.Path]::GetTempPath()) -Directory -Filter 'waiggle-verification-*' -ErrorAction SilentlyContinue)) {
+  Remove-Item -LiteralPath $leftover.FullName -Recurse -Force -ErrorAction SilentlyContinue
+}
 $work = Join-Path ([IO.Path]::GetTempPath()) ('waiggle-verification-' + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $work | Out-Null
 $failures = 0
 try {
   # 1. Déchiffrer. age est lancé directement (sans capter ce qu'il écrit) pour pouvoir demander
-  # la phrase de passe. age vérifie aussi que le fichier n'a pas été modifié : une copie abîmée
-  # ou trafiquée ne se déchiffre pas.
+  # la phrase de passe. age refuse un fichier abîmé ou modifié après coup. Il ne dit pas QUI l'a
+  # chiffré : la clé publique est dans le dépôt, et un serveur piraté pourrait fabriquer une copie
+  # piégée qui se déchiffre très bien. D'où la comparaison avec le serveur (3), et, pour restaurer
+  # après un piratage, une copie antérieure au piratage.
   $archive = Join-Path $work 'sauvegarde.tar'
   & $age -d -i $KeyFile -o $archive $copy
   if ($LASTEXITCODE -ne 0) { throw 'déchiffrement impossible (phrase de passe, clé ou copie abîmée)' }
   Write-Output 'ok : déchiffrée'
 
-  # 2. Ouvrir, et reconnaître les deux fichiers.
-  & $tar -xf $archive -C $work
+  # 2. Ouvrir, et reconnaître les deux fichiers. L'archive doit contenir exactement ces deux
+  # noms, et seuls ceux-là sont extraits : rien d'autre ne sort de l'archive.
+  $expected = @("$Name.db.dump", "$Name.media.tar.gz")
+  $listing = @(& $tar -tf $archive)
   if ($LASTEXITCODE -ne 0) { throw "l'archive ne s'ouvre pas" }
-  $dump = Join-Path $work "$Name.db.dump"
-  $media = Join-Path $work "$Name.media.tar.gz"
+  if ($listing.Count -ne 2 -or @($listing | Where-Object { $expected -cnotcontains $_ }).Count -ne 0) {
+    throw "l'archive ne contient pas exactement $($expected -join ' et ') : $($listing -join ', ')"
+  }
+  & $tar -xf $archive -C $work $expected[0] $expected[1]
+  if ($LASTEXITCODE -ne 0) { throw "l'archive ne s'ouvre pas" }
+  $dump = Join-Path $work $expected[0]
+  $media = Join-Path $work $expected[1]
   # « PGDMP » : le début de tout fichier de pg_dump ; 1F 8B : celui de tout fichier gzip.
   if (-not ((Test-Path -LiteralPath $dump) -and (Test-Magic $dump ([byte[]](0x50, 0x47, 0x44, 0x4D, 0x50))))) {
     throw "la base ($Name.db.dump) manque ou n'est pas une sauvegarde PostgreSQL"
@@ -128,8 +142,16 @@ try {
   Write-Output "ÉCHEC : $($_.Exception.Message)"
   $failures++
 } finally {
-  # 4. Rien de déchiffré ne reste sur le PC.
-  Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue
+  # 4. Rien de déchiffré ne reste sur le PC. Un fichier encore ouvert par l'antivirus ou
+  # l'indexation peut résister : on réessaie, puis on le signale.
+  for ($try = 1; $try -le 3 -and (Test-Path -LiteralPath $work); $try++) {
+    Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue
+    if (Test-Path -LiteralPath $work) { Start-Sleep -Seconds 2 }
+  }
+}
+if (Test-Path -LiteralPath $work) {
+  Write-Output "ATTENTION : des données déchiffrées sont restées dans $work : effacer ce dossier à la main."
+  $failures++
 }
 
 if ($failures -gt 0) {

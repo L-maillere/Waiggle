@@ -27,7 +27,7 @@ Ce qui se fait tout seul :
 - **chaque nuit à 3 h 30** : une sauvegarde de la base et des avatars, gardée 14 jours, dont une
   copie chiffrée attend le PC de Louis ;
 - **chaque jour à 12 h 30 et 20 h 30** (ou dès que le PC est allumé) : le PC de Louis vient
-  chercher cette copie, et en garde 30 ;
+  chercher cette copie, et garde les copies 30 jours, plus une par mois pendant un an ;
 - **chaque jour** : les correctifs de sécurité du système, avec un redémarrage à 4 h si besoin ;
 - **les certificats HTTPS** : Caddy les obtient et les renouvelle seul ;
 - **après un redémarrage** : les conteneurs repartent seuls.
@@ -336,7 +336,8 @@ est dans l'[ADR 0004](../adr/0004-copie-hors-du-serveur.md). À faire avant d'in
 soit.
 
 1. **L'installation sur le PC.** Claude Code peut la lancer : aucune phrase de passe n'est
-   demandée. Elle crée la clé de téléchargement, le raccourci `waiggle-sauvegardes` et la tâche
+   demandée. Elle crée la clé de téléchargement, un fichier de réglages SSH à part
+   (`AppData\Local\Waiggle\ssh_config`, ton `~/.ssh/config` n'est pas modifié) et la tâche
    planifiée, puis affiche les deux clés publiques.
 
    ```bash
@@ -355,8 +356,9 @@ soit.
    ```
 
    **À vérifier** : la dernière ligne dit « ok : « sauvegarde » peut lire… », `ssh waiggle true`
-   marche toujours, et `ssh waiggle-sauvegardes true` est refusé avec « This service allows sftp
-   connections only. ».
+   marche toujours, et, dans PowerShell,
+   `ssh -F "$env:LOCALAPPDATA\Waiggle\ssh_config" waiggle-sauvegardes true` est refusé avec
+   « This service allows sftp connections only. ».
 4. **Une première copie** : une sauvegarde maintenant, puis la tâche du PC sans attendre.
 
    ```bash
@@ -365,7 +367,8 @@ soit.
    ```
 
    **À vérifier**, une minute plus tard : la dernière ligne de `journal.txt`, dans
-   `Documents\Waiggle - Sauvegardes`, commence par « ok : 1 nouvelle(s) copie(s) ».
+   `Documents\Waiggle - Sauvegardes`, commence par « ok : » et compte au moins une nouvelle
+   copie.
 5. **Le premier essai, par Louis**, dans PowerShell, depuis le dossier du dépôt. Il demande la
    phrase de passe de la clé de déchiffrement, rouvre la copie dans un dossier temporaire, la
    compare au serveur, puis efface ce qu'il a déchiffré :
@@ -448,33 +451,44 @@ pas** : on prévient Louis.
 
 ### Copie hors du serveur
 
-- **Où** : `Documents\Waiggle - Sauvegardes` sur le PC, les 30 plus récentes, chiffrées.
-  `journal.txt`, dans ce dossier, garde une ligne par passage (« ok : … » ou « ÉCHEC : … »).
+- **Où** : `Documents\Waiggle - Sauvegardes` sur le PC, chiffrées. Chaque copie reste 30 jours
+  après son arrivée, et la première arrivée de chaque mois reste un an. `journal.txt`, dans ce
+  dossier, garde une ligne par passage (« ok : … » ou « ÉCHEC : … »).
+- **Si le serveur était piraté**, il ne pourrait pas faire effacer les copies du PC : le PC
+  refuse les noms datés du futur ou trop anciens, n'efface que selon la date d'arrivée chez lui,
+  et ne télécharge que 5 copies (2 Go chacune au plus) et n'en efface que 2 par passage. Un nom
+  refusé fait échouer le passage : `deploy-from-pc.sh` le signale.
 - **Surveillance** : `deploy-from-pc.sh` prévient si la dernière copie a plus de 3 jours, ou si le
   dernier passage a échoué. Le serveur garde, lui, 14 jours de copies : au-delà de 14 jours sans
   passage, des copies sont perdues pour le PC.
 - **L'essai du mois, par Louis** : `verify-on-pc.ps1` (partie 3, étape 8, point 5). Une sauvegarde
   qu'on n'a jamais rouverte n'est qu'un espoir.
-- **Après une modification des scripts du PC** (`infra/offsite/*.ps1`) : relancer
-  `install-on-pc.ps1`. La tâche planifiée lance la copie installée, pas celle du dépôt.
+- **Après une modification des scripts du PC** (`infra/offsite/*.ps1`), ou un changement
+  d'adresse du serveur dans le raccourci « waiggle » : relancer `install-on-pc.ps1`. La tâche
+  planifiée lance la copie installée, pas celle du dépôt.
 - **Changer une clé** (PC perdu ou remplacé, clé compromise) : nouvelle clé (partie 2), pull
   request qui remplace la clé publique dans `infra/offsite/`, déploiement, puis l'étape offsite de
   `bootstrap.sh` pour la clé de téléchargement. Pour la clé de déchiffrement, garder l'ancienne
   tant que des copies chiffrées pour elle restent utiles (30 jours).
-- **Rouvrir une copie pour restaurer** (le serveur est perdu, partie 5). Dans PowerShell, sur le
-  PC, avec la clé de déchiffrement et sa phrase de passe :
+- **Rouvrir une copie pour restaurer** (le serveur est perdu, partie 5). Après un piratage,
+  choisir une copie **antérieure** au piratage : la clé publique est dans le dépôt, un serveur
+  piraté a pu chiffrer des copies piégées. Dans PowerShell, sur le PC, avec la clé de
+  déchiffrement et sa phrase de passe. On travaille dans le dossier temporaire de Windows, jamais
+  dans Documents (souvent synchronisé avec OneDrive) : les fichiers déchiffrés sont en clair.
 
   ```powershell
-  cd "$([Environment]::GetFolderPath('MyDocuments'))\Waiggle - Sauvegardes"
-  age -d -i $env:USERPROFILE\.ssh\waiggle-dechiffrement -o sauvegarde.tar <nom>.tar.age
-  tar -xf sauvegarde.tar
-  scp <nom>.db.dump <nom>.media.tar.gz waiggle:/srv/ruche/backups/
-  Remove-Item sauvegarde.tar, <nom>.db.dump, <nom>.media.tar.gz
+  $copie = "$([Environment]::GetFolderPath('MyDocuments'))\Waiggle - Sauvegardes\<nom>.tar.age"
+  $tmp = Join-Path $env:TEMP 'waiggle-restauration'
+  New-Item -ItemType Directory -Force $tmp | Out-Null
+  age -d -i $env:USERPROFILE\.ssh\waiggle-dechiffrement -o "$tmp\sauvegarde.tar" $copie
+  tar -xf "$tmp\sauvegarde.tar" -C $tmp <nom>.db.dump <nom>.media.tar.gz
+  scp "$tmp\<nom>.db.dump" "$tmp\<nom>.media.tar.gz" waiggle:/srv/ruche/backups/
+  Remove-Item -Recurse -Force $tmp
+  Test-Path $tmp      # doit répondre False
   ```
 
   Puis, avec l'accord explicite de Louis :
   `ssh waiggle '/srv/ruche/repo/infra/restore.sh /srv/ruche/backups/<nom> --effacer-les-donnees-actuelles'`.
-  Les fichiers déchiffrés sont effacés du PC aussitôt envoyés : ils sont en clair.
 
 ### Changer le code d'invitation
 

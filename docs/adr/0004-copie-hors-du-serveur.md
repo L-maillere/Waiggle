@@ -27,8 +27,15 @@ PC peut être volé.
    - L'empreinte SHA-256 de chaque copie est publiée à côté, et écrite en dernier : le PC ne
      prend que des copies complètes, et vérifie qu'elles sont arrivées intactes.
 2. **Le PC vient chercher (« pull »), le serveur n'envoie rien (« push »).** Le serveur ne détient
-   aucun accès au PC ni à un stockage externe. Un serveur compromis ne peut donc ni effacer ni
-   modifier les copies déjà sur le PC.
+   aucun accès au PC ni à un stockage externe. Et le PC ne le croit pas sur parole : un serveur
+   compromis ne doit pas pouvoir faire effacer les copies déjà sur le PC, ni remplir son disque.
+   - Les noms des copies sont vérifiés : une date future ou de plus de 15 jours est refusée, et
+     signalée. Sans cette règle, 30 copies datées de 2099 passeraient devant toutes les vraies,
+     qui seraient effacées.
+   - Ce qui est effacé dépend de la date d'**arrivée** sur le PC, fixée par le PC, jamais des
+     noms donnés par le serveur.
+   - 5 téléchargements et 2 effacements au plus par passage, 2 Go au plus par copie, et 5 Go
+     d'espace libre au minimum.
 3. **Un compte en lecture seule pour le PC.** Le compte `sauvegarde` du serveur
    (`infra/server/bootstrap.sh`, étape offsite) :
    - n'a que le transfert de fichiers de SSH, en lecture seule (`ForceCommand internal-sftp -R`) ;
@@ -39,9 +46,13 @@ PC peut être volé.
    Cette clé n'a pas de phrase de passe, pour que la copie se fasse seule. Volée, elle ne donne
    que des fichiers chiffrés.
 4. **Une tâche planifiée Windows** lance `copy-to-pc.ps1` deux fois par jour. Elle rattrape un
-   passage manqué quand le PC était éteint, et réessaie si le réseau n'est pas encore là. Le
-   script est recopié hors du dépôt à l'installation : la tâche ne lance jamais une version du
-   dépôt en cours de relecture. Le PC garde 30 copies, le serveur 14.
+   passage manqué quand le PC était éteint, et réessaie si le réseau n'est pas encore là.
+   - Le script est recopié hors du dépôt à l'installation : la tâche ne lance jamais une version
+     du dépôt en cours de relecture.
+   - Ses réglages SSH sont dans un fichier à part : rien de `~/.ssh/config` (un `Host *`) ne s'y
+     mêle.
+   - Le PC garde chaque copie 30 jours, et la première de chaque mois un an : un piratage passé
+     inaperçu pendant des semaines laisse encore des copies saines. Le serveur garde 14 jours.
 5. **On vérifie que ça marche, et que ça continue de marcher.**
    - **En CI**, à chaque pull request :
      - un serveur Debian 13 jetable, préparé par les vraies étapes de `bootstrap.sh`, et tout ce
@@ -59,7 +70,10 @@ PC peut être volé.
 - Perdre la clé de déchiffrement, ou sa phrase de passe, rend toutes les copies illisibles. D'où
   une copie de la clé hors du PC (clé USB), et la phrase de passe dans un gestionnaire de mots de
   passe.
-- Restaurer depuis le PC demande de déchiffrer sur le PC, puis d'envoyer la sauvegarde au
-  serveur : la clé de déchiffrement ne va jamais sur un serveur (docs/ops/serveur.md).
+- Restaurer depuis le PC demande de déchiffrer sur le PC, dans le dossier temporaire (pas dans
+  Documents, souvent synchronisé), puis d'envoyer la sauvegarde au serveur : la clé de
+  déchiffrement ne va jamais sur un serveur (docs/ops/serveur.md).
+- age prouve qu'une copie n'a pas été abîmée, pas qui l'a chiffrée : la clé publique est
+  publique. Après un piratage, on restaure une copie antérieure au piratage.
 - Changer une clé passe par une pull request (les fichiers de `infra/offsite/`), un déploiement,
   puis l'étape offsite de `bootstrap.sh`.

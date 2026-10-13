@@ -5,9 +5,9 @@ Essaie les scripts du PC avec Windows PowerShell 5.1, sur une machine Windows de
 .DESCRIPTION
 infra/offsite-test.sh essaie la copie de bout en bout, mais avec PowerShell 7, sous Linux. Ici, on
 vérifie ce qui est propre au PC de Louis : Windows PowerShell 5.1 lit les scripts (accents
-compris), l'installateur crée une clé sans phrase de passe, ajoute le raccourci SSH une seule
-fois et planifie la tâche ; la commande exacte de la tâche lance bien la copie, qui échoue
-proprement quand le serveur ne répond pas.
+compris), l'installateur crée une clé sans phrase de passe, écrit son propre fichier de réglages
+SSH sans toucher à ~/.ssh/config, et planifie la tâche ; la commande exacte de la tâche lance bien
+la copie, qui échoue proprement quand le serveur ne répond pas.
 
 Usage (CI) : powershell -ExecutionPolicy Bypass -File infra\offsite\windows-test.ps1
 #>
@@ -61,7 +61,9 @@ $destination = Join-Path $work 'Waiggle - Sauvegardes'
 $state = Join-Path $work 'etat-copie.txt'
 New-Item -ItemType Directory -Path $sshDir -Force | Out-Null
 # Le raccourci « waiggle », vers un port fermé : la copie échouera vite, comme sans réseau.
-[IO.File]::WriteAllText((Join-Path $sshDir 'config'), "Host waiggle`n  HostName 127.0.0.1`n  Port 9`n  User louis`n")
+$userConfig = Join-Path $sshDir 'config'
+[IO.File]::WriteAllText($userConfig, "Host waiggle`n  HostName 127.0.0.1`n  Port 9`n  User louis`n")
+$userConfigHash = (Get-FileHash -LiteralPath $userConfig).Hash
 
 try {
   Write-Output '> Installation, deux fois de suite'
@@ -74,15 +76,16 @@ try {
   $second = Invoke-Program 'powershell.exe' $installArguments
   Assert-True ($second.ExitCode -eq 0) "seconde installation $($second.Errors)"
   Assert-True ((Get-FileHash -LiteralPath $key).Hash -eq $keyHash) 'la clé de téléchargement ne change pas'
-  $blocks = @(Select-String -LiteralPath (Join-Path $sshDir 'config') -Pattern '^Host waiggle-sauvegardes$')
-  Assert-True ($blocks.Count -eq 1) 'le raccourci « waiggle-sauvegardes » est ajouté une seule fois'
+  Assert-True ((Get-FileHash -LiteralPath $userConfig).Hash -eq $userConfigHash) '~/.ssh/config n''est pas modifié'
+  $backupConfig = Join-Path $installDir 'ssh_config'
   # -P "" : on demande la clé publique avec une phrase de passe vide ; cela ne marche que si la
   # clé n'en a pas (la tâche planifiée ne pourrait pas la taper).
   $keygen = Join-Path $env:WINDIR 'System32\OpenSSH\ssh-keygen.exe'
   $noPassphrase = Invoke-Program $keygen ('-y -P "" -f "{0}"' -f $key)
   Assert-True ($noPassphrase.ExitCode -eq 0) 'la clé de téléchargement n''a pas de phrase de passe'
-  $resolved = (Invoke-Program (Join-Path $env:WINDIR 'System32\OpenSSH\ssh.exe') ('-F "{0}" -G waiggle-sauvegardes' -f (Join-Path $sshDir 'config'))).Output
-  Assert-True ($resolved -match '(?m)^user sauvegarde\r?$' -and $resolved -match '(?m)^port 9\r?$') 'le raccourci reprend l''adresse de « waiggle », avec le compte sauvegarde'
+  $resolved = (Invoke-Program (Join-Path $env:WINDIR 'System32\OpenSSH\ssh.exe') ('-F "{0}" -G waiggle-sauvegardes' -f $backupConfig)).Output
+  Assert-True ($resolved -match '(?m)^user sauvegarde\r?$' -and $resolved -match '(?m)^port 9\r?$') 'le raccourci dédié reprend l''adresse de « waiggle », avec le compte sauvegarde'
+  Assert-True ($resolved -match '(?m)^stricthostkeychecking true\r?$') 'une empreinte de serveur inconnue est refusée'
 
   Write-Output '> La tâche planifiée'
   $task = Get-ScheduledTask -TaskName $TaskName
@@ -90,11 +93,12 @@ try {
   Assert-True ($task.Settings.StartWhenAvailable) 'une heure manquée est rattrapée'
   Assert-True ($task.Principal.RunLevel -eq 'Limited') 'sans droits d''administrateur'
   $action = @($task.Actions)[0]
-  Assert-True ($action.Execute -eq 'powershell.exe' -and $action.Arguments.Contains($installDir)) 'la tâche lance le script installé'
+  Assert-True ($action.Execute -eq 'powershell.exe' -and $action.Arguments.Contains("-File `"$installDir\copy-to-pc.ps1`"")) 'la tâche lance le script installé'
+  Assert-True ($action.Arguments.Contains("-SshConfig `"$backupConfig`"")) 'avec le fichier de réglages SSH dédié'
 
   Write-Output '> La commande exacte de la tâche, serveur injoignable'
   # Les mêmes arguments que la tâche, plus des essais rapides et un fichier d'état de l'essai.
-  $run = Invoke-Program 'powershell.exe' ($action.Arguments + (' -StateFile "{0}" -Attempts 2 -RetryDelaySeconds 1' -f $state))
+  $run = Invoke-Program 'powershell.exe' ($action.Arguments + (' -StateFile "{0}" -Attempts 2 -RetryDelaySeconds 1 -MinFreeBytes 0' -f $state))
   Assert-True ($run.ExitCode -eq 1) 'la copie échoue (code 1)'
   $last = Get-LastLine (Join-Path $destination 'journal.txt')
   Assert-True ($last.Contains('ÉCHEC : serveur injoignable (2 essais)')) "échec noté au journal : $last"
