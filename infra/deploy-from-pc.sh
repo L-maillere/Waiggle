@@ -41,7 +41,7 @@ main() {
   # d'images publiées : on le refuse en le disant, plutôt que de laisser git afficher son erreur.
   local site_env
   site_env=$(git -C "$RUCHE_REPO" show "$sha:infra/site.env" 2>/dev/null) ||
-    die "pas de infra/site.env dans ${sha:0:7} : ce commit est antérieur à la publication des images"
+    die "pas de infra/site.env lisible dans ${sha:0:7} : commit antérieur à la publication des images"
   IMAGE_PREFIX=$(sed -n 's/^IMAGE_PREFIX=//p' <<<"$site_env")
   [[ $IMAGE_PREFIX =~ ^ghcr\.io/[a-z0-9._/-]+$ ]] || die "IMAGE_PREFIX invalide dans infra/site.env : « $IMAGE_PREFIX »"
   echo "$IMAGE_PREFIX"
