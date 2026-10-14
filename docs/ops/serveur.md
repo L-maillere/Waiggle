@@ -108,6 +108,11 @@ Claude ne tape jamais un mot de passe, une clé ou un numéro de carte : ces ét
    - **IP autorisées** : dans les réglages de sécurité de Brevo, ajoute les adresses IP du VPS,
      IPv4 **et** IPv6.
      Sinon, Brevo bloque les envois venus d'une adresse inconnue.
+   - **Pas de traqueurs** : Paramètres → Contacts → « Consentement au suivi des pixels par
+     contact » → **Oui**, et « Suivre les contacts dont le consentement est inconnu » → **Non**.
+     Sans ce réglage, Brevo ignore le refus de suivi envoyé par l'API et glisse dans chaque e-mail
+     un pixel d'ouverture et des liens réécrits vers son propre domaine. À vérifier sur le premier
+     e-mail reçu (étape 7).
 5. **GitHub CLI** sur le PC (`winget install GitHub.cli`), puis `gh auth login`. Il sert à
    vérifier la provenance des images avant chaque déploiement.
 6. **Après la première publication des images** (la CI de main, une fois la pull request

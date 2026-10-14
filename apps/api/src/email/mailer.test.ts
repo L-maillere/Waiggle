@@ -4,7 +4,7 @@ import { createBrevoMailer } from './mailer'
 const email = { to: 'lea@example.com', subject: 'Sujet', text: 'Texte', html: '<p>Texte</p>' }
 
 describe('createBrevoMailer', () => {
-  it('sends the email through the Brevo API, with the key in a header', async () => {
+  it('sends the email through the Brevo API, with the key in a header and no tracking', async () => {
     // Un faux `fetch` qui note la requête au lieu de l'envoyer sur Internet.
     const calls: { url: string; init: RequestInit }[] = []
     const fakeFetch = async (url: string | URL | Request, init?: RequestInit) => {
@@ -25,7 +25,8 @@ describe('createBrevoMailer', () => {
     expect(headers.get('api-key')).toBe('test-key')
     expect(JSON.parse(String(calls[0]?.init.body))).toEqual({
       sender: { email: 'no-reply@waiggle.io', name: 'Ruche' },
-      to: [{ email: 'lea@example.com' }],
+      // Pas de pixel d'ouverture ni de lien de suivi : la promesse « pas de traqueurs ».
+      to: [{ email: 'lea@example.com', contactPixelTrackingConsent: false }],
       subject: 'Sujet',
       textContent: 'Texte',
       htmlContent: '<p>Texte</p>',

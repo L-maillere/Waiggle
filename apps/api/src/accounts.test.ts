@@ -6,7 +6,7 @@ import { appName } from '@ruche/brand'
 import { AccountExport, ErrorResponse, Me } from '@ruche/contracts'
 import { schema } from '@ruche/db'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { createTestContext, type TestContext } from './testing/context'
+import { createTestContext, TEST_API_URL, type TestContext } from './testing/context'
 
 let ctx: TestContext
 
@@ -45,7 +45,10 @@ describe('creating an account', () => {
     const [email] = ctx.mailer.sent
     expect(email?.to).toBe('lea@example.com')
     expect(email?.subject).toBe(`Active ton compte ${appName}`)
-    expect(linkIn(email?.text ?? '').pathname).toBe('/api/auth/verify-email')
+    const link = linkIn(email?.text ?? '')
+    expect(link.pathname).toBe('/api/auth/verify-email')
+    // Le lien part de notre domaine, jamais d'un domaine de redirection d'un prestataire.
+    expect(link.origin).toBe(TEST_API_URL)
   })
 
   it('writes the email in the language of the member', async () => {
