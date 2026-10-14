@@ -52,7 +52,12 @@ export const createBrevoMailer = ({
       },
       body: JSON.stringify({
         sender: from,
-        to: [{ email: to }],
+        // contactPixelTrackingConsent: false → Brevo n'insère ni pixel d'ouverture ni lien de
+        // suivi des clics dans cet e-mail (les liens pointent directement chez nous). C'est la
+        // promesse « pas de traqueurs », et un membre n'a jamais à passer par un domaine inconnu
+        // pour activer son compte. Le réglage « consentement par contact » du compte Brevo fait la
+        // même chose par défaut : les deux ensemble, au cas où l'un des deux saute.
+        to: [{ email: to, contactPixelTrackingConsent: false }],
         subject,
         textContent: text,
         htmlContent: html,
