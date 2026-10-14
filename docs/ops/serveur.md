@@ -245,9 +245,10 @@ infra/deploy-from-pc.sh            # le dernier commit de main ; ou : infra/depl
 
 Le script vérifie tout lui-même. Il affiche chaque étape et s'arrête au premier problème :
 
+- le commit est-il sur main, avec un `infra/site.env` ? (sur le PC, puis à nouveau sur le serveur,
+  par `deploy.sh`) ;
 - les deux images ont-elles été construites par la CI de main, depuis ce commit ? (sur le PC,
   avec `gh attestation verify`) ;
-- le commit est-il sur main ? (sur le serveur, `deploy.sh`) ;
 - l'API répond-elle avec cette version ?
 
 Sous Windows, si `ssh` ne trouve pas la clé chargée dans l'agent de Windows, indique le bon
@@ -260,8 +261,18 @@ par `deploy-from-pc.sh` doit être celle que donne le dépôt d'images.
 ssh waiggle "docker buildx imagetools inspect ghcr.io/l-maillere/ruche-api:<commit> --format '{{json .Manifest.Digest}}'"
 ```
 
-Et un commit de main sans images (par exemple le commit `ad7488c`, antérieur à la publication)
-doit être refusé : `infra/deploy-from-pc.sh <son numéro complet>`.
+Et un commit de main dont la CI n'a pas publié d'images vérifiées doit être refusé, avec le
+message « image api de … non vérifiée ». Par exemple `d73b5c0`, la pull request #11, annulée
+ensuite : sa CI a échoué avant de publier les images.
+
+```bash
+RUCHE_SSH=false infra/deploy-from-pc.sh d73b5c056f198cb76cfd3facd7fccbac62cc20fa
+```
+
+`RUCHE_SSH=false` : même si la vérification passait un jour (une CI relancée publierait des images
+pour ce commit), rien ne partirait vers le serveur. Le refus doit apparaître à l'étape
+« Vérification de la provenance des images ». Un commit antérieur à `infra/site.env` est refusé lui
+aussi, mais avant cette étape : ce test-là ne prouverait rien.
 
 Au premier lancement, Caddy demande les certificats : il faut que le DNS pointe déjà vers le VPS.
 Si le DNS n'était pas prêt, Caddy réessaie tout seul. Pour accélérer une fois le DNS prêt :

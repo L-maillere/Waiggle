@@ -37,8 +37,12 @@ main() {
   git -C "$RUCHE_REPO" merge-base --is-ancestor "$sha" origin/main ||
     die "ce commit n'est pas sur main : on ne déploie que ce qui a été relu et fusionné"
   # Celui de cette version précise (infra/site.env à ce commit), lu comme du texte, sans
-  # l'exécuter, et vérifié comme le fait la CI.
-  IMAGE_PREFIX=$(git -C "$RUCHE_REPO" show "$sha:infra/site.env" | sed -n 's/^IMAGE_PREFIX=//p')
+  # l'exécuter, et vérifié comme le fait la CI. Un commit antérieur à ce fichier n'a jamais eu
+  # d'images publiées : on le refuse en le disant, plutôt que de laisser git afficher son erreur.
+  local site_env
+  site_env=$(git -C "$RUCHE_REPO" show "$sha:infra/site.env" 2>/dev/null) ||
+    die "pas de infra/site.env lisible dans ${sha:0:7} : commit antérieur à la publication des images"
+  IMAGE_PREFIX=$(sed -n 's/^IMAGE_PREFIX=//p' <<<"$site_env")
   [[ $IMAGE_PREFIX =~ ^ghcr\.io/[a-z0-9._/-]+$ ]] || die "IMAGE_PREFIX invalide dans infra/site.env : « $IMAGE_PREFIX »"
   echo "$IMAGE_PREFIX"
 
