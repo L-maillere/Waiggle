@@ -109,10 +109,13 @@ Claude ne tape jamais un mot de passe, une clé ou un numéro de carte : ces ét
      enregistrements DNS (SPF, DKIM, MX de rebond, DMARC) : garde-les pour l'étape « DNS ». Le
      SPF doit citer Scaleway **et** Brevo tant que les deux ont le droit d'envoyer depuis le
      domaine. La vérification du domaine se fait d'elle-même, quelques minutes après les DNS.
-   - **Clé API** : dans IAM, crée une application dédiée (par exemple « waiggle-api »), une
-     politique qui lui donne le droit `TransactionalEmailFullAccess` sur le projet, et rien d'autre,
-     puis une clé API pour cette application. Sa clé secrète est `SCALEWAY_SECRET_KEY` : elle ne
-     s'affiche qu'une fois.
+   - **Clé API** : dans IAM, crée une application dédiée (par exemple « waiggle-api »), puis une
+     politique portée sur **le projet** (pas sur l'organisation) qui ne lui donne que le droit
+     d'**envoyer** des e-mails : `TransactionalEmailEmailFullAccess` s'il est proposé, sinon
+     `TransactionalEmailFullAccess` (qui permet aussi de supprimer le domaine : une clé qui fuit
+     ferait plus de dégâts). Puis une clé API pour cette application, avec une date d'expiration si
+     la console le propose (note-la : il faudra la renouveler). Sa clé secrète est
+     `SCALEWAY_SECRET_KEY` : elle ne s'affiche qu'une fois.
    - **Pourquoi Scaleway** : il ne sait ni insérer un pixel d'ouverture ni réécrire les liens. Les
      e-mails partent tels que l'API les écrit.
 5. **Brevo** (réservé au marketing, ADR 0005) : le compte, le domaine authentifié et le réglage

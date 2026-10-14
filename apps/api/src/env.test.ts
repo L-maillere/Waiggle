@@ -72,7 +72,7 @@ describe('loadEnv', () => {
     expect(() => loadEnv({ ...production, BREVO_API_KEY: undefined })).toThrow(/BREVO_API_KEY/)
   })
 
-  it('reads a Scaleway configuration, in the Paris region unless told otherwise', () => {
+  it('reads a Scaleway configuration, in the Paris region only', () => {
     const scaleway = {
       ...production,
       MAIL_PROVIDER: 'scaleway',
@@ -87,9 +87,8 @@ describe('loadEnv', () => {
       region: 'fr-par',
       from: { email: 'no-reply@waiggle.io', name: appName },
     })
-    expect(loadEnv({ ...scaleway, SCALEWAY_REGION: 'nl-ams' }).mail).toMatchObject({
-      region: 'nl-ams',
-    })
+    // Le service n'existe qu'à Paris : une autre région est refusée au démarrage, pas au premier e-mail.
+    expect(() => loadEnv({ ...scaleway, SCALEWAY_REGION: 'nl-ams' })).toThrow(/SCALEWAY_REGION/)
     // Sans clé ou sans projet, le serveur ne démarre pas plutôt que d'échouer au premier e-mail.
     expect(() => loadEnv({ ...scaleway, SCALEWAY_SECRET_KEY: undefined })).toThrow(
       /SCALEWAY_SECRET_KEY/,

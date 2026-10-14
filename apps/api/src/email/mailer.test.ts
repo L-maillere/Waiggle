@@ -34,6 +34,8 @@ describe('createScalewayMailer', () => {
     )
     const headers = new Headers(calls[0]?.init.headers)
     expect(headers.get('x-auth-token')).toBe('test-secret')
+    // Un prestataire qui ne répond pas ne doit pas bloquer l'inscription : la requête a un délai.
+    expect(calls[0]?.init.signal).toBeInstanceOf(AbortSignal)
     expect(JSON.parse(String(calls[0]?.init.body))).toEqual({
       project_id: '2f8c1d4e-5b6a-4c7d-8e9f-0a1b2c3d4e5f',
       from: { email: 'no-reply@waiggle.io', name: 'Ruche' },

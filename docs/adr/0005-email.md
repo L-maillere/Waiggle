@@ -52,6 +52,9 @@ Hostinger comme relais SMTP (ni listes, ni désabonnement, ni volume) ; tout fai
 
 ## Raisons
 
+(Tarifs, limites et fonctions des prestataires : constatés le 14 octobre 2026. Une offre évolue ;
+la vraie garantie reste la vérification sur un e-mail reçu, décrite dans `docs/ops/serveur.md`.)
+
 - **Pourquoi pas Brevo pour tout** : les traqueurs sur les e-mails de compte ne se suppriment
   qu'en Enterprise. L'anonymisation laisse le clic transiter par un domaine Brevo, qui reçoit
   l'adresse IP et le navigateur du membre, et rend l'activation du compte dépendante d'un service

@@ -65,8 +65,10 @@ export const createBrevoMailer = ({
       }),
       signal: AbortSignal.timeout(10_000), // on n'attend jamais plus de 10 secondes
     })
+    // On ne lit jamais le corps de la réponse (il pourrait contenir des détails internes), mais on
+    // le libère : sinon la connexion reste occupée jusqu'au nettoyage de la mémoire.
+    await res.body?.cancel()
     // Un échec d'envoi doit se voir : on lève une erreur plutôt que de l'ignorer en silence.
-    // On ne recopie pas la réponse de Brevo, qui pourrait contenir des détails internes.
     if (!res.ok) throw new Error(`Brevo refused the email (HTTP ${res.status})`)
   },
 })
@@ -116,7 +118,8 @@ export const createScalewayMailer = ({
         signal: AbortSignal.timeout(10_000), // on n'attend jamais plus de 10 secondes
       },
     )
-    // Même règle que pour Brevo : un échec se voit, et la réponse du prestataire n'est pas recopiée.
+    // Même règle que pour Brevo : la réponse n'est ni lue ni recopiée, et un échec se voit.
+    await res.body?.cancel()
     if (!res.ok) throw new Error(`Scaleway refused the email (HTTP ${res.status})`)
   },
 })

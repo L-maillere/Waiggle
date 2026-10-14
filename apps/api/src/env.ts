@@ -35,7 +35,9 @@ const EnvSchema = z
     SCALEWAY_SECRET_KEY: optional(z.string()),
     // L'identifiant du projet Scaleway, un UUID : z.uuid() refuse une valeur mal copiée.
     SCALEWAY_PROJECT_ID: optional(z.uuid()),
-    SCALEWAY_REGION: z.enum(['fr-par', 'nl-ams', 'pl-waw']).default('fr-par'),
+    // Transactional Email n'existe qu'à Paris (constaté le 14/10/2026). Une autre région ferait
+    // démarrer le serveur, puis échouer au premier e-mail : on la refuse dès le départ.
+    SCALEWAY_REGION: z.enum(['fr-par']).default('fr-par'),
     // « true » autorise les e-mails écrits dans les logs (console) en production. Seulement pour
     // les essais (tests de la pile Docker) : sinon les liens des e-mails, qui connectent au compte,
     // finiraient dans les logs du serveur.
