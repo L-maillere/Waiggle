@@ -1,6 +1,13 @@
 # Fins de ligne. Sous Windows, Git peut transformer les fins de ligne Unix (LF) en fins de ligne
-# Windows (CRLF). Un script shell en CRLF ne marche plus sur le serveur : on impose LF aux
-# fichiers qui partent sur un serveur Linux, même dans un dépôt cloné sous Windows.
+# Windows (CRLF) à l'extraction (réglage core.autocrlf). Or Biome attend du LF (pnpm lint échoue
+# sinon), et un script shell en CRLF ne marche plus sur le serveur. On impose donc LF à tous les
+# fichiers texte, quel que soit le réglage du PC : « eol=lf » l'emporte sur core.autocrlf.
+# « text=auto » : Git reconnaît lui-même les fichiers binaires (images, polices…) et les laisse
+# intacts. Un clone déjà extrait en CRLF se remet en LF, une fois cette règle reçue et l'arbre de
+# travail propre : git rm --cached -r -q . && git checkout -- .
+* text=auto eol=lf
+
+# Les règles ci-dessous restent, plus explicites, pour les fichiers qui partent sur le serveur.
 *.sh text eol=lf
 *.env text eol=lf
 *.env.example text eol=lf
