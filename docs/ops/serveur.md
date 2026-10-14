@@ -19,7 +19,7 @@ Internet ──443──▶ web (Caddy + appli construite) ─┬─ waiggle.io 
 | Domaines | waiggle.io (appli), api.waiggle.io (API), www.waiggle.io (renvoie vers waiggle.io) |
 | Images | `ghcr.io/l-maillere/ruche-api` et `ruche-web`, publiées par la CI après chaque fusion sur main |
 | Dossier de l'appli | `/srv/ruche` : `repo/` (copie du dépôt), `secrets.env`, `deployed.env`, `backups/` |
-| E-mails | Brevo, expéditeur `no-reply@waiggle.io` |
+| E-mails | Scaleway Transactional Email (compte), expéditeur `no-reply@waiggle.io` ; Brevo réservé au marketing (ADR 0005) |
 
 Ce qui se fait tout seul :
 
@@ -101,21 +101,27 @@ Claude ne tape jamais un mot de passe, une clé ou un numéro de carte : ces ét
    "@
    ```
 
-4. **Brevo** (l'envoi des e-mails) :
-   - **Compte et domaine** : crée le compte, puis ajoute et authentifie le domaine waiggle.io. Brevo
-     donne des enregistrements DNS : garde-les pour l'étape « DNS ».
-   - **Clé API** : crée-en une (rubrique « SMTP & API »).
-   - **IP autorisées** : dans les réglages de sécurité de Brevo, ajoute les adresses IP du VPS,
-     IPv4 **et** IPv6.
-     Sinon, Brevo bloque les envois venus d'une adresse inconnue.
-   - **Pas de traqueurs** : Paramètres → Contacts → « Consentement au suivi des pixels par
-     contact » → **Oui**, et « Suivre les contacts dont le consentement est inconnu » → **Non**.
-     Sans ce réglage, Brevo ignore le refus de suivi envoyé par l'API et glisse dans chaque e-mail
-     un pixel d'ouverture et des liens réécrits vers son propre domaine. À vérifier sur le premier
-     e-mail reçu (étape 7).
-5. **GitHub CLI** sur le PC (`winget install GitHub.cli`), puis `gh auth login`. Il sert à
+4. **Scaleway Transactional Email** (l'envoi des e-mails de compte, ADR 0005) :
+   - **Compte et projet** : crée le compte Scaleway (identité et moyen de paiement, même pour rester
+     dans les 300 e-mails gratuits par mois). Note l'identifiant du projet (un UUID, dans les
+     réglages du projet) : c'est `SCALEWAY_PROJECT_ID`.
+   - **Domaine** : dans Transactional Email, ajoute le domaine waiggle.io. Scaleway donne des
+     enregistrements DNS (SPF, DKIM, MX de rebond, DMARC) : garde-les pour l'étape « DNS ». Le
+     SPF doit citer Scaleway **et** Brevo tant que les deux ont le droit d'envoyer depuis le
+     domaine. La vérification du domaine se fait d'elle-même, quelques minutes après les DNS.
+   - **Clé API** : dans IAM, crée une application dédiée (par exemple « waiggle-api »), une
+     politique qui lui donne le droit `TransactionalEmailFullAccess` sur le projet, et rien d'autre,
+     puis une clé API pour cette application. Sa clé secrète est `SCALEWAY_SECRET_KEY` : elle ne
+     s'affiche qu'une fois.
+   - **Pourquoi Scaleway** : il ne sait ni insérer un pixel d'ouverture ni réécrire les liens. Les
+     e-mails partent tels que l'API les écrit.
+5. **Brevo** (réservé au marketing, ADR 0005) : le compte, le domaine authentifié et le réglage
+   Paramètres → Contacts → « Consentement au suivi des pixels par contact » → **Oui** (inconnus
+   → **Non**) restent en place pour le jour des campagnes, sur un sous-domaine dédié. Pour les
+   e-mails de compte, Brevo ajoute des traqueurs qu'il ne retire qu'en offre Enterprise.
+6. **GitHub CLI** sur le PC (`winget install GitHub.cli`), puis `gh auth login`. Il sert à
    vérifier la provenance des images avant chaque déploiement.
-6. **Après la première publication des images** (la CI de main, une fois la pull request
+7. **Après la première publication des images** (la CI de main, une fois la pull request
    fusionnée), rends publics les paquets `ruche-api` et `ruche-web` :
    - va sur GitHub, dans l'onglet « Packages » de ton profil ;
    - pour chaque paquet : « Package settings », puis « Change visibility », puis « Public ».
@@ -171,7 +177,7 @@ de hPanel : `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`.
   | AAAA | `api` | adresse IPv6 du VPS |
   | CNAME | `www` | `waiggle.io` |
   | CAA | `@` | `0 issue "letsencrypt.org"` (seul Let's Encrypt peut délivrer des certificats) |
-  | … | … | les enregistrements donnés par Brevo (code de vérification, DKIM, DMARC) |
+  | … | … | les enregistrements donnés par Scaleway (SPF, DKIM, MX, DMARC) et, pour le marketing, par Brevo |
 
   Pour DMARC, commence par `p=none` : on observe d'abord, on durcit ensuite.
 
@@ -219,18 +225,19 @@ ssh waiggle 'sudo bash -s -- base louis' < infra/server/bootstrap.sh
 ### Étape 5 : les secrets (Louis)
 
 `base` a créé `/srv/ruche/secrets.env` et y a tiré au hasard le mot de passe de la base, la clé des
-sessions et le code d'invitation. Il reste à brancher Brevo :
+sessions et le code d'invitation. Il reste à brancher Scaleway :
 
 ```bash
 ssh -t waiggle nano /srv/ruche/secrets.env
 ```
 
-Les lignes à modifier (tant que Brevo n'est pas branché, l'API refuse de démarrer en production :
-sans lui, les liens des e-mails, qui connectent au compte, finiraient dans les logs) :
+Les lignes à modifier (tant qu'aucun prestataire n'est branché, l'API refuse de démarrer en
+production : sans lui, les liens des e-mails, qui connectent au compte, finiraient dans les logs) :
 
 ```text
-MAIL_PROVIDER=brevo
-BREVO_API_KEY=<la clé créée dans Brevo>
+MAIL_PROVIDER=scaleway
+SCALEWAY_SECRET_KEY=<la clé secrète de l'application IAM>
+SCALEWAY_PROJECT_ID=<l'identifiant du projet>
 MAIL_FROM_EMAIL=no-reply@waiggle.io
 ```
 
@@ -238,8 +245,8 @@ MAIL_FROM_EMAIL=no-reply@waiggle.io
 afficher) :
 
 ```bash
-ssh waiggle "grep -c -E '^(POSTGRES_PASSWORD|BETTER_AUTH_SECRET|SIGNUP_INVITE_CODE|BREVO_API_KEY)=.' /srv/ruche/secrets.env"   # 4
-ssh waiggle "grep -c '^MAIL_PROVIDER=brevo$' /srv/ruche/secrets.env"                                                         # 1
+ssh waiggle "grep -c -E '^(POSTGRES_PASSWORD|BETTER_AUTH_SECRET|SIGNUP_INVITE_CODE|SCALEWAY_SECRET_KEY|SCALEWAY_PROJECT_ID)=.' /srv/ruche/secrets.env"   # 5
+ssh waiggle "grep -c '^MAIL_PROVIDER=scaleway$' /srv/ruche/secrets.env"                                                                            # 1
 ```
 
 ### Étape 6 : premier déploiement
@@ -320,7 +327,8 @@ Claude Code les fait toutes, et en donne le résultat à Louis :
 - **Le parcours réel, par Louis** :
   1. inscription avec le code, sur téléphone puis sur ordinateur ;
   2. l'e-mail arrive hors des indésirables. Dans « Afficher l'original », on doit lire
-     `dkim=pass` et `dmarc=pass` ;
+     `dkim=pass` et `dmarc=pass`, le lien du bouton doit pointer vers `api.waiggle.io` (jamais
+     vers un domaine de prestataire), et il ne doit y avoir aucune image invisible de suivi ;
   3. vérification de l'adresse, puis publication d'un projet ;
   4. un second compte le voit ;
   5. la démo passe par la page d'avertissement ;
@@ -420,7 +428,8 @@ un nouveau code au hasard : `openssl rand -hex 8`.
 2. Modifier `infra/site.env` dans une pull request. Une fois fusionnée, la CI publie des images
    construites pour le nouveau domaine.
 3. Déployer. Caddy obtient les nouveaux certificats.
-4. Brevo : authentifier le nouveau domaine, puis changer `MAIL_FROM_EMAIL` dans les secrets.
+4. Scaleway : ajouter et vérifier le nouveau domaine, puis changer `MAIL_FROM_EMAIL` dans les
+   secrets.
 
 ### Mises à jour
 
@@ -447,8 +456,9 @@ images inutilisées depuis plus d'une semaine.
   - le DNS pointe-t-il bien vers le VPS (`nslookup`) ?
   - Les logs de `web` disent pourquoi Let's Encrypt refuse.
 - **Les e-mails n'arrivent pas** :
-  - le journal des envois de Brevo (« Transactionnel », puis « Logs ») ;
-  - les IP autorisées dans Brevo ;
+  - l'activité des e-mails dans la console Scaleway (Transactional Email, le domaine, puis
+    « Email activity » : délivré, rebond, spam) ;
+  - l'état du domaine chez Scaleway : vérifié, et les enregistrements DNS toujours en place ;
   - les logs de `api`.
 - **La connexion SSH a coupé pendant un déploiement** : regarder `compose ps` et la version de
   `/health`, puis relancer `infra/deploy-from-pc.sh <même commit>`. Le déploiement peut être
@@ -461,7 +471,8 @@ images inutilisées depuis plus d'une semaine.
     tournait) : `restore.sh` avec la sauvegarde de la nuit qui précède l'image, dans
     `/srv/ruche/backups`, toujours avec l'accord de Louis.
   - **Si le serveur a été piraté** : choisir une sauvegarde antérieure à l'intrusion, puis changer
-    tous les secrets (`secrets.env`, la clé Brevo, le code d'invitation) et les clés SSH.
+    tous les secrets (`secrets.env`, les clés Scaleway et Brevo, le code d'invitation) et les
+    clés SSH.
 
 ## 6. Autonomie de Claude Code
 

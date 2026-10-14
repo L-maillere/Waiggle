@@ -30,6 +30,13 @@ développera ; chacune est livrable seule.
 - Alors son profil, ses projets, réactions et commentaires disparaissent
 - Et il peut d'abord télécharger l'export de ses données
 
+**Recevoir des e-mails de compte sans traqueur** (ajouté le 14/10/2026, ADR 0005)
+- Étant donné un e-mail envoyé par l'appli à propos du compte (vérification, adresse déjà utilisée)
+- Quand le membre l'ouvre
+- Alors aucun pixel ni image de suivi n'y signale l'ouverture
+- Et chaque lien pointe directement vers waiggle.io ou api.waiggle.io, jamais vers un domaine de
+  redirection d'un prestataire
+
 ### Notes de réalisation (tranche 1)
 
 - **Plus strict que prévu** : on ne peut pas du tout se connecter avant d'avoir vérifié son

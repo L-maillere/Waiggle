@@ -70,3 +70,53 @@ export const createBrevoMailer = ({
     if (!res.ok) throw new Error(`Brevo refused the email (HTTP ${res.status})`)
   },
 })
+
+type ScalewayOptions = {
+  /** La clé secrète d'une application IAM limitée à Transactional Email. */
+  secretKey: string
+  /** Le projet Scaleway où le domaine d'envoi a été vérifié. */
+  projectId: string
+  /** La région de l'API, « fr-par » pour Paris. */
+  region: string
+  from: { email: string; name: string }
+  /** Remplaçable dans les tests, pour ne rien envoyer sur Internet. */
+  fetch?: typeof fetch
+}
+
+/**
+ * Pour la production : envoi par Transactional Email de Scaleway (ADR 0005). Scaleway ne sait ni
+ * insérer de pixel d'ouverture ni réécrire les liens : l'e-mail part tel quel, sans traqueur.
+ */
+export const createScalewayMailer = ({
+  secretKey,
+  projectId,
+  region,
+  from,
+  fetch: doFetch = fetch,
+}: ScalewayOptions): Mailer => ({
+  async send({ to, subject, text, html }) {
+    const res = await doFetch(
+      `https://api.scaleway.com/transactional-email/v1alpha1/regions/${region}/emails`,
+      {
+        method: 'POST',
+        headers: {
+          // La clé passe dans un en-tête, jamais dans l'adresse : les adresses finissent dans les logs.
+          'x-auth-token': secretKey,
+          'content-type': 'application/json',
+          accept: 'application/json',
+        },
+        body: JSON.stringify({
+          project_id: projectId,
+          from,
+          to: [{ email: to }],
+          subject,
+          text,
+          html,
+        }),
+        signal: AbortSignal.timeout(10_000), // on n'attend jamais plus de 10 secondes
+      },
+    )
+    // Même règle que pour Brevo : un échec se voit, et la réponse du prestataire n'est pas recopiée.
+    if (!res.ok) throw new Error(`Scaleway refused the email (HTTP ${res.status})`)
+  },
+})

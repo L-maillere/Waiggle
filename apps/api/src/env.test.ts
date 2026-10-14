@@ -72,6 +72,33 @@ describe('loadEnv', () => {
     expect(() => loadEnv({ ...production, BREVO_API_KEY: undefined })).toThrow(/BREVO_API_KEY/)
   })
 
+  it('reads a Scaleway configuration, in the Paris region unless told otherwise', () => {
+    const scaleway = {
+      ...production,
+      MAIL_PROVIDER: 'scaleway',
+      BREVO_API_KEY: undefined,
+      SCALEWAY_SECRET_KEY: 'secret',
+      SCALEWAY_PROJECT_ID: '2f8c1d4e-5b6a-4c7d-8e9f-0a1b2c3d4e5f',
+    }
+    expect(loadEnv(scaleway).mail).toEqual({
+      provider: 'scaleway',
+      secretKey: 'secret',
+      projectId: '2f8c1d4e-5b6a-4c7d-8e9f-0a1b2c3d4e5f',
+      region: 'fr-par',
+      from: { email: 'no-reply@waiggle.io', name: appName },
+    })
+    expect(loadEnv({ ...scaleway, SCALEWAY_REGION: 'nl-ams' }).mail).toMatchObject({
+      region: 'nl-ams',
+    })
+    // Sans clé ou sans projet, le serveur ne démarre pas plutôt que d'échouer au premier e-mail.
+    expect(() => loadEnv({ ...scaleway, SCALEWAY_SECRET_KEY: undefined })).toThrow(
+      /SCALEWAY_SECRET_KEY/,
+    )
+    expect(() => loadEnv({ ...scaleway, SCALEWAY_PROJECT_ID: 'not-a-uuid' })).toThrow(
+      /SCALEWAY_PROJECT_ID/,
+    )
+  })
+
   it('refuses to start in production without an invite code: sign-up stays closed by default', () => {
     expect(() => loadEnv({ ...production, SIGNUP_INVITE_CODE: undefined })).toThrow(
       /SIGNUP_INVITE_CODE/,
