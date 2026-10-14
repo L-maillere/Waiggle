@@ -234,6 +234,27 @@ EOF
   ufw --force enable >/dev/null
   ufw status verbose
 
+  step "LLMNR : éteint"
+  # LLMNR (Link-Local Multicast Name Resolution) sert à trouver les machines d'un réseau local par
+  # leur nom, sans serveur DNS : utile chez soi, sans objet sur un serveur public. systemd-resolved
+  # l'active par défaut et écoute sur le port 5355. Le pare-feu le bloque déjà ; on l'éteint aussi,
+  # pour que seuls 22, 80 et 443 écoutent vers l'extérieur. Un fichier dans resolved.conf.d
+  # complète resolved.conf sans le modifier : une mise à jour du système ne l'écrasera pas.
+  if systemctl is-active --quiet systemd-resolved; then
+    local resolved=/etc/systemd/resolved.conf.d/90-ruche.conf
+    local wanted_resolved=$'# Écrit par infra/server/bootstrap.sh (étape base).\n[Resolve]\nLLMNR=no'
+    if [ "$(cat "$resolved" 2>/dev/null)" != "$wanted_resolved" ]; then
+      install -d -m 755 /etc/systemd/resolved.conf.d
+      printf '%s\n' "$wanted_resolved" >"$resolved"
+      systemctl restart systemd-resolved
+      echo "ok"
+    else
+      echo "déjà éteint"
+    fi
+  else
+    echo "systemd-resolved n'est pas actif : rien à faire"
+  fi
+
   step "Docker, depuis son dépôt officiel"
   install -m 0755 -d /etc/apt/keyrings
   local key
