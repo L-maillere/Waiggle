@@ -204,6 +204,8 @@ ssh waiggle 'sudo bash -s -- base louis' < infra/server/bootstrap.sh
 **À vérifier** :
 
 - `ssh waiggle 'sudo ufw status'` : seuls 22, 80 et 443 sont autorisés ;
+- `ssh waiggle 'sudo ss -tulnp'` : le port 5355 (LLMNR, découverte de noms sur réseau local)
+  n'écoute plus, ni en TCP ni en UDP ;
 - `ssh waiggle 'docker compose version'` répond. Si ce n'est pas le cas, reconnecte-toi : le
   groupe docker ne vaut qu'après une nouvelle connexion ;
 - `ssh waiggle 'systemctl list-timers ruche-backup.timer'` montre la prochaine sauvegarde ;
@@ -288,8 +290,9 @@ Claude Code les fait toutes, et en donne le résultat à Louis :
 - **Redirections** :
   - `curl -sI http://waiggle.io/` renvoie vers https (308) ;
   - `curl -sI https://www.waiggle.io/` renvoie vers waiggle.io (301).
-- **Ports** : `ssh waiggle 'sudo ss -tlnp'` ne montre que 22, 80 et 443 ouverts vers l'extérieur.
-  Le port 5432 (base) et le port 3000 (API) n'apparaissent pas.
+- **Ports** : `ssh waiggle 'sudo ss -tulnp'` ne montre que 22, 80 et 443 ouverts vers
+  l'extérieur (443 en TCP et en UDP). Le port 5432 (base), le port 3000 (API) et le port 5355
+  (LLMNR, éteint par l'étape `base`) n'apparaissent pas.
 - **Adresses des visiteurs en IPv6** : après une connexion de Louis depuis son téléphone (en
   4G/5G, souvent en IPv6), aucune session ne doit porter une adresse interne de Docker. Sinon,
   tous les visiteurs IPv6 partageraient la même limite de tentatives. La réponse doit être 0 :
