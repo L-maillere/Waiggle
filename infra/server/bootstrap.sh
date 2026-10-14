@@ -245,8 +245,13 @@ EOF
     local wanted_resolved=$'# Écrit par infra/server/bootstrap.sh (étape base).\n[Resolve]\nLLMNR=no'
     if [ "$(cat "$resolved" 2>/dev/null)" != "$wanted_resolved" ]; then
       install -d -m 755 /etc/systemd/resolved.conf.d
+      # Droits fixés explicitement (0644) : ce fichier est lu par l'utilisateur systemd-resolve,
+      # pas par root. Un fichier illisible serait ignoré sans bruit, et LLMNR resterait allumé.
+      install -m 0644 /dev/null "$resolved"
       printf '%s\n' "$wanted_resolved" >"$resolved"
       systemctl restart systemd-resolved
+      # On vérifie le résultat plutôt que de faire confiance au redémarrage (-u : UDP aussi).
+      if ss -tuln | grep -q ':5355 '; then die "LLMNR écoute encore sur le port 5355"; fi
       echo "ok"
     else
       echo "déjà éteint"
