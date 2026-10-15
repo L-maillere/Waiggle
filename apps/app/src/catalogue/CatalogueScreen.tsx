@@ -49,8 +49,10 @@ import { TagInput } from '../ui/TagInput'
 import { Text } from '../ui/Text'
 import { FieldGroup, TextField } from '../ui/TextField'
 import { TextLink } from '../ui/TextLink'
+import { Thumbnails } from '../ui/Thumbnails'
 import type { Appearance } from '../ui/theme/appearance'
 import { useTheme } from '../ui/theme/ThemeProvider'
+import { VisualEditor } from '../ui/VisualEditor'
 import { Wordmark } from '../ui/Wordmark'
 import { labels } from './labels'
 
@@ -173,7 +175,7 @@ export function CatalogueScreen() {
             <OnLight thumbhash={samples.papillon}>
               <Surface variant="panel" padding="lg" gap="sm">
                 <Stack direction="row" gap="sm" align="center">
-                  <Avatar name="Léa Moreau" url={null} label="Léa Moreau" size={28} />
+                  <Avatar name="Léa Moreau" source={null} label="Léa Moreau" size={28} />
                   <Text variant="callout" weight={700}>
                     Léa Moreau
                   </Text>
@@ -205,9 +207,9 @@ export function CatalogueScreen() {
 
       <Section title={l.avatars}>
         <Stack direction="row" gap="lg" align="center" wrap>
-          <Avatar name="Léa" url={null} label="Léa" size={96} />
-          <Avatar name="Max" url={null} label="Max" size={44} />
-          <Avatar name="Inès" url={null} label="Inès" size={28} />
+          <Avatar name="Léa" source={null} label="Léa" size={96} />
+          <Avatar name="Max" source={null} label="Max" size={44} />
+          <Avatar name="Inès" source={null} label="Inès" size={28} />
         </Stack>
       </Section>
 
@@ -238,6 +240,7 @@ export function CatalogueScreen() {
           action={{ label: l.publish, onPress: () => {} }}
         />
         <TagSample l={l} />
+        <VisualEditorSample l={l} />
         <HoneyMeter value={9} max={12} label={l.meter} />
         <Disclosure title={l.recipe} hint={l.recipeHint}>
           <Text tone="secondary">{l.plain}</Text>
@@ -266,15 +269,25 @@ export function CatalogueScreen() {
 
       <Section title={l.projects}>
         <Columns
-          main={<ProjectCover title={l.sampleTitle} height={260} />}
+          main={
+            <Stack gap="md">
+              <ProjectCover title={l.sampleTitle} height={260} />
+              <ProjectCover
+                height={260}
+                image={{ source: null, thumbhash: samples.papillon, label: l.samplePhoto }}
+              />
+              <ThumbnailsSample l={l} />
+            </Stack>
+          }
           side={
             <ProjectCard
               title={l.sampleTitle}
               pitch={l.samplePitch}
-              author={{ name: 'Léa Moreau', avatarUrl: null }}
+              author={{ name: 'Léa Moreau', avatar: null }}
               when={l.now}
               status={{ label: l.statuses.testable, strong: true }}
               tryIt={{ label: l.tryIt, onPress: () => {} }}
+              image={{ source: null, thumbhash: samples.cafe, label: l.samplePhoto }}
               height={420}
             />
           }
@@ -408,6 +421,55 @@ function Fields({ l }: { l: Labels }) {
         </FieldGroup>
       }
       side={<TextField label={l.demoField} value={url} onChangeText={setUrl} error={l.demoError} />}
+    />
+  )
+}
+
+/** L'éditeur de visuels, avec trois photos d'exemple (leurs résumés flous) qu'on peut réordonner. */
+function VisualEditorSample({ l }: { l: Labels }) {
+  const [order, setOrder] = useState([samples.cafe, samples.papillon, samples.cafe])
+  const [portrait, setPortrait] = useState<string | null>(samples.papillon)
+  const move = (from: number, to: number) =>
+    setOrder((list) => {
+      const copy = [...list]
+      const [item] = copy.splice(from, 1)
+      if (item !== undefined) copy.splice(to, 0, item)
+      return copy
+    })
+  return (
+    <VisualEditor
+      labels={l.visualEditor}
+      gallery={order.map((thumbhash, index) => ({
+        key: `${index}-${thumbhash}`,
+        image: { source: null, thumbhash, label: `${l.samplePhoto} (${index + 1})` },
+      }))}
+      max={6}
+      portrait={
+        portrait
+          ? { key: 'portrait', image: { source: null, thumbhash: portrait, label: l.samplePhoto } }
+          : null
+      }
+      onAdd={() => setOrder((list) => [...list, samples.papillon])}
+      onMove={(index, delta) => move(index, index + delta)}
+      onMakeCover={(index) => move(index, 0)}
+      onRemove={(index) => setOrder((list) => list.filter((_, i) => i !== index))}
+      onPickPortrait={() => setPortrait(samples.cafe)}
+      onRemovePortrait={() => setPortrait(null)}
+    />
+  )
+}
+
+/** Les vignettes sous une couverture : toucher l'une la sélectionne. */
+function ThumbnailsSample({ l }: { l: Labels }) {
+  const [selected, setSelected] = useState(0)
+  return (
+    <Thumbnails
+      items={[samples.cafe, samples.papillon, samples.cafe].map((thumbhash, index) => ({
+        key: `${index}`,
+        image: { source: null, thumbhash, label: `${l.samplePhoto} (${index + 1})` },
+      }))}
+      selected={selected}
+      onSelect={setSelected}
     />
   )
 }

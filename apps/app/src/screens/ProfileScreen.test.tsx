@@ -6,6 +6,10 @@ import { mockSession, renderWithProviders } from '../testing/render'
 import { ProfileScreen } from './ProfileScreen'
 
 jest.mock('../accounts/api', () => ({ useSession: jest.fn() }))
+// Les images de l'API voyagent avec la session (api/media.ts) : ici, l'adresse suffit.
+jest.mock('../api/media', () => ({
+  useMediaSources: () => (url: string | null | undefined) => (url ? { uri: url } : null),
+}))
 jest.mock('../profile/api', () => ({
   getMe: jest.fn(),
   updateProfile: jest.fn(),

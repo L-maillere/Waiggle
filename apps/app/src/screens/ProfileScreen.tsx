@@ -12,6 +12,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSession } from '../accounts/api'
 import { ApiError, type ApiErrorKey } from '../api/errors'
+import { useMediaSources } from '../api/media'
 import { TopNav } from '../navigation/TopNav'
 import { pickAvatar, updateProfile, uploadAvatar } from '../profile/api'
 import { type ProfileFormErrors, parseTools, toProfileUpdate } from '../profile/form'
@@ -65,6 +66,7 @@ function ProfileForm({ me }: { me: Me }) {
   const wide = useLayout().sizeClass === 'wide'
   const { refetch: refetchSession } = useSession()
   const setMe = useSetMe()
+  const toSource = useMediaSources()
 
   // Un useState par champ : la valeur affichée, et la fonction pour la changer.
   const [name, setName] = useState(me.name)
@@ -168,7 +170,12 @@ function ProfileForm({ me }: { me: Me }) {
       {...(wide ? { title: t('profile.title') } : null)}
     >
       <Stack gap="md" align="center">
-        <Avatar name={name} url={me.avatarUrl} label={t('profile.avatar.label')} size={132} />
+        <Avatar
+          name={name}
+          source={toSource(me.avatarUrl)}
+          label={t('profile.avatar.label')}
+          size={132}
+        />
         <Button
           label={t('profile.avatar.change')}
           variant="glass"

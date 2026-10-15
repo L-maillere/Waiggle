@@ -6,7 +6,8 @@ import { space } from '@ruche/brand'
 import { View } from 'react-native'
 import { Avatar } from './Avatar'
 import { Button } from './Button'
-import { ProjectCover } from './ProjectCover'
+import type { ImageSource } from './image'
+import { type CoverImage, ProjectCover } from './ProjectCover'
 import { StatusPill } from './StatusPill'
 import { Surface } from './Surface'
 import { Text } from './Text'
@@ -14,7 +15,9 @@ import { Text } from './Text'
 type Props = {
   title: string
   pitch: string
-  author: { name: string; avatarUrl: string | null }
+  author: { name: string; avatar: ImageSource | null }
+  /** La photo de couverture ; sans elle, la lumière miel. */
+  image?: CoverImage | null
   /** Quand (« à l'instant », « il y a 3 jours »). */
   when: string
   status: { label: string; strong: boolean }
@@ -23,13 +26,22 @@ type Props = {
   height?: number
 }
 
-export function ProjectCard({ title, pitch, author, when, status, tryIt, height = 476 }: Props) {
+export function ProjectCard({
+  title,
+  pitch,
+  author,
+  image,
+  when,
+  status,
+  tryIt,
+  height = 476,
+}: Props) {
   return (
-    <ProjectCover height={height}>
+    <ProjectCover height={height} image={image ?? null}>
       <View style={{ position: 'absolute', left: space.sm, right: space.sm, bottom: space.sm }}>
         <Surface variant="panel" padding="lg" gap="sm">
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
-            <Avatar name={author.name} url={author.avatarUrl} label={author.name} size={28} />
+            <Avatar name={author.name} source={author.avatar} label={author.name} size={28} />
             <View style={{ flex: 1 }}>
               <Text variant="callout" weight={700} numberOfLines={1}>
                 {author.name}

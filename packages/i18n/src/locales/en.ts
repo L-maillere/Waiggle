@@ -208,6 +208,29 @@ export const en: Translation = {
       untitled: 'Your project',
       noPitch: 'Your pitch will show here.',
     },
+    visuals: {
+      gallery: 'Photos',
+      galleryHintNew:
+        '{{max}} at most. The first one is the cover. They are sent when you publish.',
+      galleryHintEdit:
+        '{{max}} at most. The first one is the cover. Each change is saved right away.',
+      cover: 'Cover',
+      add: 'Add a photo',
+      earlier: 'Move photo {{number}} earlier',
+      later: 'Move photo {{number}} later',
+      makeCover: 'Make photo {{number}} the cover',
+      remove: 'Remove photo {{number}}',
+      portrait: 'Vertical cover (phone)',
+      portraitHint:
+        'Optional, taller than wide: shown on phones. Without it, the first photo is cropped in the middle.',
+      choosePortrait: 'Choose a vertical cover',
+      replacePortrait: 'Replace the vertical cover',
+      removePortrait: 'Remove the vertical cover',
+      photo: 'Photo {{number}} of {{total}}',
+      portraitLabel: 'Vertical cover',
+      uploadFailed:
+        'The project is published, but some photos could not be sent. Add them again here.',
+    },
     page: {
       published: 'published on {{date}}',
       external: '{{host}}, a website outside {{appName}}',
@@ -223,7 +246,7 @@ export const en: Translation = {
       delete: 'Delete',
       deleteTitle: 'Delete “{{title}}”?',
       deleteConfirm:
-        'The project, its description and its recipe disappear right away. There is no going back.',
+        'The project, its description, its recipe and its photos disappear right away. There is no going back.',
       deleteConfirmButton: 'Delete the project',
       notFoundTitle: 'This project cannot be found',
       notFound: 'It may have been deleted, or the link is wrong.',

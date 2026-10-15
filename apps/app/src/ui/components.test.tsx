@@ -8,11 +8,14 @@ import { renderWithProviders } from '../testing/render'
 import { Button } from './Button'
 import { IconButton } from './IconButton'
 import { Notice } from './Notice'
+import { ProjectCover } from './ProjectCover'
 import { Segmented } from './Segmented'
 import { Switch } from './Switch'
 import { Text } from './Text'
 import { FieldGroup, TextField } from './TextField'
+import { Thumbnails } from './Thumbnails'
 import { fontFiles, fontName } from './theme/fonts'
+import { VisualEditor, type VisualEditorLabels, type VisualTile } from './VisualEditor'
 import { Wordmark } from './Wordmark'
 
 // Les outils de test passent par le module des comptes ; on le remplace, comme dans les écrans.
@@ -153,6 +156,129 @@ describe('Wordmark', () => {
 
     expect(screen.getByLabelText(appName)).toBeTruthy()
     expect(screen.getByText(appName.toLowerCase())).toBeTruthy()
+  })
+})
+
+// Une photo d'exemple : une adresse quelconque (les tests n'affichent pas de vraie image).
+const tile = (n: number): VisualTile => ({
+  key: `photo-${n}`,
+  image: { source: { uri: `https://api.example/${n}.webp` }, label: `Photo ${n} sur 3` },
+})
+
+describe('ProjectCover', () => {
+  it('names its photo for screen readers', async () => {
+    await renderWithProviders(<ProjectCover height={200} image={tile(1).image} />)
+
+    expect(screen.getByLabelText('Photo 1 sur 3')).toBeTruthy()
+  })
+})
+
+describe('Thumbnails', () => {
+  it('names each photo, marks the one shown, and shows another when touched', async () => {
+    const onSelect = jest.fn()
+    await renderWithProviders(
+      <Thumbnails items={[tile(1), tile(2), tile(3)]} selected={0} onSelect={onSelect} />,
+    )
+
+    const first = screen.getByRole('button', { name: 'Photo 1 sur 3' })
+    expect(first.props.accessibilityState).toMatchObject({ selected: true })
+    await fireEvent.press(screen.getByRole('button', { name: 'Photo 2 sur 3' }))
+
+    expect(onSelect).toHaveBeenCalledWith(1)
+  })
+})
+
+describe('VisualEditor', () => {
+  const labels: VisualEditorLabels = {
+    gallery: 'Photos',
+    galleryHint: '6 au plus.',
+    cover: 'Couverture',
+    add: 'Ajouter une photo',
+    earlier: (n) => `Avancer la photo ${n}`,
+    later: (n) => `Reculer la photo ${n}`,
+    makeCover: (n) => `Mettre la photo ${n} en couverture`,
+    remove: (n) => `Retirer la photo ${n}`,
+    portrait: 'Couverture verticale',
+    portraitHint: 'Sur téléphone.',
+    choosePortrait: 'Choisir une couverture verticale',
+    replacePortrait: 'Remplacer la couverture verticale',
+    removePortrait: 'Retirer la couverture verticale',
+  }
+  const actions = () => ({
+    onAdd: jest.fn(),
+    onMove: jest.fn(),
+    onMakeCover: jest.fn(),
+    onRemove: jest.fn(),
+    onPickPortrait: jest.fn(),
+    onRemovePortrait: jest.fn(),
+  })
+
+  it('names every button after its photo, so that the order can be changed without seeing', async () => {
+    const on = actions()
+    await renderWithProviders(
+      <VisualEditor
+        labels={labels}
+        gallery={[tile(1), tile(2), tile(3)]}
+        max={6}
+        portrait={null}
+        {...on}
+      />,
+    )
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Avancer la photo 2' }))
+    await fireEvent.press(screen.getByRole('button', { name: 'Reculer la photo 2' }))
+    await fireEvent.press(screen.getByRole('button', { name: 'Mettre la photo 3 en couverture' }))
+    await fireEvent.press(screen.getByRole('button', { name: 'Retirer la photo 1' }))
+
+    expect(on.onMove).toHaveBeenNthCalledWith(1, 1, -1)
+    expect(on.onMove).toHaveBeenNthCalledWith(2, 1, 1)
+    expect(on.onMakeCover).toHaveBeenCalledWith(2)
+    expect(on.onRemove).toHaveBeenCalledWith(0)
+  })
+
+  it('cannot move the first photo earlier, the last one later, or the cover to the cover', async () => {
+    await renderWithProviders(
+      <VisualEditor
+        labels={labels}
+        gallery={[tile(1), tile(2)]}
+        max={6}
+        portrait={null}
+        {...actions()}
+      />,
+    )
+
+    const disabled = (name: string) =>
+      screen.getByRole('button', { name }).props.accessibilityState?.disabled
+    expect(disabled('Avancer la photo 1')).toBe(true)
+    expect(disabled('Reculer la photo 2')).toBe(true)
+    expect(disabled('Mettre la photo 1 en couverture')).toBe(true)
+    expect(disabled('Reculer la photo 1')).toBeFalsy()
+  })
+
+  it('stops offering to add photos once the gallery is full', async () => {
+    const full = Array.from({ length: 6 }, (_, i) => tile(i + 1))
+    await renderWithProviders(
+      <VisualEditor labels={labels} gallery={full} max={6} portrait={null} {...actions()} />,
+    )
+
+    expect(
+      screen.getByRole('button', { name: 'Ajouter une photo' }).props.accessibilityState,
+    ).toMatchObject({ disabled: true })
+  })
+
+  it('offers to choose a vertical cover, then to replace or remove it', async () => {
+    const on = actions()
+    const { rerender } = await renderWithProviders(
+      <VisualEditor labels={labels} gallery={[]} max={6} portrait={null} {...on} />,
+    )
+    await fireEvent.press(screen.getByRole('button', { name: 'Choisir une couverture verticale' }))
+    expect(on.onPickPortrait).toHaveBeenCalled()
+
+    await rerender(<VisualEditor labels={labels} gallery={[]} max={6} portrait={tile(9)} {...on} />)
+    await fireEvent.press(screen.getByRole('button', { name: 'Retirer la couverture verticale' }))
+
+    expect(screen.getByRole('button', { name: 'Remplacer la couverture verticale' })).toBeTruthy()
+    expect(on.onRemovePortrait).toHaveBeenCalled()
   })
 })
 

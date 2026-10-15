@@ -1,4 +1,6 @@
 // Formulaire de projet : publier un nouveau projet (sans `id`) ou modifier le sien (avec `id`).
+// Les photos : en modification, chaque changement part tout de suite vers l'API ; à la création,
+// les photos choisies attendent sur l'appareil et partent juste après la publication.
 import {
   PROJECT_DESCRIPTION_MAX,
   PROJECT_PITCH_MAX,
@@ -6,19 +8,30 @@ import {
   PROJECT_PROMPTS_MAX,
   PROJECT_TITLE_MAX,
   PROJECT_TOOLS_MAX,
+  type Project,
   ProjectStatus,
   publicHttpsUrl,
   TimeSpent,
   TOOL_MAX_LENGTH,
+  VISUALS_MAX,
+  type VisualSlot,
 } from '@ruche/contracts'
 import { useRouter } from 'expo-router'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSession } from '../accounts/api'
-import { ApiError } from '../api/errors'
+import { ApiError, type ApiResult } from '../api/errors'
+import { useMediaSources } from '../api/media'
 import { TopNav } from '../navigation/TopNav'
 import { parseTools } from '../profile/form'
-import { createProject, updateProject } from '../projects/api'
+import {
+  createProject,
+  deleteVisual,
+  type PickedImage,
+  pickVisual,
+  updateProject,
+  uploadVisual,
+} from '../projects/api'
 import {
   emptyProjectForm,
   formFromProject,
@@ -42,8 +55,15 @@ import { TagInput } from '../ui/TagInput'
 import { Text } from '../ui/Text'
 import { FieldGroup, TextField } from '../ui/TextField'
 import { useLayout } from '../ui/theme/layout'
+import { VisualEditor, type VisualEditorLabels, type VisualTile } from '../ui/VisualEditor'
 
-export function ProjectFormScreen({ id }: { id?: string | undefined }) {
+type ScreenProps = {
+  id?: string | undefined
+  /** Arrivé ici juste après une publication dont des photos n'ont pas pu partir. */
+  uploadFailed?: boolean
+}
+
+export function ProjectFormScreen({ id, uploadFailed = false }: ScreenProps) {
   const { t } = useTranslation()
   const router = useRouter()
   const { data: session, isPending } = useSession()
@@ -77,7 +97,13 @@ export function ProjectFormScreen({ id }: { id?: string | undefined }) {
       </Screen>
     )
   }
-  return <ProjectFormView initial={formFromProject(project.data)} projectId={id} />
+  return (
+    <ProjectFormView
+      initial={formFromProject(project.data)}
+      projectId={id}
+      uploadFailed={uploadFailed}
+    />
+  )
 }
 
 // La limite à citer dans chaque message d'erreur (« au plus {{max}} caractères »).
@@ -91,19 +117,149 @@ const limits: Record<string, number> = {
   promptTooLong: PROJECT_PROMPT_MAX_LENGTH,
 }
 
-type ViewProps = { initial: ProjectForm; projectId?: string }
+type ViewProps = { initial: ProjectForm; projectId?: string; uploadFailed?: boolean }
 
-function ProjectFormView({ initial, projectId }: ViewProps) {
+/** Les photos choisies avant la publication, qui attendent sur l'appareil. */
+type PendingVisuals = { gallery: PickedImage[]; portrait: PickedImage | null }
+
+function ProjectFormView({ initial, projectId, uploadFailed = false }: ViewProps) {
   const { t } = useTranslation()
   const router = useRouter()
   const { data: session } = useSession()
   const wide = useLayout().sizeClass === 'wide'
   const setProject = useSetProject()
+  const toSource = useMediaSources()
+  // En modification : le projet tel qu'il est dans le cache, tenu à jour après chaque photo.
+  const saved = useProject(projectId ?? '', Boolean(projectId)).data
   // Tout le formulaire dans un seul état : un objet, modifié champ par champ.
   const [form, setForm] = useState(initial)
   const [errors, setErrors] = useState<ProjectFormErrors>({})
-  const [message, setMessage] = useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(
+    uploadFailed ? t('project.visuals.uploadFailed') : null,
+  )
   const [busy, setBusy] = useState(false)
+  const [pending, setPending] = useState<PendingVisuals>({ gallery: [], portrait: null })
+  const [visualsBusy, setVisualsBusy] = useState(false)
+
+  /** Range le projet renvoyé par l'API, ou affiche pourquoi elle a refusé. */
+  const applied = (result: ApiResult<Project>) => {
+    if (result.ok) {
+      setProject(result.data)
+      setMessage(null)
+    } else {
+      setMessage(t(`errors.${result.error}`))
+    }
+  }
+
+  /** Une action sur les photos du projet enregistré : une à la fois, les boutons attendent. */
+  const onSaved = async (action: () => Promise<ApiResult<Project>>) => {
+    setVisualsBusy(true)
+    applied(await action())
+    setVisualsBusy(false)
+  }
+
+  const addVisual = async (slot: VisualSlot) => {
+    const image = await pickVisual(slot)
+    if (!image) return
+    if (!projectId) {
+      setPending((p) =>
+        slot === 'portrait' ? { ...p, portrait: image } : { ...p, gallery: [...p.gallery, image] },
+      )
+      return
+    }
+    await onSaved(() => uploadVisual(projectId, image, slot))
+  }
+
+  /** Change l'ordre de la galerie : la photo `from` va à la place `to`. */
+  const reorder = async (from: number, to: number) => {
+    const moved = <T,>(list: T[]) => {
+      const copy = [...list]
+      const [item] = copy.splice(from, 1)
+      if (item !== undefined) copy.splice(to, 0, item)
+      return copy
+    }
+    if (!projectId) {
+      setPending((p) => ({ ...p, gallery: moved(p.gallery) }))
+      return
+    }
+    const ids = moved((saved?.visuals ?? []).map((visual) => visual.id))
+    await onSaved(() => updateProject(projectId, { visualOrder: ids }))
+  }
+
+  const removeVisual = async (index: number) => {
+    if (!projectId) {
+      setPending((p) => ({ ...p, gallery: p.gallery.filter((_, i) => i !== index) }))
+      return
+    }
+    const visual = saved?.visuals[index]
+    if (visual) await onSaved(() => deleteVisual(projectId, visual.id))
+  }
+
+  const removePortrait = async () => {
+    if (!projectId) {
+      setPending((p) => ({ ...p, portrait: null }))
+      return
+    }
+    const portrait = saved?.portraitCover
+    if (portrait) await onSaved(() => deleteVisual(projectId, portrait.id))
+  }
+
+  // Les vignettes de l'éditeur : les photos du projet enregistré, ou celles qui attendent.
+  const photoLabel = (index: number, total: number) =>
+    t('project.visuals.photo', { number: index + 1, total })
+  const galleryTiles: VisualTile[] = projectId
+    ? (saved?.visuals ?? []).map((visual, index, all) => ({
+        key: visual.id,
+        image: {
+          source: toSource(visual.url),
+          thumbhash: visual.thumbhash,
+          label: photoLabel(index, all.length),
+        },
+      }))
+    : pending.gallery.map((image, index, all) => ({
+        key: image.uri,
+        image: { source: { uri: image.uri }, label: photoLabel(index, all.length) },
+      }))
+  const portraitVisual = projectId ? saved?.portraitCover : null
+  const portraitTile: VisualTile | null = portraitVisual
+    ? {
+        key: portraitVisual.id,
+        image: {
+          source: toSource(portraitVisual.url),
+          thumbhash: portraitVisual.thumbhash,
+          label: t('project.visuals.portraitLabel'),
+        },
+      }
+    : pending.portrait
+      ? {
+          key: pending.portrait.uri,
+          image: {
+            source: { uri: pending.portrait.uri },
+            label: t('project.visuals.portraitLabel'),
+          },
+        }
+      : null
+
+  const visualLabels: VisualEditorLabels = {
+    gallery: t('project.visuals.gallery'),
+    galleryHint: t(
+      projectId ? 'project.visuals.galleryHintEdit' : 'project.visuals.galleryHintNew',
+      {
+        max: VISUALS_MAX,
+      },
+    ),
+    cover: t('project.visuals.cover'),
+    add: t('project.visuals.add'),
+    earlier: (number) => t('project.visuals.earlier', { number }),
+    later: (number) => t('project.visuals.later', { number }),
+    makeCover: (number) => t('project.visuals.makeCover', { number }),
+    remove: (number) => t('project.visuals.remove', { number }),
+    portrait: t('project.visuals.portrait'),
+    portraitHint: t('project.visuals.portraitHint'),
+    choosePortrait: t('project.visuals.choosePortrait'),
+    replacePortrait: t('project.visuals.replacePortrait'),
+    removePortrait: t('project.visuals.removePortrait'),
+  }
 
   /**
    * Fabrique la fonction qui change un champ. `<K extends keyof ProjectForm>` : K est le nom d'un
@@ -133,13 +289,36 @@ function ProjectFormView({ initial, projectId }: ViewProps) {
     const result = projectId
       ? await updateProject(projectId, checked.changes)
       : await createProject(checked.changes)
-    setBusy(false)
     if (!result.ok) {
+      setBusy(false)
       setMessage(t(`errors.${result.error}`))
       return
     }
-    setProject(result.data) // la page du projet s'affichera sans nouvelle requête
-    router.replace({ pathname: '/projects/[id]', params: { id: result.data.id } })
+    // À la création : les photos qui attendaient partent maintenant, une à une, dans l'ordre.
+    let project = result.data
+    let failed = false
+    if (!projectId) {
+      const uploads: [PickedImage, VisualSlot][] = [
+        ...pending.gallery.map((image): [PickedImage, VisualSlot] => [image, 'gallery']),
+        ...(pending.portrait ? [[pending.portrait, 'portrait'] as [PickedImage, VisualSlot]] : []),
+      ]
+      for (const [image, slot] of uploads) {
+        const sent = await uploadVisual(project.id, image, slot)
+        if (sent.ok) project = sent.data
+        else failed = true
+      }
+    }
+    setBusy(false)
+    setProject(project) // la page du projet s'affichera sans nouvelle requête
+    if (failed) {
+      // Le projet est publié ; on ouvre sa page de modification, qui dit quelles photos manquent.
+      router.replace({
+        pathname: '/projects/[id]/edit',
+        params: { id: project.id, photos: 'failed' },
+      })
+      return
+    }
+    router.replace({ pathname: '/projects/[id]', params: { id: project.id } })
   }
 
   // L'adresse de démo est vérifiée pendant la frappe : le membre sait tout de suite si elle ira.
@@ -175,6 +354,19 @@ function ProjectFormView({ initial, projectId }: ViewProps) {
           error={errorText(errors.pitch)}
         />
       </FieldGroup>
+      <VisualEditor
+        labels={visualLabels}
+        gallery={galleryTiles}
+        max={VISUALS_MAX}
+        portrait={portraitTile}
+        onAdd={() => void addVisual('gallery')}
+        onMove={(index, delta) => void reorder(index, index + delta)}
+        onMakeCover={(index) => void reorder(index, 0)}
+        onRemove={(index) => void removeVisual(index)}
+        onPickPortrait={() => void addVisual('portrait')}
+        onRemovePortrait={() => void removePortrait()}
+        busy={visualsBusy}
+      />
       <TextField
         label={t('project.fields.demoUrl')}
         value={form.demoUrl}
@@ -311,7 +503,8 @@ function ProjectFormView({ initial, projectId }: ViewProps) {
             <ProjectCard
               title={form.title.trim() || t('project.preview.untitled')}
               pitch={form.pitch.trim() || t('project.preview.noPitch')}
-              author={{ name: session?.user.name ?? '', avatarUrl: null }}
+              author={{ name: session?.user.name ?? '', avatar: null }}
+              image={galleryTiles[0]?.image ?? null}
               when={t('project.preview.now')}
               status={{
                 label: t(`project.status.${form.status}`),

@@ -2,12 +2,16 @@
 // (outils, temps passé, prompts clés) et sa description. L'auteur peut le modifier ou le supprimer.
 // Sur téléphone, tout se lit de haut en bas ; sur ordinateur, la couverture et la description à
 // gauche, le reste à droite.
-import type { Project } from '@ruche/contracts'
+// La couverture : sur téléphone, la couverture verticale si l'auteur en a donné une, sinon la
+// première photo ; sur ordinateur, la première photo. Des vignettes permettent de voir les autres,
+// et la lumière d'ambiance prend la couleur de la photo affichée.
+import type { Project, ProjectVisual } from '@ruche/contracts'
 import { useRouter } from 'expo-router'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSession } from '../accounts/api'
 import { ApiError } from '../api/errors'
+import { useMediaSources } from '../api/media'
 import { useOpenOutside } from '../navigation/links'
 import { TopNav } from '../navigation/TopNav'
 import { deleteProject } from '../projects/api'
@@ -30,6 +34,7 @@ import { StatusPill } from '../ui/StatusPill'
 import { Surface } from '../ui/Surface'
 import { Tag } from '../ui/Tag'
 import { Text } from '../ui/Text'
+import { Thumbnails } from '../ui/Thumbnails'
 import { useLayout } from '../ui/theme/layout'
 
 export function ProjectScreen({ id }: { id: string }) {
@@ -87,7 +92,10 @@ function ProjectView({ project }: { project: Project }) {
   const router = useRouter()
   const openOutside = useOpenOutside()
   const forgetProject = useForgetProject()
+  const toSource = useMediaSources()
   const wide = useLayout().sizeClass === 'wide'
+  // La photo de la galerie choisie dans les vignettes ; null : la couverture par défaut.
+  const [selected, setSelected] = useState<number | null>(null)
   const [confirming, setConfirming] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -110,9 +118,53 @@ function ProjectView({ project }: { project: Project }) {
 
   const hasRecipe = project.tools.length > 0 || project.timeSpent || project.prompts.length > 0
 
+  // La photo affichée en couverture, et ce qu'en annoncent les lecteurs d'écran.
+  const gallery = project.visuals
+  const photoLabel = (index: number) =>
+    t('project.visuals.photo', { number: index + 1, total: gallery.length })
+  const portrait = wide ? null : project.portraitCover
+  const shown: { visual: ProjectVisual; label: string } | null =
+    selected !== null && gallery[selected]
+      ? { visual: gallery[selected], label: photoLabel(selected) }
+      : portrait
+        ? { visual: portrait, label: t('project.visuals.portraitLabel') }
+        : gallery[0]
+          ? { visual: gallery[0], label: photoLabel(0) }
+          : null
+  // Les vignettes servent dès qu'il y a autre chose à voir que la couverture affichée.
+  const showThumbnails = gallery.length > 1 || (portrait !== null && gallery.length > 0)
+  const thumbnails = showThumbnails ? (
+    <Thumbnails
+      items={gallery.map((visual, index) => ({
+        key: visual.id,
+        image: {
+          source: toSource(visual.url),
+          thumbhash: visual.thumbhash,
+          label: photoLabel(index),
+        },
+      }))}
+      // -1 : aucune vignette n'est sélectionnée (c'est la couverture verticale qui est affichée).
+      selected={selected ?? (portrait ? -1 : 0)}
+      onSelect={setSelected}
+    />
+  ) : null
+
   // Les morceaux de la page, assemblés différemment sur téléphone et sur ordinateur.
+  // Sur téléphone, une couverture verticale a besoin de hauteur pour ne pas être trop recadrée.
   const cover = (
-    <ProjectCover height={wide ? 520 : 240} radius={wide ? 'tile' : 'sheet'}>
+    <ProjectCover
+      height={wide ? 520 : shown?.visual === portrait && portrait ? 480 : 240}
+      radius={wide ? 'tile' : 'sheet'}
+      image={
+        shown
+          ? {
+              source: toSource(shown.visual.url),
+              thumbhash: shown.visual.thumbhash,
+              label: shown.label,
+            }
+          : null
+      }
+    >
       {wide ? null : (
         <Row padding="lg">
           <IconButton icon="arrow-left" label={t('common.back')} onPress={back} />
@@ -133,7 +185,7 @@ function ProjectView({ project }: { project: Project }) {
       <Row gap="md">
         <Avatar
           name={project.author.name}
-          url={project.author.avatarUrl}
+          source={toSource(project.author.avatarUrl)}
           label={project.author.name}
           size={44}
         />
@@ -260,13 +312,17 @@ function ProjectView({ project }: { project: Project }) {
     </Stack>
   ) : null
 
+  // La lumière d'ambiance prend la couleur de la photo affichée (sans photo : la lumière miel).
+  const thumbhash = shown?.visual.thumbhash ?? null
+
   if (wide) {
     return (
-      <Screen width="page" header={<TopNav />} onBack={back}>
+      <Screen width="page" header={<TopNav />} onBack={back} thumbhash={thumbhash}>
         <Columns
           main={
             <>
               {cover}
+              {thumbnails}
               {description}
             </>
           }
@@ -282,8 +338,9 @@ function ProjectView({ project }: { project: Project }) {
     )
   }
   return (
-    <Screen>
+    <Screen thumbhash={thumbhash}>
       {cover}
+      {thumbnails}
       {info}
       {recipe}
       {description}

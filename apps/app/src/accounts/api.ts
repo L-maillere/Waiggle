@@ -23,6 +23,12 @@ const toResult = (error: { status: number; code?: string | undefined } | null): 
 /** Le membre connecté (ou null), mis à jour automatiquement : un hook React. */
 export const useSession = authClient.useSession
 
+/**
+ * Sur téléphone : le cookie de session, gardé dans le coffre-fort du téléphone par le plugin Expo.
+ * Il accompagne les demandes d'images, réservées aux membres (voir api/media.ts).
+ */
+export const getSessionCookie = (): Promise<string> => authClient.getCookie()
+
 export const signUp = async (input: SignUpRequest): Promise<Result> => {
   const { error } = await authClient.signUp.email({
     ...input,

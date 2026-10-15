@@ -1,7 +1,14 @@
 // Tests du formulaire de projet : publier, puis modifier. L'API est remplacée par de faux appels.
-import { fireEvent, screen } from '@testing-library/react-native'
-import { createProject, getProject, updateProject } from '../projects/api'
-import { recipesProject } from '../testing/projects'
+import { fireEvent, screen, waitFor } from '@testing-library/react-native'
+import {
+  createProject,
+  deleteVisual,
+  getProject,
+  pickVisual,
+  updateProject,
+  uploadVisual,
+} from '../projects/api'
+import { photo, projectWithPhotos, recipesProject } from '../testing/projects'
 import { mockSession, renderWithProviders } from '../testing/render'
 import { ProjectFormScreen } from './ProjectFormScreen'
 
@@ -12,17 +19,30 @@ jest.mock('../projects/api', () => ({
   getProject: jest.fn(),
   createProject: jest.fn(),
   updateProject: jest.fn(),
+  pickVisual: jest.fn(),
+  uploadVisual: jest.fn(),
+  deleteVisual: jest.fn(),
+}))
+// Les images de l'API voyagent avec la session (api/media.ts) : ici, l'adresse suffit.
+jest.mock('../api/media', () => ({
+  useMediaSources: () => (url: string | null | undefined) => (url ? { uri: url } : null),
 }))
 const mockReplace = jest.fn()
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: jest.fn(), replace: mockReplace, back: jest.fn() }),
 }))
 
+/** Une photo choisie dans la galerie de l'appareil. */
+const picked = (name: string) => ({ uri: `file:///${name}.jpg`, width: 2048, height: 1536 })
+
 beforeEach(() => {
   mockSession({ user: { id: 'u1', name: 'Léa' } })
   jest.mocked(getProject).mockReset().mockResolvedValue(recipesProject)
   jest.mocked(createProject).mockReset()
   jest.mocked(updateProject).mockReset()
+  jest.mocked(pickVisual).mockReset()
+  jest.mocked(uploadVisual).mockReset()
+  jest.mocked(deleteVisual).mockReset()
   mockReplace.mockReset()
 })
 
@@ -104,6 +124,139 @@ describe('ProjectFormScreen, publishing', () => {
 
     expect(
       await screen.findByText('Trop de demandes. Réessaie dans quelques minutes.'),
+    ).toBeTruthy()
+  })
+})
+
+describe('ProjectFormScreen, photos of a new project', () => {
+  const fillIn = async () => {
+    await fireEvent.changeText(screen.getByLabelText('Titre'), 'Mon agent de recettes')
+    await fireEvent.changeText(screen.getByLabelText('Le pitch, en une phrase'), 'Un menu malin.')
+  }
+
+  it('keeps the chosen photos until publication, then sends them in order', async () => {
+    jest
+      .mocked(pickVisual)
+      .mockResolvedValueOnce(picked('a'))
+      .mockResolvedValueOnce(picked('b'))
+      .mockResolvedValueOnce(picked('vertical'))
+    jest.mocked(createProject).mockResolvedValue({ ok: true, data: recipesProject })
+    jest.mocked(uploadVisual).mockResolvedValue({ ok: true, data: projectWithPhotos })
+    await renderWithProviders(<ProjectFormScreen />)
+
+    await fillIn()
+    await fireEvent.press(screen.getByRole('button', { name: 'Ajouter une photo' }))
+    await fireEvent.press(screen.getByRole('button', { name: 'Ajouter une photo' }))
+    // La seconde passe en couverture avant la publication.
+    await fireEvent.press(
+      await screen.findByRole('button', { name: 'Mettre la photo 2 en couverture' }),
+    )
+    await fireEvent.press(screen.getByRole('button', { name: 'Choisir une couverture verticale' }))
+    expect(uploadVisual).not.toHaveBeenCalled() // rien ne part avant la publication
+    await fireEvent.press(screen.getByRole('button', { name: 'Publier' }))
+
+    await waitFor(() => expect(uploadVisual).toHaveBeenCalledTimes(3))
+    expect(jest.mocked(uploadVisual).mock.calls).toEqual([
+      [recipesProject.id, picked('b'), 'gallery'],
+      [recipesProject.id, picked('a'), 'gallery'],
+      [recipesProject.id, picked('vertical'), 'portrait'],
+    ])
+    expect(mockReplace).toHaveBeenCalledWith({
+      pathname: '/projects/[id]',
+      params: { id: recipesProject.id },
+    })
+  })
+
+  it('publishes the project anyway when a photo fails, and says so on the edit page', async () => {
+    jest.mocked(pickVisual).mockResolvedValueOnce(picked('a'))
+    jest.mocked(createProject).mockResolvedValue({ ok: true, data: recipesProject })
+    jest.mocked(uploadVisual).mockResolvedValue({ ok: false, error: 'unsupportedMediaType' })
+    await renderWithProviders(<ProjectFormScreen />)
+
+    await fillIn()
+    await fireEvent.press(screen.getByRole('button', { name: 'Ajouter une photo' }))
+    await fireEvent.press(await screen.findByRole('button', { name: 'Publier' }))
+
+    await waitFor(() =>
+      expect(mockReplace).toHaveBeenCalledWith({
+        pathname: '/projects/[id]/edit',
+        params: { id: recipesProject.id, photos: 'failed' },
+      }),
+    )
+  })
+
+  it('tells what happened when arriving on the edit page after such a failure', async () => {
+    await renderWithProviders(<ProjectFormScreen id={recipesProject.id} uploadFailed />)
+
+    expect(
+      await screen.findByText(
+        'Le projet est publié, mais certaines photos n’ont pas pu être envoyées. Ajoute-les à nouveau ici.',
+      ),
+    ).toBeTruthy()
+  })
+})
+
+describe('ProjectFormScreen, photos of an existing project', () => {
+  beforeEach(() => {
+    jest.mocked(getProject).mockResolvedValue(projectWithPhotos)
+  })
+
+  it('sends a new photo right away', async () => {
+    const added = {
+      ...projectWithPhotos,
+      visuals: [...projectWithPhotos.visuals, photo('55555555-5555-4555-8555-555555555555')],
+    }
+    jest.mocked(pickVisual).mockResolvedValue(picked('d'))
+    jest.mocked(uploadVisual).mockResolvedValue({ ok: true, data: added })
+    await renderWithProviders(<ProjectFormScreen id={recipesProject.id} />)
+
+    await fireEvent.press(await screen.findByRole('button', { name: 'Ajouter une photo' }))
+
+    expect(uploadVisual).toHaveBeenCalledWith(recipesProject.id, picked('d'), 'gallery')
+    expect(await screen.findByRole('button', { name: 'Retirer la photo 4' })).toBeTruthy()
+  })
+
+  it('saves a new cover by sending the whole new order', async () => {
+    const [a, b, c] = projectWithPhotos.visuals.map((v) => v.id)
+    jest.mocked(updateProject).mockResolvedValue({ ok: true, data: projectWithPhotos })
+    await renderWithProviders(<ProjectFormScreen id={recipesProject.id} />)
+
+    await fireEvent.press(
+      await screen.findByRole('button', { name: 'Mettre la photo 3 en couverture' }),
+    )
+
+    expect(updateProject).toHaveBeenCalledWith(recipesProject.id, { visualOrder: [c, a, b] })
+  })
+
+  it('removes a photo, and the vertical cover', async () => {
+    const [, second] = projectWithPhotos.visuals
+    jest.mocked(deleteVisual).mockResolvedValue({ ok: true, data: projectWithPhotos })
+    await renderWithProviders(<ProjectFormScreen id={recipesProject.id} />)
+
+    await fireEvent.press(await screen.findByRole('button', { name: 'Retirer la photo 2' }))
+    await fireEvent.press(
+      await screen.findByRole('button', { name: 'Retirer la couverture verticale' }),
+    )
+
+    expect(deleteVisual).toHaveBeenNthCalledWith(1, recipesProject.id, second?.id)
+    expect(deleteVisual).toHaveBeenNthCalledWith(
+      2,
+      recipesProject.id,
+      projectWithPhotos.portraitCover?.id,
+    )
+  })
+
+  it('shows why a photo was refused', async () => {
+    jest.mocked(pickVisual).mockResolvedValue(picked('e'))
+    jest.mocked(uploadVisual).mockResolvedValue({ ok: false, error: 'tooManyVisuals' })
+    await renderWithProviders(<ProjectFormScreen id={recipesProject.id} />)
+
+    await fireEvent.press(await screen.findByRole('button', { name: 'Ajouter une photo' }))
+
+    expect(
+      await screen.findByText(
+        'Six photos au plus par projet. Retires-en une pour en ajouter une autre.',
+      ),
     ).toBeTruthy()
   })
 })

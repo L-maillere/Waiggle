@@ -15,7 +15,7 @@ import { dirname, extname, join, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
 import { leaMe } from '../src/testing/fixtures.ts'
-import { recipesProject } from '../src/testing/projects.ts'
+import { projectWithPhotos, recipesProject } from '../src/testing/projects.ts'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const build = join(root, 'dist-shots')
@@ -99,6 +99,22 @@ const session = {
   session: { id: 's1', userId: leaMe.id, expiresAt: '2099-01-01T00:00:00.000Z' },
   user: { ...leaMe, image: null, updatedAt: leaMe.createdAt },
 }
+// Le même projet, avec ses photos, sous un autre identifiant : on photographie les deux pages.
+const photosProject = { ...projectWithPhotos, id: '7c2d3e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f' }
+// Une image d'exemple par photo (le dépôt n'en contient aucune) : un dégradé SVG, d'une couleur
+// différente selon la photo, aux proportions annoncées par l'API.
+const sampleImage = (id) => {
+  const visual = [...photosProject.visuals, photosProject.portraitCover].find((v) => v?.id === id)
+  const hue = (parseInt(id.slice(0, 2), 16) * 47) % 360
+  const { width = 1600, height = 900 } = visual ?? {}
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="hsl(${hue} 70% 62%)"/><stop offset="1" stop-color="hsl(${hue + 40} 65% 38%)"/>
+  </linearGradient></defs>
+  <rect width="100%" height="100%" fill="url(#g)"/>
+  <circle cx="${width * 0.7}" cy="${height * 0.35}" r="${Math.min(width, height) * 0.18}" fill="hsl(${hue + 180} 80% 85%)" opacity="0.8"/>
+</svg>`
+}
 const fakeApi = (signedIn) => async (route) => {
   const { pathname } = new URL(route.request().url())
   const json = (status, body) =>
@@ -107,6 +123,11 @@ const fakeApi = (signedIn) => async (route) => {
   if (!signedIn) return json(401, { error: { code: 'unauthorized', message: '' } })
   if (pathname === '/v1/me') return json(200, leaMe)
   if (pathname === `/v1/projects/${recipesProject.id}`) return json(200, recipesProject)
+  if (pathname === `/v1/projects/${photosProject.id}`) return json(200, photosProject)
+  const media = pathname.match(/^\/media\/visuals\/([0-9a-f-]+)\.webp$/)
+  if (media) {
+    return route.fulfill({ status: 200, contentType: 'image/svg+xml', body: sampleImage(media[1]) })
+  }
   return json(404, { error: { code: 'not_found', message: '' } })
 }
 
@@ -126,6 +147,14 @@ const pages = [
   { name: 'publier', path: '/projects/new', signedIn: true, fullPage: true },
   { name: 'projet', path: project, signedIn: true, fullPage: true },
   { name: 'modifier', path: `${project}/edit`, signedIn: true, fullPage: true },
+  // Le projet avec ses photos : couverture verticale sur téléphone, vignettes, éditeur des photos.
+  { name: 'projet-photos', path: `/projects/${photosProject.id}`, signedIn: true, fullPage: true },
+  {
+    name: 'modifier-photos',
+    path: `/projects/${photosProject.id}/edit`,
+    signedIn: true,
+    fullPage: true,
+  },
   // Un projet qui n'existe pas (ou privé) : l'API simulée répond « introuvable ».
   {
     name: 'projet-introuvable',

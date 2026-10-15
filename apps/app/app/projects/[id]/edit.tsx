@@ -4,8 +4,11 @@ import { firstParam } from '../../../src/navigation/params'
 import { ProjectFormScreen } from '../../../src/screens/ProjectFormScreen'
 
 export default function EditProjectPage() {
-  const { id } = useLocalSearchParams<{ id: string }>()
-  return <ProjectFormScreen id={firstParam(id) ?? ''} />
+  // photos=failed : on arrive juste après une publication dont des photos n'ont pas pu partir.
+  const { id, photos } = useLocalSearchParams<{ id: string; photos?: string }>()
+  return (
+    <ProjectFormScreen id={firstParam(id) ?? ''} uploadFailed={firstParam(photos) === 'failed'} />
+  )
 }
 
 // Si la page plante (contenu piégé, bug…), un écran de secours s'affiche à sa place.

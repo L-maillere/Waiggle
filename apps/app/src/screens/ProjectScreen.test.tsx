@@ -2,11 +2,15 @@
 import { fireEvent, screen } from '@testing-library/react-native'
 import { ApiError } from '../api/errors'
 import { deleteProject, getProject } from '../projects/api'
-import { recipesProject } from '../testing/projects'
+import { projectWithPhotos, recipesProject } from '../testing/projects'
 import { mockSession, renderWithProviders } from '../testing/render'
 import { ProjectScreen } from './ProjectScreen'
 
 jest.mock('../accounts/api', () => ({ useSession: jest.fn() }))
+// Les images de l'API voyagent avec la session (api/media.ts) : ici, l'adresse suffit.
+jest.mock('../api/media', () => ({
+  useMediaSources: () => (url: string | null | undefined) => (url ? { uri: url } : null),
+}))
 // La barre de navigation (ordinateur) lit le profil pour l'avatar : on remplace l'appel.
 jest.mock('../profile/api', () => ({ getMe: jest.fn() }))
 jest.mock('../projects/api', () => ({ getProject: jest.fn(), deleteProject: jest.fn() }))
@@ -110,6 +114,45 @@ describe('ProjectScreen', () => {
     await renderWithProviders(<ProjectScreen id={id} />)
 
     expect(await screen.findByRole('header', { name: 'Ce projet est introuvable' })).toBeTruthy()
+  })
+
+  it('shows the vertical cover on a phone, and the other photos as thumbnails', async () => {
+    jest.mocked(getProject).mockResolvedValue(projectWithPhotos)
+    await renderWithProviders(<ProjectScreen id={id} />)
+
+    // Les tests affichent un téléphone (390 points de large) : la couverture verticale est en grand.
+    expect(await screen.findByLabelText('Couverture verticale')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Photo 1 sur 3' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Photo 3 sur 3' })).toBeTruthy()
+  })
+
+  it('shows a photo in large when its thumbnail is touched', async () => {
+    jest.mocked(getProject).mockResolvedValue(projectWithPhotos)
+    await renderWithProviders(<ProjectScreen id={id} />)
+
+    const second = await screen.findByRole('button', { name: 'Photo 2 sur 3' })
+    await fireEvent.press(second)
+
+    expect(
+      screen.getByRole('button', { name: 'Photo 2 sur 3' }).props.accessibilityState,
+    ).toMatchObject({ selected: true })
+    expect(screen.queryByLabelText('Couverture verticale')).toBeNull()
+  })
+
+  it('uses the first photo as the cover when there is no vertical cover', async () => {
+    jest.mocked(getProject).mockResolvedValue({ ...projectWithPhotos, portraitCover: null })
+    await renderWithProviders(<ProjectScreen id={id} />)
+
+    expect(
+      (await screen.findByRole('button', { name: 'Photo 1 sur 3' })).props.accessibilityState,
+    ).toMatchObject({ selected: true })
+  })
+
+  it('shows no thumbnails for a project without photos', async () => {
+    await renderWithProviders(<ProjectScreen id={id} />)
+
+    await screen.findByRole('header', { name: 'Mon agent de recettes' })
+    expect(screen.queryByRole('button', { name: /^Photo / })).toBeNull()
   })
 
   it('asks a visitor to sign in', async () => {

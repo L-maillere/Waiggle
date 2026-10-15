@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { downloadMyData, signOut, useSession } from '../accounts/api'
+import { useMediaSources } from '../api/media'
 import { TopNav } from '../navigation/TopNav'
 import { useMe } from '../profile/hooks'
 import { useChooseLanguage } from '../profile/useChooseLanguage'
@@ -30,6 +31,7 @@ export function AccountScreen() {
   const router = useRouter()
   const { data, isPending } = useSession()
   const me = useMe(Boolean(data))
+  const toSource = useMediaSources()
   const { current, choose } = useChooseLanguage()
   const { appearance, setAppearance } = useTheme()
   const [exportMessage, setExportMessage] = useState<{ text: string; ok: boolean } | null>(null)
@@ -71,7 +73,7 @@ export function AccountScreen() {
         <Row gap="md">
           <Avatar
             name={data.user.name}
-            url={me.data?.avatarUrl ?? null}
+            source={toSource(me.data?.avatarUrl)}
             label={t('profile.avatar.label')}
             size={56}
           />

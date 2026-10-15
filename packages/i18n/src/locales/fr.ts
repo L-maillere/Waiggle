@@ -213,6 +213,29 @@ export const fr = {
       untitled: 'Ton projet',
       noPitch: 'Ton pitch apparaîtra ici.',
     },
+    visuals: {
+      gallery: 'Photos',
+      galleryHintNew:
+        '{{max}} au plus. La première sert de couverture. Elles partent à la publication.',
+      galleryHintEdit:
+        '{{max}} au plus. La première sert de couverture. Chaque changement s’enregistre tout de suite.',
+      cover: 'Couverture',
+      add: 'Ajouter une photo',
+      earlier: 'Avancer la photo {{number}}',
+      later: 'Reculer la photo {{number}}',
+      makeCover: 'Mettre la photo {{number}} en couverture',
+      remove: 'Retirer la photo {{number}}',
+      portrait: 'Couverture verticale (téléphone)',
+      portraitHint:
+        'Facultative, plus haute que large : affichée sur téléphone. Sans elle, la première photo est recadrée au centre.',
+      choosePortrait: 'Choisir une couverture verticale',
+      replacePortrait: 'Remplacer la couverture verticale',
+      removePortrait: 'Retirer la couverture verticale',
+      photo: 'Photo {{number}} sur {{total}}',
+      portraitLabel: 'Couverture verticale',
+      uploadFailed:
+        'Le projet est publié, mais certaines photos n’ont pas pu être envoyées. Ajoute-les à nouveau ici.',
+    },
     page: {
       published: 'publié le {{date}}',
       external: '{{host}}, un site hors de {{appName}}',
@@ -228,7 +251,7 @@ export const fr = {
       delete: 'Supprimer',
       deleteTitle: 'Supprimer « {{title}} » ?',
       deleteConfirm:
-        'Le projet, sa description et sa recette disparaissent tout de suite. Impossible de revenir en arrière.',
+        'Le projet, sa description, sa recette et ses photos disparaissent tout de suite. Impossible de revenir en arrière.',
       deleteConfirmButton: 'Supprimer le projet',
       notFoundTitle: 'Ce projet est introuvable',
       notFound: 'Il a peut-être été supprimé, ou le lien est incorrect.',

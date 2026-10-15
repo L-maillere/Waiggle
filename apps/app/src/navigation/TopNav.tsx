@@ -5,6 +5,7 @@
 import { useRouter } from 'expo-router'
 import { useTranslation } from 'react-i18next'
 import { useSession } from '../accounts/api'
+import { useMediaSources } from '../api/media'
 import { useMe } from '../profile/hooks'
 import { Avatar } from '../ui/Avatar'
 import { Button } from '../ui/Button'
@@ -21,6 +22,7 @@ export function TopNav() {
   const { data: session } = useSession()
   // Le profil (pour l'avatar) n'est demandé que si la barre est affichée.
   const me = useMe(Boolean(session) && sizeClass === 'wide')
+  const toSource = useMediaSources(sizeClass === 'wide')
 
   if (sizeClass !== 'wide' || !session) return null
   const name = me.data?.name ?? session.user.name
@@ -36,7 +38,7 @@ export function TopNav() {
             onPress={() => router.push('/projects/new')}
           />
           <Pressed label={t('home.account')} onPress={() => router.push('/account')}>
-            <Avatar name={name} url={me.data?.avatarUrl ?? null} label={name} size={44} />
+            <Avatar name={name} source={toSource(me.data?.avatarUrl)} label={name} size={44} />
           </Pressed>
         </Row>
       </Row>
