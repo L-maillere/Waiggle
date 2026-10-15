@@ -28,6 +28,7 @@ import { eq } from 'drizzle-orm'
 import type { Mailer } from '../email/mailer'
 import { existingAccountEmail, verificationEmail } from '../email/templates'
 import type { FileStorage } from '../media/storage'
+import { mediaKeysOf } from '../projects/load'
 import { deleteMemberCounters } from '../rate-limit'
 import { authSchemaOptions } from './schema-options'
 
@@ -81,8 +82,9 @@ export const createAuth = ({
   rateLimit,
   inviteCode,
 }: AuthOptions) => {
-  // Avatars à effacer après la suppression d'un compte (identifiant du membre → fichier).
-  const avatarsToDelete = new Map<string, string>()
+  // Fichiers à effacer après la suppression d'un compte (identifiant du membre → ses fichiers :
+  // son avatar et les photos de tous ses projets).
+  const filesToDelete = new Map<string, string[]>()
 
   return betterAuth({
     ...authSchemaOptions,
@@ -140,21 +142,29 @@ export const createAuth = ({
       // disparaissent avec lui (suppression « en cascade » dans la base).
       deleteUser: {
         enabled: true,
-        // Juste avant la suppression : on note le fichier de l'avatar (la ligne `profile` va
-        // disparaître avec le compte, on ne pourrait plus le retrouver après).
+        // Juste avant la suppression : on note les fichiers de l'avatar et des photos de ses
+        // projets (leurs lignes vont disparaître avec le compte, on ne pourrait plus les retrouver).
         beforeDelete: async (user) => {
           const [row] = await db
             .select({ avatarKey: schema.profile.avatarKey })
             .from(schema.profile)
             .where(eq(schema.profile.userId, user.id))
-          if (row?.avatarKey) avatarsToDelete.set(user.id, row.avatarKey)
+          const projects = await db
+            .select({ id: schema.project.id })
+            .from(schema.project)
+            .where(eq(schema.project.authorId, user.id))
+          const keys = await mediaKeysOf(
+            db,
+            projects.map((p) => p.id),
+          )
+          filesToDelete.set(user.id, row?.avatarKey ? [row.avatarKey, ...keys] : keys)
         },
-        // Juste après : on efface le fichier lui-même du stockage, et les compteurs anti-abus
+        // Juste après : on efface les fichiers eux-mêmes du stockage, et les compteurs anti-abus
         // qui portent son identifiant.
         afterDelete: async (user) => {
-          const key = avatarsToDelete.get(user.id)
-          avatarsToDelete.delete(user.id)
-          if (key) await storage.delete(key)
+          const keys = filesToDelete.get(user.id) ?? []
+          filesToDelete.delete(user.id)
+          for (const key of keys) await storage.delete(key)
           await deleteMemberCounters(db, user.id)
         },
       },

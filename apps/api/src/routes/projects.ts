@@ -7,7 +7,8 @@ import { and, eq } from 'drizzle-orm'
 import type { Context } from 'hono'
 import { requireUser } from '../auth/session'
 import { errorBody, languageOf } from '../errors'
-import { loadVisibleProject, withSlugs } from '../projects/load'
+import type { FileStorage } from '../media/storage'
+import { loadVisibleProject, mediaKeysOf, withSlugs } from '../projects/load'
 import { memberCounterKeys, type RateLimiter, type RateRule } from '../rate-limit'
 import type { AppEnv } from '../types'
 import { createRouter, errorResponse } from './router'
@@ -81,9 +82,9 @@ const deleteProjectRoute = createRoute({
   },
 })
 
-type Deps = { db: Database; limiter: RateLimiter; publicApiUrl: string }
+type Deps = { db: Database; storage: FileStorage; limiter: RateLimiter; publicApiUrl: string }
 
-export const projectRoutes = ({ db, limiter, publicApiUrl }: Deps) => {
+export const projectRoutes = ({ db, storage, limiter, publicApiUrl }: Deps) => {
   const app = createRouter()
 
   // Connecté obligatoire, vérifié avant même de lire le contenu de la requête.
@@ -172,14 +173,48 @@ export const projectRoutes = ({ db, limiter, publicApiUrl }: Deps) => {
       ...(changes.timeSpent !== undefined && { timeSpent: changes.timeSpent }),
       ...(changes.prompts !== undefined && { prompts: changes.prompts }),
     }
-    if (Object.keys(set).length > 0) {
-      // Double précaution : la condition « dont l'auteur est le membre » est répétée dans la requête,
-      // même si ownProject l'a déjà vérifiée (au cas où le code changerait un jour).
-      await db
-        .update(schema.project)
-        .set(set)
+    // Tout dans une transaction : si le nouvel ordre des photos est refusé, rien n'est enregistré,
+    // pas même le titre envoyé avec lui.
+    const outcome = await db.transaction(async (tx) => {
+      // Le verrou sur le projet (FOR UPDATE) fait patienter un envoi de photo simultané : l'ordre
+      // est vérifié sur la galerie telle qu'elle est vraiment, pas telle qu'elle était un instant avant.
+      await tx
+        .select({ id: schema.project.id })
+        .from(schema.project)
         .where(and(eq(schema.project.id, id), eq(schema.project.authorId, user.id)))
-    }
+        .for('update')
+      if (changes.visualOrder !== undefined) {
+        const gallery = await tx
+          .select({ id: schema.projectMedia.id })
+          .from(schema.projectMedia)
+          .where(
+            and(eq(schema.projectMedia.projectId, id), eq(schema.projectMedia.slot, 'gallery')),
+          )
+        // Exactement les photos de la galerie, chacune une fois (le contrat a déjà vérifié
+        // qu'aucune n'apparaît deux fois) : ni une de moins, ni une d'ailleurs.
+        const current = new Set(gallery.map((m) => m.id))
+        const order = changes.visualOrder
+        if (order.length !== current.size || !order.every((visualId) => current.has(visualId))) {
+          return 'invalid_order' as const
+        }
+        for (const [position, visualId] of order.entries()) {
+          await tx
+            .update(schema.projectMedia)
+            .set({ position })
+            .where(and(eq(schema.projectMedia.id, visualId), eq(schema.projectMedia.projectId, id)))
+        }
+      }
+      if (Object.keys(set).length > 0) {
+        // Double précaution : la condition « dont l'auteur est le membre » est répétée dans la
+        // requête, même si ownProject l'a déjà vérifiée (au cas où le code changerait un jour).
+        await tx
+          .update(schema.project)
+          .set(set)
+          .where(and(eq(schema.project.id, id), eq(schema.project.authorId, user.id)))
+      }
+      return 'ok' as const
+    })
+    if (outcome === 'invalid_order') return c.json(errorBody(languageOf(c), 'validation'), 400)
 
     const project = await loadVisibleProject(db, id, user.id, publicApiUrl)
     if (!project) return notFound(c)
@@ -197,9 +232,12 @@ export const projectRoutes = ({ db, limiter, publicApiUrl }: Deps) => {
     if (access === 'not_found') return notFound(c)
     if (access === 'forbidden') return forbidden(c)
 
+    // Les fichiers des photos, notés avant que leurs lignes ne disparaissent avec le projet.
+    const keys = await mediaKeysOf(db, [id])
     await db
       .delete(schema.project)
       .where(and(eq(schema.project.id, id), eq(schema.project.authorId, user.id)))
+    for (const key of keys) await storage.delete(key)
     // 204 : « c'est fait », sans contenu à renvoyer.
     return c.body(null, 204)
   })

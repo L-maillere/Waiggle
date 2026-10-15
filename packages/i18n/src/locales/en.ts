@@ -280,6 +280,7 @@ export const en: Translation = {
     payloadTooLarge: 'This file is too large.',
     unsupportedMediaType: 'This type of file is not accepted.',
     unavailable: '{{appName}} is very busy right now. Try again in a moment.',
+    tooManyVisuals: 'Six photos at most per project. Remove one to add another.',
     internal: 'Something went wrong.',
     network: 'Can’t reach {{appName}}. Check your connection and try again.',
   },

@@ -35,4 +35,14 @@ describe('createDiskStorage', () => {
   it('refuses to write a file under a name it did not generate', async () => {
     await expect(storage.put('avatars/../evil.sh', new Uint8Array([1]))).rejects.toThrow()
   })
+
+  it('keeps the photos of projects in their own folder, and no other', async () => {
+    const visual = 'visuals/3f2a1b4c-0d5e-4f6a-8b7c-9d0e1f2a3b4c.webp'
+    await storage.put(visual, new Uint8Array([4, 5]))
+
+    expect(await storage.get(visual)).toEqual(new Uint8Array([4, 5]))
+    await expect(
+      storage.put('secrets/3f2a1b4c-0d5e-4f6a-8b7c-9d0e1f2a3b4c.webp', new Uint8Array([1])),
+    ).rejects.toThrow()
+  })
 })

@@ -287,6 +287,7 @@ export const fr = {
     payloadTooLarge: 'Ce fichier est trop lourd.',
     unsupportedMediaType: 'Ce type de fichier n’est pas accepté.',
     unavailable: '{{appName}} reçoit beaucoup de demandes en ce moment. Réessaie dans un instant.',
+    tooManyVisuals: 'Six photos au plus par projet. Retires-en une pour en ajouter une autre.',
     internal: 'Une erreur inattendue est survenue.',
     network: 'Impossible de joindre {{appName}}. Vérifie ta connexion et réessaie.',
   },

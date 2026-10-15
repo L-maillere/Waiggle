@@ -51,6 +51,7 @@ export const memberCounterKeys = (userId: string) => ({
   avatar: `avatar:${userId}`,
   projectCreate: `project-create:${userId}`,
   projectChange: `project-change:${userId}`,
+  visualUpload: `visual-upload:${userId}`,
 })
 
 /**
