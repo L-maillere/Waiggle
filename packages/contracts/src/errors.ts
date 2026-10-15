@@ -11,6 +11,7 @@ export const ErrorCode = z.enum([
   'payload_too_large',
   'unsupported_media_type',
   'unavailable',
+  'too_many_visuals',
   'internal',
 ])
 export type ErrorCode = z.infer<typeof ErrorCode>

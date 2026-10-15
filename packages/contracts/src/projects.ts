@@ -12,8 +12,46 @@ export const PROJECT_PROMPTS_MAX = 5
 export const PROJECT_PROMPT_MAX_LENGTH = 4_000
 export const DEMO_URL_MAX_LENGTH = 2_000
 
+// Les visuels (tranche 3b-1) : 6 photos au plus dans la galerie, plus une couverture verticale
+// facultative. Mêmes formats et même taille d'envoi que les avatars.
+export const VISUALS_MAX = 6
+export const VISUAL_MAX_BYTES = 5 * 1024 * 1024
+export const VISUAL_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const
+
 /** L'identifiant d'un projet : un uuid tiré au hasard par le serveur. */
 export const ProjectId = z.uuid()
+
+/**
+ * Le ThumbHash d'une image : un résumé flou de quelques dizaines d'octets, calculé par le serveur,
+ * qui colore la lumière d'ambiance et s'affiche le temps que la vraie image arrive.
+ * Il vient de l'API ; l'appli le vérifie quand même (ADR 0002) : du base64, court. Un vrai ThumbHash
+ * fait au plus 25 octets (36 caractères) ; 64 laisse de la marge sans rien laisser passer de long.
+ */
+export const Thumbhash = z.base64().min(1).max(64)
+
+/**
+ * Où va une photo envoyée : dans la galerie (la première sert de couverture), ou comme couverture
+ * verticale, affichée sur téléphone.
+ */
+export const VisualSlot = z.enum(['gallery', 'portrait'])
+export type VisualSlot = z.infer<typeof VisualSlot>
+
+/**
+ * Un visuel d'un projet, tel que l'API le renvoie. `kind` n'a qu'une valeur pour l'instant : la
+ * vidéo viendra dans sa propre tranche, et s'ajoutera ici.
+ * L'adresse ne s'ouvre que pour un membre connecté qui voit le projet.
+ */
+export const ProjectVisual = z
+  .object({
+    id: z.uuid(),
+    kind: z.enum(['image']),
+    url: z.url(),
+    width: z.int().positive(),
+    height: z.int().positive(),
+    thumbhash: Thumbhash,
+  })
+  .meta({ id: 'ProjectVisual' })
+export type ProjectVisual = z.infer<typeof ProjectVisual>
 
 // z.enum : une liste fermée de valeurs. Les textes affichés (« En construction »…) sont dans les
 // traductions ; ici, seulement des codes stables, en anglais.
@@ -126,8 +164,23 @@ export const ProjectInput = z
   .meta({ id: 'ProjectInput' })
 export type ProjectInput = z.infer<typeof ProjectInput>
 
-/** Ce que PATCH /v1/projects/:id accepte : n'importe quelle partie des champs. */
-export const ProjectUpdate = z.strictObject(fields).partial().meta({ id: 'ProjectUpdate' })
+/**
+ * Le nouvel ordre de la galerie : les identifiants des photos, chacune une seule fois. Le serveur
+ * vérifie en plus que ce sont exactement les photos du projet.
+ */
+const VisualOrder = z
+  .array(z.uuid())
+  .max(VISUALS_MAX)
+  .refine((ids) => new Set(ids).size === ids.length, { message: 'each photo once' })
+
+/**
+ * Ce que PATCH /v1/projects/:id accepte : n'importe quelle partie des champs, et le nouvel ordre
+ * des photos. (Ajouter ou retirer une photo passe par ses propres routes.)
+ */
+export const ProjectUpdate = z
+  .strictObject({ ...fields, visualOrder: VisualOrder })
+  .partial()
+  .meta({ id: 'ProjectUpdate' })
 export type ProjectUpdate = z.infer<typeof ProjectUpdate>
 
 // --- Ce que l'API renvoie ---
@@ -154,6 +207,10 @@ export const Project = z
     tools: z.array(ProjectTool),
     timeSpent: TimeSpent.nullable(),
     prompts: z.array(z.string()),
+    /** La galerie, dans l'ordre choisi par l'auteur : la première photo sert de couverture. */
+    visuals: z.array(ProjectVisual).max(VISUALS_MAX),
+    /** La couverture verticale, affichée sur téléphone ; null : on recadre la première photo. */
+    portraitCover: ProjectVisual.nullable(),
     /** Vrai si le membre qui regarde est l'auteur : l'appli affiche alors « Modifier ». */
     isMine: z.boolean(),
     createdAt: z.iso.datetime(),
@@ -162,7 +219,10 @@ export const Project = z
   .meta({ id: 'Project' })
 export type Project = z.infer<typeof Project>
 
-/** Un projet en version courte, pour les listes. */
+/**
+ * Un projet en version courte, pour les listes : sa couverture (la première photo) et sa
+ * couverture verticale, sans toute la galerie.
+ */
 export const ProjectSummary = Project.pick({
   id: true,
   author: true,
@@ -171,6 +231,9 @@ export const ProjectSummary = Project.pick({
   status: true,
   visibility: true,
   tools: true,
+  portraitCover: true,
   updatedAt: true,
-}).meta({ id: 'ProjectSummary' })
+})
+  .extend({ cover: ProjectVisual.nullable() })
+  .meta({ id: 'ProjectSummary' })
 export type ProjectSummary = z.infer<typeof ProjectSummary>
