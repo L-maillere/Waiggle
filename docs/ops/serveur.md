@@ -116,9 +116,12 @@ Claude ne tape jamais un mot de passe, une clé ou un numéro de carte : ces ét
      une clé API pour cette application : expiration **1 an** (le maximum), « utilisée pour Object
      Storage » : non. Sa clé secrète est `SCALEWAY_SECRET_KEY` : elle ne s'affiche qu'une fois, et
      Claude ne doit jamais la voir. L'identifiant de la clé (`SCW…`) ne sert pas à l'API.
-   - **Renouvellement** : la clé créée le 15 octobre 2026 **expire le 15 octobre 2027**. Avant
-     cette date, en générer une nouvelle pour la même application, la remplacer dans
-     `secrets.env`, relancer l'API (`compose up -d api`), puis supprimer l'ancienne dans IAM.
+   - **Renouvellement** : la clé créée le 15 octobre 2026 **expire le 15 octobre 2027** (un
+     rappel dans ton agenda en septembre 2027 : passé cette date, plus aucun e-mail de compte ne
+     part). Avant : générer une nouvelle clé pour la même application, la remplacer dans
+     `secrets.env` et relancer l'API comme pour « Changer le code d'invitation » (partie 4 :
+     `nano`, puis `compose up -d api` via `infra/lib.sh`), vérifier avec un vrai e-mail
+     d'inscription, et seulement alors supprimer l'ancienne clé dans IAM.
    - **Pourquoi Scaleway** : il ne sait ni insérer un pixel d'ouverture ni réécrire les liens. Les
      e-mails partent tels que l'API les écrit.
 5. **Brevo** (réservé au marketing, ADR 0005) : le compte, le domaine authentifié et le réglage
