@@ -29,8 +29,15 @@ const EnvSchema = z
     // Adresse publique de l'API (pour construire les liens dans les e-mails) et de l'appli web.
     PUBLIC_API_URL: z.url().default('http://localhost:3000'),
     APP_URL: z.url().default('http://localhost:8081'),
-    MAIL_PROVIDER: z.enum(['console', 'brevo']).default('console'),
+    // Qui envoie les e-mails : la console (développement), Brevo, ou Scaleway (ADR 0005).
+    MAIL_PROVIDER: z.enum(['console', 'brevo', 'scaleway']).default('console'),
     BREVO_API_KEY: optional(z.string()),
+    SCALEWAY_SECRET_KEY: optional(z.string()),
+    // L'identifiant du projet Scaleway, un UUID : z.uuid() refuse une valeur mal copiée.
+    SCALEWAY_PROJECT_ID: optional(z.uuid()),
+    // Transactional Email n'existe qu'à Paris (constaté le 14/10/2026). Une autre région ferait
+    // démarrer le serveur, puis échouer au premier e-mail : on la refuse dès le départ.
+    SCALEWAY_REGION: z.enum(['fr-par']).default('fr-par'),
     // « true » autorise les e-mails écrits dans les logs (console) en production. Seulement pour
     // les essais (tests de la pile Docker) : sinon les liens des e-mails, qui connectent au compte,
     // finiraient dans les logs du serveur.
@@ -89,11 +96,17 @@ const EnvSchema = z
       ctx.addIssue({
         code: 'custom',
         path: ['MAIL_PROVIDER'],
-        message: 'console writes the sign-in links in the logs: use brevo in production',
+        message: 'console writes the sign-in links in the logs: use scaleway in production',
       })
     }
     if (env.MAIL_PROVIDER === 'brevo' && !env.BREVO_API_KEY) {
       ctx.addIssue({ code: 'custom', path: ['BREVO_API_KEY'], message: 'required to send emails' })
+    }
+    if (env.MAIL_PROVIDER === 'scaleway') {
+      for (const key of ['SCALEWAY_SECRET_KEY', 'SCALEWAY_PROJECT_ID'] as const) {
+        if (!env[key])
+          ctx.addIssue({ code: 'custom', path: [key], message: 'required to send emails' })
+      }
     }
   })
 
@@ -109,9 +122,12 @@ const PUBLIC_EXAMPLE_INVITE_CODES = [
 // Secret de secours, uniquement hors production : il est public (il est dans ce fichier !).
 const DEVELOPMENT_SECRET = 'development-only-secret-do-not-use-in-production'
 
+type Sender = { email: string; name: string }
+
 export type MailConfig =
   | { provider: 'console' }
-  | { provider: 'brevo'; apiKey: string; from: { email: string; name: string } }
+  | { provider: 'brevo'; apiKey: string; from: Sender }
+  | { provider: 'scaleway'; secretKey: string; projectId: string; region: string; from: Sender }
 
 export type Env = {
   port: number
@@ -141,6 +157,20 @@ export const loadEnv = (source: Record<string, string | undefined>): Env => {
     throw new Error(`Invalid configuration:\n${problems.join('\n')}`)
   }
   const env = result.data
+  const from: Sender = { email: env.MAIL_FROM_EMAIL, name: env.MAIL_FROM_NAME }
+  // Les « ?? '' » ne servent qu'au typage : superRefine a déjà refusé une clé absente.
+  const mail: MailConfig =
+    env.MAIL_PROVIDER === 'scaleway'
+      ? {
+          provider: 'scaleway',
+          secretKey: env.SCALEWAY_SECRET_KEY ?? '',
+          projectId: env.SCALEWAY_PROJECT_ID ?? '',
+          region: env.SCALEWAY_REGION,
+          from,
+        }
+      : env.MAIL_PROVIDER === 'brevo'
+        ? { provider: 'brevo', apiKey: env.BREVO_API_KEY ?? '', from }
+        : { provider: 'console' }
   return {
     port: env.PORT,
     nodeEnv: env.NODE_ENV,
@@ -151,14 +181,7 @@ export const loadEnv = (source: Record<string, string | undefined>): Env => {
     authSecret: env.BETTER_AUTH_SECRET ?? DEVELOPMENT_SECRET,
     publicApiUrl: env.PUBLIC_API_URL,
     appUrl: env.APP_URL,
-    mail:
-      env.MAIL_PROVIDER === 'brevo'
-        ? {
-            provider: 'brevo',
-            apiKey: env.BREVO_API_KEY ?? '',
-            from: { email: env.MAIL_FROM_EMAIL, name: env.MAIL_FROM_NAME },
-          }
-        : { provider: 'console' },
+    mail,
     inviteCode: env.SIGNUP_INVITE_CODE ?? null,
   }
 }

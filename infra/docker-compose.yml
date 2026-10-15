@@ -71,6 +71,9 @@ services:
       APP_URL: https://${APP_DOMAIN:-localhost}
       MAIL_PROVIDER: ${MAIL_PROVIDER:-console}
       BREVO_API_KEY: ${BREVO_API_KEY:-}
+      SCALEWAY_SECRET_KEY: ${SCALEWAY_SECRET_KEY:-}
+      SCALEWAY_PROJECT_ID: ${SCALEWAY_PROJECT_ID:-}
+      SCALEWAY_REGION: ${SCALEWAY_REGION:-fr-par}
       MAIL_FROM_EMAIL: ${MAIL_FROM_EMAIL:-no-reply@example.com}
       MAIL_FROM_NAME: ${MAIL_FROM_NAME:-}
       # E-mails écrits dans les logs au lieu d'être envoyés : refusé en production, sauf pour

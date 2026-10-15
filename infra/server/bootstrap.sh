@@ -337,7 +337,7 @@ EOF
     # Le modèle du dépôt, avec trois valeurs tirées au hasard ici même : le mot de passe de la
     # base, la clé des sessions et le code d'invitation. Les deux premiers ne quittent jamais le
     # serveur et ne sont jamais affichés ; le code, on le lit sur le serveur pour le donner à ses
-    # proches. La clé Brevo se remplit à la main ensuite.
+    # proches. Les clés du prestataire d'e-mails (Scaleway) se remplissent à la main ensuite.
     install -m 600 -o "$name" -g "$name" /dev/null "$secrets"
     sed -e "s/^POSTGRES_PASSWORD=\$/POSTGRES_PASSWORD=$(openssl rand -hex 32)/" \
       -e "s/^BETTER_AUTH_SECRET=\$/BETTER_AUTH_SECRET=$(openssl rand -hex 32)/" \

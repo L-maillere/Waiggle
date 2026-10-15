@@ -5,7 +5,12 @@ import { serve } from '@hono/node-server'
 import { connectPostgres, type DatabaseHandle } from '@ruche/db'
 import { createApp } from './app'
 import { createAuth } from './auth/auth'
-import { createBrevoMailer, createConsoleMailer, type Mailer } from './email/mailer'
+import {
+  createBrevoMailer,
+  createConsoleMailer,
+  createScalewayMailer,
+  type Mailer,
+} from './email/mailer'
 import { loadEnv } from './env'
 import { createDiskStorage } from './media/storage'
 
@@ -24,11 +29,19 @@ const openDatabase = async (): Promise<DatabaseHandle> => {
   return createPgliteDb(env.pgliteDir)
 }
 
-// 2. L'envoi des e-mails : Brevo en production, la console en développement.
-const mailer: Mailer =
-  env.mail.provider === 'brevo'
-    ? createBrevoMailer({ apiKey: env.mail.apiKey, from: env.mail.from })
-    : createConsoleMailer()
+// 2. L'envoi des e-mails : Scaleway en production (ADR 0005), Brevo encore possible, la console en
+// développement. Le reste du code ne voit que l'interface Mailer.
+const createMailer = (): Mailer => {
+  switch (env.mail.provider) {
+    case 'scaleway':
+      return createScalewayMailer(env.mail)
+    case 'brevo':
+      return createBrevoMailer(env.mail)
+    default:
+      return createConsoleMailer()
+  }
+}
+const mailer = createMailer()
 
 // En production, des e-mails écrits dans les logs y laisseraient des liens de vérification, qui
 // connectent au compte. env.ts ne le permet que pour les essais (ALLOW_CONSOLE_MAIL=true) : on le
