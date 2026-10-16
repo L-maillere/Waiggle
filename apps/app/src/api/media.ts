@@ -9,9 +9,17 @@ import { useQuery } from '@tanstack/react-query'
 import { useCallback } from 'react'
 import { Platform } from 'react-native'
 import { getSessionCookie, useSession } from '../accounts/api'
+import { apiUrl } from '../config'
 import type { ImageSource } from '../ui/image'
 
 const isWeb = Platform.OS === 'web'
+
+/**
+ * Vrai pour une image servie par notre API (…/media/…). Seules celles-là reçoivent la session :
+ * le cookie ne doit jamais partir vers un autre site, même si une adresse étrangère arrivait ici
+ * par erreur un jour.
+ */
+const isOurMedia = (url: string) => url.startsWith(`${apiUrl}/media/`)
 
 /**
  * Renvoie une fonction qui transforme l'adresse d'une image de l'API en source d'image.
@@ -32,7 +40,7 @@ export const useMediaSources = (enabled = true) => {
   const value = cookie.data
   return useCallback(
     (url: string | null | undefined): ImageSource | null => {
-      if (!url) return null
+      if (!url || !isOurMedia(url)) return null
       if (isWeb) return { uri: url }
       return value ? { uri: url, headers: { Cookie: value } } : null
     },

@@ -232,11 +232,21 @@ export const projectRoutes = ({ db, storage, limiter, publicApiUrl }: Deps) => {
     if (access === 'not_found') return notFound(c)
     if (access === 'forbidden') return forbidden(c)
 
-    // Les fichiers des photos, notés avant que leurs lignes ne disparaissent avec le projet.
-    const keys = await mediaKeysOf(db, [id])
-    await db
-      .delete(schema.project)
-      .where(and(eq(schema.project.id, id), eq(schema.project.authorId, user.id)))
+    // Les fichiers des photos, notés avant que leurs lignes ne disparaissent avec le projet. Le
+    // verrou (FOR UPDATE) fait attendre un envoi de photo en cours : il ne peut pas glisser une
+    // photo entre la lecture des fichiers et la suppression (son fichier resterait sur le disque).
+    const keys = await db.transaction(async (tx) => {
+      await tx
+        .select({ id: schema.project.id })
+        .from(schema.project)
+        .where(and(eq(schema.project.id, id), eq(schema.project.authorId, user.id)))
+        .for('update')
+      const found = await mediaKeysOf(tx, [id])
+      await tx
+        .delete(schema.project)
+        .where(and(eq(schema.project.id, id), eq(schema.project.authorId, user.id)))
+      return found
+    })
     for (const key of keys) await storage.delete(key)
     // 204 : « c'est fait », sans contenu à renvoyer.
     return c.body(null, 204)

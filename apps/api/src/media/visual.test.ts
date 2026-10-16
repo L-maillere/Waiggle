@@ -71,6 +71,32 @@ describe('processVisual, for the vertical cover', () => {
     expect(result).toMatchObject({ ok: true, width: 900, height: 1600 })
   })
 
+  it('accepts a phone photo stored lying down, which is taller than wide once turned upright', async () => {
+    // Une photo de téléphone tenu droit est souvent enregistrée « couchée » (1920 × 1080) avec
+    // l'orientation EXIF 6 (« tourner de 90° ») : redressée, elle est bien verticale.
+    const lying = await sharp({
+      create: { width: 1920, height: 1080, channels: 3, background: '#3b6ea8' },
+    })
+      .jpeg()
+      .withMetadata({ orientation: 6 })
+      .toBuffer()
+
+    const result = await processVisual(lying, 'portrait')
+
+    expect(result).toMatchObject({ ok: true, width: 900, height: 1600 })
+  })
+
+  it('refuses a 16-bit image, like the avatar', async () => {
+    const deep = await sharp({
+      create: { width: 200, height: 300, channels: 4, background: '#3b6ea8' },
+    })
+      .toColourspace('rgb16')
+      .png()
+      .toBuffer()
+
+    expect(await processVisual(deep, 'gallery')).toEqual({ ok: false, reason: 'unsupported' })
+  })
+
   it('refuses a photo wider than tall: it would not be a vertical cover', async () => {
     expect(await processVisual(await jpegImage(1920, 1080), 'portrait')).toEqual({
       ok: false,

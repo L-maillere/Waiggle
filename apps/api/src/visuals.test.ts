@@ -303,6 +303,128 @@ describe('only the author changes the photos', () => {
 
     expect((await upload(project.id, visualForm(await photoWithGps()), '')).status).toBe(401)
   })
+
+  it('refuses to remove a photo without an account, or from a hidden project', async () => {
+    const hidden = await publish('private')
+    const id = (await addPhoto(hidden.id)).visuals[0]?.id ?? ''
+
+    const anonymous = await ctx.request(`/v1/projects/${hidden.id}/visuals/${id}`, {
+      method: 'DELETE',
+    })
+    const other = await sendJson('DELETE', `/v1/projects/${hidden.id}/visuals/${id}`, max)
+
+    expect(anonymous.status).toBe(401)
+    expect(other.status).toBe(404)
+    expect(storedVisuals()).toHaveLength(1)
+  })
+
+  it('cannot remove a photo of another project through one of mine', async () => {
+    const maxProject = await publish('public', max)
+    const maxPhoto = await ctx.request(`/v1/projects/${maxProject.id}/visuals`, {
+      method: 'POST',
+      headers: { cookie: max },
+      body: visualForm(await photoWithGps()),
+    })
+    const foreignId = Project.parse(await maxPhoto.json()).visuals[0]?.id ?? ''
+    const mine = await publish()
+
+    const res = await sendJson('DELETE', `/v1/projects/${mine.id}/visuals/${foreignId}`, lea)
+
+    expect(res.status).toBe(404)
+    expect((await read(maxProject.id)).visuals).toHaveLength(1)
+    expect(storedVisuals()).toHaveLength(1)
+  })
+
+  it('refuses an order that names a photo of another project', async () => {
+    const maxProject = await publish('public', max)
+    const maxPhoto = await ctx.request(`/v1/projects/${maxProject.id}/visuals`, {
+      method: 'POST',
+      headers: { cookie: max },
+      body: visualForm(await photoWithGps()),
+    })
+    const foreignId = Project.parse(await maxPhoto.json()).visuals[0]?.id ?? ''
+    const mine = await publish()
+    const own = (await addPhoto(mine.id)).visuals[0]?.id ?? ''
+
+    const res = await sendJson('PATCH', `/v1/projects/${mine.id}`, lea, {
+      visualOrder: [foreignId],
+    })
+    const mixed = await sendJson('PATCH', `/v1/projects/${mine.id}`, lea, {
+      visualOrder: [own, foreignId],
+    })
+
+    expect(res.status).toBe(400)
+    expect(mixed.status).toBe(400)
+  })
+})
+
+describe('races', () => {
+  it('keeps a single vertical cover when two arrive at the same time', async () => {
+    const project = await publish()
+    const tall = await jpegImage(900, 1600)
+
+    const results = await Promise.all([
+      upload(project.id, visualForm(tall, 'portrait')),
+      upload(project.id, visualForm(tall, 'portrait')),
+    ])
+
+    expect(results.map((r) => r.status)).toEqual([201, 201])
+    expect((await read(project.id)).portraitCover).not.toBeNull()
+    expect(await ctx.db.select().from(schema.projectMedia)).toHaveLength(1)
+    expect(storedVisuals()).toHaveLength(1)
+  })
+
+  it('answers « not found » when the project disappears during an upload, and keeps no file', async () => {
+    const project = await publish()
+    // Le projet est supprimé juste après le traitement de l'image, avant son enregistrement.
+    const put = ctx.storage.put.bind(ctx.storage)
+    ctx.storage.put = async (key, data) => {
+      await put(key, data)
+      await ctx.db.delete(schema.project)
+    }
+
+    const res = await upload(project.id, visualForm(await photoWithGps()))
+
+    expect(res.status).toBe(404)
+    expect(storedVisuals()).toHaveLength(0)
+  })
+
+  it('answers an anonymous photo upload at once, without waiting for the file', async () => {
+    const project = await publish()
+    // Un envoi « par morceaux » qui ne se termine jamais : la session est vérifiée avant de lire.
+    const endless = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array(1024))
+      },
+    })
+    const res = await ctx.request(`/v1/projects/${project.id}/visuals`, {
+      method: 'POST',
+      headers: { 'content-type': 'multipart/form-data; boundary=x' },
+      body: endless,
+      duplex: 'half',
+    } as RequestInit)
+
+    expect(res.status).toBe(401)
+    await endless.cancel()
+  }, 5_000)
+
+  it('answers another member at once too, without reading the file', async () => {
+    const project = await publish()
+    const endless = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array(1024))
+      },
+    })
+    const res = await ctx.request(`/v1/projects/${project.id}/visuals`, {
+      method: 'POST',
+      headers: { cookie: max, 'content-type': 'multipart/form-data; boundary=x' },
+      body: endless,
+      duplex: 'half',
+    } as RequestInit)
+
+    expect(res.status).toBe(403)
+    await endless.cancel()
+  }, 5_000)
 })
 
 describe('photos are only shown to members who can see the project', () => {

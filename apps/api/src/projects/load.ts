@@ -17,8 +17,11 @@ import { toolSlug } from './slug'
 
 type MediaRow = typeof schema.projectMedia.$inferSelect
 
+// Reader : la base, ou une transaction en cours (les deux savent faire « select »).
+type Reader = Pick<Database, 'select'>
+
 /** Les médias (photos de la galerie et couverture verticale) d'une liste de projets. */
-const selectMedia = async (db: Database, projectIds: string[]): Promise<MediaRow[]> =>
+const selectMedia = async (db: Reader, projectIds: string[]): Promise<MediaRow[]> =>
   projectIds.length === 0
     ? []
     : db
@@ -136,7 +139,7 @@ export const loadProjectsOf = async (
  * Les clés des fichiers de ces projets, à lire AVANT de les supprimer : les lignes disparaissent
  * avec eux (cascade), et on ne saurait plus quels fichiers effacer.
  */
-export const mediaKeysOf = async (db: Database, projectIds: string[]): Promise<string[]> =>
+export const mediaKeysOf = async (db: Reader, projectIds: string[]): Promise<string[]> =>
   (await selectMedia(db, projectIds)).map((media) => media.storageKey)
 
 /**

@@ -16,7 +16,9 @@ type Deps = { db: Database; storage: FileStorage }
 export const mediaRoutes = ({ db, storage }: Deps) => {
   const app = new Hono<AppEnv>()
 
-  app.get('/media/:folder{avatars|visuals}/:file', async (c) => {
+  // {(?:avatars|visuals)} : le dossier, l'un ou l'autre, en entier (le groupe ancre l'alternative).
+  // isValidKey revérifie de toute façon le nom complet juste après.
+  app.get('/media/:folder{(?:avatars|visuals)}/:file', async (c) => {
     const notFound = () => c.json(errorBody(languageOf(c), 'not_found'), 404)
     // c.get('user') : le membre connecté, retrouvé par le middleware de session (voir app.ts).
     const user = c.get('user')

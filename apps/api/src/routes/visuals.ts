@@ -89,6 +89,18 @@ export const visualRoutes = ({ db, storage, limiter, publicApiUrl }: Deps) => {
     return project
   }
 
+  // Les droits sont vérifiés AVANT de toucher au corps de la requête : la limite de taille, juste
+  // après, lit le flux pour compter les octets. Sans cet ordre, un autre membre pourrait faire lire
+  // au serveur un envoi sans fin vers le projet de quelqu'un d'autre.
+  app.use('/v1/projects/:id/visuals', async (c, next) => {
+    const user = c.get('user')
+    if (!user) return unauthorized(c)
+    const access = await ownProject(c.req.param('id'), user.id)
+    if (access === 'not_found') return notFound(c)
+    if (access === 'forbidden') return forbidden(c)
+    await next()
+  })
+
   // Avant même de lire le fichier : on coupe tout envoi plus gros que la limite (+ 64 Ko pour
   // l'enveloppe du formulaire), comme pour l'avatar.
   app.use(
@@ -103,10 +115,7 @@ export const visualRoutes = ({ db, storage, limiter, publicApiUrl }: Deps) => {
     const user = c.get('user')
     if (!user) return unauthorized(c)
     const { id } = c.req.valid('param')
-    // D'abord les droits (rien n'est lu ni compté pour le projet d'un autre), puis la limite.
-    const access = await ownProject(id, user.id)
-    if (access === 'not_found') return notFound(c)
-    if (access === 'forbidden') return forbidden(c)
+    // Les droits ont déjà été vérifiés plus haut, avant de lire quoi que ce soit ; puis la limite.
     const decision = await limiter.hit(memberCounterKeys(user.id).visualUpload, uploadRule)
     if (!decision.allowed) return tooMany(c, decision.retryAfterSeconds)
 
@@ -135,14 +144,19 @@ export const visualRoutes = ({ db, storage, limiter, publicApiUrl }: Deps) => {
     // Une transaction (tout réussit, ou rien) qui VERROUILLE la ligne du projet (FOR UPDATE) :
     // deux envois simultanés passent l'un après l'autre. Sans ce verrou, ils compteraient tous
     // deux 5 photos et en ajouteraient chacun une : 7 au total.
-    let outcome: { full: true } | { full: false; replacedKey: string | null }
+    let outcome:
+      | { gone: true }
+      | { gone: false; full: true }
+      | { gone: false; full: false; replacedKey: string | null }
     try {
       outcome = await db.transaction(async (tx) => {
-        await tx
+        const [locked] = await tx
           .select({ id: schema.project.id })
           .from(schema.project)
           .where(and(eq(schema.project.id, id), eq(schema.project.authorId, user.id)))
           .for('update')
+        // Le projet a été supprimé pendant le traitement de l'image : il n'y a plus où la ranger.
+        if (!locked) return { gone: true }
         const existing = await tx
           .select({
             id: schema.projectMedia.id,
@@ -155,7 +169,9 @@ export const visualRoutes = ({ db, storage, limiter, publicApiUrl }: Deps) => {
           )
 
         let replacedKey: string | null = null
-        if (slot.data === 'gallery' && existing.length >= VISUALS_MAX) return { full: true }
+        if (slot.data === 'gallery' && existing.length >= VISUALS_MAX) {
+          return { gone: false, full: true }
+        }
         if (slot.data === 'portrait') {
           // Une seule couverture verticale : la nouvelle remplace l'ancienne.
           for (const old of existing) {
@@ -175,11 +191,15 @@ export const visualRoutes = ({ db, storage, limiter, publicApiUrl }: Deps) => {
           height: result.height,
           thumbhash: result.thumbhash,
         })
-        return { full: false, replacedKey }
+        return { gone: false, full: false, replacedKey }
       })
     } catch (error) {
       await storage.delete(key) // la base n'a rien enregistré : le nouveau fichier ne sert à rien
       throw error
+    }
+    if (outcome.gone) {
+      await storage.delete(key)
+      return notFound(c)
     }
     if (outcome.full) {
       await storage.delete(key)
