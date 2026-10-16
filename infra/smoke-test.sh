@@ -68,14 +68,35 @@ LINK=$(docker logs smoke-api 2>&1 | grep -o "$API/api/auth/verify-email[^ ]*" | 
 curl -fsS -o /dev/null -c "$WORK/cookies" "$LINK"
 echo "ok"
 
-step "Envoi d'un avatar : sharp (binaire Alpine) le ré-encode en WebP 512 × 512"
+step "Envoi d'un avatar : sharp (binaire Alpine) le ré-encode en WebP 512 × 512, visible des seuls membres"
 # La photo de test est fabriquée par sharp, dans le conteneur lui-même.
 docker exec smoke-api node -e "import('sharp').then(({ default: sharp }) => sharp({ create: { width: 900, height: 600, channels: 3, background: '#f4b400' } }).jpeg().toBuffer()).then((b) => process.stdout.write(b))" >"$WORK/photo.jpg"
 AVATAR_URL=$(curl -fsS -b "$WORK/cookies" -H "Origin: $APP" -F "avatar=@$WORK/photo.jpg;type=image/jpeg" \
   $API/v1/me/avatar | node -e "let d = ''; process.stdin.on('data', (c) => { d += c }).on('end', () => console.log(JSON.parse(d).avatarUrl))")
-curl -fsS -o "$WORK/avatar.webp" -w '%{content_type}\n' "$AVATAR_URL" | grep -qx 'image/webp'
+# Les images sont réservées aux membres connectés : on la lit avec la session (-b, le cookie)…
+curl -fsS -b "$WORK/cookies" -o "$WORK/avatar.webp" -w '%{content_type}\n' "$AVATAR_URL" | grep -qx 'image/webp'
 test "$(head -c 4 "$WORK/avatar.webp")" = "RIFF" # début de tout fichier WebP
+# … et sans session, la même adresse répond « introuvable ».
+STATUS=$(curl -s -o /dev/null -w '%{http_code}' "$AVATAR_URL")
+test "$STATUS" = "404" || { echo "avatar visible sans session : $STATUS"; exit 1; }
 echo "ok : $AVATAR_URL"
+
+step "Photo d'un projet : WebP 1 600 px au plus et ThumbHash (la bibliothèque est bien dans l'image)"
+PROJECT_ID=$(curl -fsS -b "$WORK/cookies" -H "Origin: $APP" -H 'Content-Type: application/json' \
+  -d '{"title":"Fumée","pitch":"Un projet de test"}' $API/v1/projects |
+  node -e "let d = ''; process.stdin.on('data', (c) => { d += c }).on('end', () => console.log(JSON.parse(d).id))")
+# La réponse est le projet mis à jour ; on en garde l'adresse de la photo, sa taille et son ThumbHash.
+VISUAL=$(curl -fsS -b "$WORK/cookies" -H "Origin: $APP" -F "visual=@$WORK/photo.jpg;type=image/jpeg" -F slot=gallery \
+  "$API/v1/projects/$PROJECT_ID/visuals" |
+  node -e "let d = ''; process.stdin.on('data', (c) => { d += c }).on('end', () => { const v = JSON.parse(d).visuals[0]; console.log(v.url, v.width, v.height, v.thumbhash) })")
+read -r VISUAL_URL VISUAL_WIDTH VISUAL_HEIGHT THUMBHASH <<<"$VISUAL"
+test "$VISUAL_WIDTH x $VISUAL_HEIGHT" = "900 x 600" # une petite photo n'est jamais agrandie
+test -n "$THUMBHASH"
+curl -fsS -b "$WORK/cookies" -o "$WORK/visual.webp" -w '%{content_type}\n' "$VISUAL_URL" | grep -qx 'image/webp'
+test "$(head -c 4 "$WORK/visual.webp")" = "RIFF"
+STATUS=$(curl -s -o /dev/null -w '%{http_code}' "$VISUAL_URL")
+test "$STATUS" = "404" || { echo "photo visible sans session : $STATUS"; exit 1; }
+echo "ok : $VISUAL_URL ($THUMBHASH)"
 
 step "Une modification venue d'un autre site est refusée"
 STATUS=$(curl -s -o /dev/null -w '%{http_code}' -b "$WORK/cookies" -X PATCH $API/v1/me \

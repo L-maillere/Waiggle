@@ -12,6 +12,7 @@ export type ApiErrorKey =
   | 'unsupportedMediaType'
   | 'rateLimited'
   | 'unavailable'
+  | 'tooManyVisuals'
   | 'internal'
   | 'network'
 
@@ -24,6 +25,8 @@ const byStatus: Record<number, ApiErrorKey> = {
   401: 'unauthorized',
   403: 'forbidden',
   404: 'notFound',
+  // 409 : « conflit » ; la seule route qui le renvoie refuse une 7e photo.
+  409: 'tooManyVisuals',
   413: 'payloadTooLarge',
   415: 'unsupportedMediaType',
   429: 'rateLimited',

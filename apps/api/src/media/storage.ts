@@ -1,4 +1,4 @@
-// Le stockage des fichiers envoyés par les membres (avatars, et plus tard les visuels des projets).
+// Le stockage des fichiers envoyés par les membres : les avatars et les visuels des projets.
 // Comme pour les e-mails, le reste du code ne connaît que l'interface `FileStorage` :
 // - sur le disque en développement et sur le VPS (un dossier, monté en volume Docker) ;
 // - en mémoire dans les tests ;
@@ -19,7 +19,9 @@ export interface FileStorage {
  * dossier et de lire n'importe quel fichier du serveur (attaque par « path traversal »).
  */
 export const isValidKey = (key: string) =>
-  /^avatars\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.webp$/.test(key)
+  /^(avatars|visuals)\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.webp$/.test(
+    key,
+  )
 
 const checkKey = (key: string) => {
   if (!isValidKey(key)) throw new Error(`Invalid storage key: ${key}`)

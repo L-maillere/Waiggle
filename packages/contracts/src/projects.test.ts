@@ -1,6 +1,17 @@
 // Tests des règles d'un projet : ce qu'un membre peut publier, et quels liens de démo sont acceptés.
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { DemoUrl, ProjectInput, ProjectUpdate, publicHttpsUrl } from './projects'
+import { ErrorCode } from './errors'
+import {
+  DemoUrl,
+  Project,
+  ProjectInput,
+  ProjectSummary,
+  ProjectUpdate,
+  ProjectVisual,
+  publicHttpsUrl,
+  Thumbhash,
+  VisualSlot,
+} from './projects'
 
 const valid = {
   title: 'Mon agent de recettes',
@@ -62,6 +73,105 @@ describe('ProjectUpdate', () => {
   it('accepts a change of a single field, and removing the demo link', () => {
     expect(ProjectUpdate.parse({ status: 'done' })).toEqual({ status: 'done' })
     expect(ProjectUpdate.parse({ demoUrl: null })).toEqual({ demoUrl: null })
+  })
+
+  it('accepts a new order of the photos: at most six, each one once', () => {
+    const ids = Array.from({ length: 7 }, () => crypto.randomUUID())
+    expect(ProjectUpdate.parse({ visualOrder: ids.slice(0, 6) })).toEqual({
+      visualOrder: ids.slice(0, 6),
+    })
+    expect(ProjectUpdate.safeParse({ visualOrder: ids }).success).toBe(false)
+    expect(ProjectUpdate.safeParse({ visualOrder: [ids[0], ids[0]] }).success).toBe(false)
+    expect(ProjectUpdate.safeParse({ visualOrder: ['../secrets'] }).success).toBe(false)
+  })
+})
+
+// Les visuels viennent de l'API : l'appli les vérifie avant de les afficher (ADR 0002).
+const visual = {
+  id: '2f8c1d4e-5b6a-4c7d-8e9f-0a1b2c3d4e5f',
+  kind: 'image',
+  url: 'https://api.waiggle.io/media/visuals/2f8c1d4e-5b6a-4c7d-8e9f-0a1b2c3d4e5f.webp',
+  width: 1600,
+  height: 900,
+  // Le ThumbHash d'une vraie image : une vingtaine d'octets, écrits en base64.
+  thumbhash: '3OcRJYB4d3h/iIeHeEh3eIhw+j3A', // gitleaks:allow (un résumé d'image, pas une clé)
+}
+
+describe('Thumbhash', () => {
+  it('accepts the short base64 summary of an image', () => {
+    expect(Thumbhash.parse(visual.thumbhash)).toBe(visual.thumbhash)
+  })
+
+  it('refuses anything that is not base64, or too long to be a ThumbHash', () => {
+    expect(Thumbhash.safeParse('pas du base64 !').success).toBe(false)
+    expect(Thumbhash.safeParse('<img src=x onerror=alert(1)>').success).toBe(false)
+    expect(Thumbhash.safeParse('A'.repeat(68)).success).toBe(false)
+    expect(Thumbhash.safeParse('').success).toBe(false)
+  })
+})
+
+describe('ProjectVisual', () => {
+  it('describes a photo: its address, its size and its blurred summary', () => {
+    expect(ProjectVisual.parse(visual)).toEqual(visual)
+  })
+
+  it('only knows photos for now (video will have its own slice)', () => {
+    expect(ProjectVisual.safeParse({ ...visual, kind: 'video' }).success).toBe(false)
+  })
+})
+
+describe('VisualSlot', () => {
+  it('is either the gallery or the vertical cover', () => {
+    expect(VisualSlot.parse('gallery')).toBe('gallery')
+    expect(VisualSlot.parse('portrait')).toBe('portrait')
+    expect(VisualSlot.safeParse('landscape').success).toBe(false)
+  })
+})
+
+describe('Project with its visuals', () => {
+  const project = {
+    id: '6a1d2b3c-4d5e-4f60-8a7b-9c0d1e2f3a4b',
+    author: { id: 'u1', name: 'Léa', avatarUrl: null },
+    title: 'Mon agent',
+    pitch: 'Il aide.',
+    description: '',
+    status: 'idea',
+    visibility: 'public',
+    demoUrl: null,
+    tools: [],
+    timeSpent: null,
+    prompts: [],
+    isMine: true,
+    createdAt: '2026-10-16T10:00:00.000Z',
+    updatedAt: '2026-10-16T10:00:00.000Z',
+  }
+
+  it('lists the gallery in order and the optional vertical cover', () => {
+    const portrait = {
+      ...visual,
+      id: '7b2e3c4d-5e6f-4a71-8b8c-9d0e1f2a3b4c',
+      width: 900,
+      height: 1600,
+    }
+    expect(Project.parse({ ...project, visuals: [visual], portraitCover: portrait })).toMatchObject(
+      {
+        visuals: [visual],
+        portraitCover: portrait,
+      },
+    )
+    expect(Project.parse({ ...project, visuals: [], portraitCover: null }).visuals).toEqual([])
+  })
+
+  it('gives lists the cover and the vertical cover, not the whole gallery', () => {
+    const summary = ProjectSummary.parse({ ...project, cover: visual, portraitCover: null })
+    expect(summary).toMatchObject({ cover: visual, portraitCover: null })
+    expect(summary).not.toHaveProperty('visuals')
+  })
+})
+
+describe('ErrorCode', () => {
+  it('has a code for a seventh photo', () => {
+    expect(ErrorCode.parse('too_many_visuals')).toBe('too_many_visuals')
   })
 })
 

@@ -20,6 +20,7 @@ import { createRateLimiter } from './rate-limit'
 import { meRoutes } from './routes/me'
 import { mediaRoutes } from './routes/media'
 import { projectRoutes } from './routes/projects'
+import { visualRoutes } from './routes/visuals'
 import { sameOriginWrites } from './security/same-origin'
 import type { AppEnv } from './types'
 
@@ -97,7 +98,8 @@ export const createApp = ({ version, auth, db, storage, appUrl, publicApiUrl }: 
   // - 16 Ko pour les requêtes ordinaires (du JSON de quelques lignes) ;
   // - 256 Ko pour les projets (description de 10 000 caractères et 5 prompts de 4 000, jusqu'à
   //   4 octets par caractère) ;
-  // - l'envoi d'avatar a sa propre limite, plus grande (voir routes/me.ts).
+  // - l'envoi d'avatar et celui d'un visuel ont leur propre limite, plus grande, vérifiée juste
+  //   après la session (voir routes/me.ts et routes/visuals.ts).
   const limitBody = (maxSize: number) =>
     bodyLimit({
       maxSize,
@@ -108,6 +110,7 @@ export const createApp = ({ version, auth, db, storage, appUrl, publicApiUrl }: 
   app.use('/api/auth/*', small)
   app.use('/v1/*', (c, next) => {
     if (c.req.path === '/v1/me/avatar') return next()
+    if (/^\/v1\/projects\/[^/]+\/visuals$/.test(c.req.path)) return next()
     if (c.req.path === '/v1/projects' || c.req.path.startsWith('/v1/projects/')) {
       return projects(c, next)
     }
@@ -123,6 +126,8 @@ export const createApp = ({ version, auth, db, storage, appUrl, publicApiUrl }: 
   // puis retrouver le membre connecté.
   app.use('/v1/*', sameOriginWrites([appUrl, publicApiUrl]))
   app.use('/v1/*', sessionMiddleware(auth))
+  // Les images aussi demandent de savoir qui regarde : elles sont réservées aux membres.
+  app.use('/media/*', sessionMiddleware(auth))
   // Les réponses de /v1/… sont personnelles (profil, export…) : aucun cache intermédiaire
   // (navigateur, proxy d'entreprise) ne doit les garder.
   app.use('/v1/*', async (c, next) => {
@@ -136,8 +141,9 @@ export const createApp = ({ version, auth, db, storage, appUrl, publicApiUrl }: 
   // Les routes du membre connecté et le service des images, rangés dans leurs propres fichiers.
   const limiter = createRateLimiter(db)
   app.route('/', meRoutes({ db, storage, limiter, publicApiUrl }))
-  app.route('/', projectRoutes({ db, limiter, publicApiUrl }))
-  app.route('/', mediaRoutes(storage))
+  app.route('/', projectRoutes({ db, storage, limiter, publicApiUrl }))
+  app.route('/', visualRoutes({ db, storage, limiter, publicApiUrl }))
+  app.route('/', mediaRoutes({ db, storage }))
 
   // La documentation de l'API, générée à partir des routes déclarées, servie en JSON.
   app.doc31('/openapi.json', {

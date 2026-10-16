@@ -30,9 +30,25 @@ export const avatarForm = (bytes: Uint8Array, type = 'image/jpeg', filename = 'p
   return form
 }
 
-/** Une image JPEG unie, aux dimensions choisies. */
-export const jpegImage = (width: number, height: number) =>
-  sharp({ create: { width, height, channels: 3, background: '#7a9e3b' } })
+/**
+ * Prépare l'envoi d'un visuel de projet : le fichier (champ "visual") et, s'il est donné, son
+ * emplacement (champ "slot" : la galerie ou la couverture verticale).
+ */
+export const visualForm = (
+  bytes: Uint8Array,
+  slot?: string,
+  type = 'image/jpeg',
+  filename = 'photo.jpg',
+) => {
+  const form = new FormData()
+  form.append('visual', new File([new Uint8Array(bytes)], filename, { type }))
+  if (slot !== undefined) form.append('slot', slot)
+  return form
+}
+
+/** Une image JPEG unie, aux dimensions et à la couleur choisies. */
+export const jpegImage = (width: number, height: number, background = '#7a9e3b') =>
+  sharp({ create: { width, height, channels: 3, background } })
     .jpeg()
     .toBuffer()
 

@@ -24,6 +24,7 @@
     "drizzle-orm": "0.45.4",
     "hono": "4.13.13",
     "sharp": "0.35.5",
+    "thumbhash": "0.1.1",
     "zod": "4.6.6"
   },
   "devDependencies": {

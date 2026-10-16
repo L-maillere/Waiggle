@@ -14,6 +14,7 @@ const errorMessages = {
   payload_too_large: 'payloadTooLarge',
   unsupported_media_type: 'unsupportedMediaType',
   unavailable: 'unavailable',
+  too_many_visuals: 'tooManyVisuals',
   internal: 'internal',
 } as const satisfies Record<ErrorCode, string>
 

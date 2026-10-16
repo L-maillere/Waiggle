@@ -12,6 +12,10 @@ jest.mock('../accounts/api', () => ({
   signOut: jest.fn(),
   downloadMyData: jest.fn(),
 }))
+// Les images de l'API voyagent avec la session (api/media.ts) : ici, l'adresse suffit.
+jest.mock('../api/media', () => ({
+  useMediaSources: () => (url: string | null | undefined) => (url ? { uri: url } : null),
+}))
 const mockReplace = jest.fn()
 const mockPush = jest.fn()
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush, replace: mockReplace }) }))

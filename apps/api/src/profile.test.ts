@@ -35,6 +35,9 @@ const uploadAvatar = (form: FormData, withCookie = cookie) =>
 const getMe = async () =>
   Me.parse(await (await ctx.request('/v1/me', { headers: { cookie } })).json())
 
+/** Ouvre une image, connecté : depuis la tranche 3b-1, les avatars sont réservés aux membres. */
+const openImage = (url: string) => ctx.request(new URL(url).pathname, { headers: { cookie } })
+
 describe('completing my profile', () => {
   it('saves the name, the bio and the favorite tools', async () => {
     const res = await patchMe({
@@ -183,20 +186,29 @@ describe('my avatar', () => {
     expect(res.status).toBe(200)
     expect(me.avatarUrl).toMatch(/^http:\/\/localhost:3000\/media\/avatars\/[0-9a-f-]+\.webp$/)
 
-    const image = await ctx.request(new URL(me.avatarUrl ?? '').pathname)
+    const image = await openImage(me.avatarUrl ?? '')
     const info = await sharp(new Uint8Array(await image.arrayBuffer())).metadata()
     expect(info).toMatchObject({ format: 'webp', width: 512, height: 512 })
     expect(info.exif).toBeUndefined()
   })
 
-  it('is served as an image that browsers may cache for a long time', async () => {
+  it('is served as an image that the browser may cache for a long time, but no shared cache', async () => {
     const me = Me.parse(await (await uploadAvatar(avatarForm(await photoWithGps()))).json())
 
-    const image = await ctx.request(new URL(me.avatarUrl ?? '').pathname)
+    const image = await openImage(me.avatarUrl ?? '')
 
     expect(image.headers.get('content-type')).toBe('image/webp')
     expect(image.headers.get('x-content-type-options')).toBe('nosniff')
     expect(image.headers.get('cache-control')).toContain('immutable')
+    expect(image.headers.get('cache-control')).toContain('private')
+  })
+
+  it('is not shown to a visitor without an account, even with its address', async () => {
+    const me = Me.parse(await (await uploadAvatar(avatarForm(await photoWithGps()))).json())
+
+    const image = await ctx.request(new URL(me.avatarUrl ?? '').pathname)
+
+    expect(image.status).toBe(404)
   })
 
   it('replaces the previous one, which is deleted', async () => {
@@ -289,17 +301,19 @@ describe('my avatar', () => {
 describe('serving images', () => {
   it('forbids the browser from running anything found in an image', async () => {
     await uploadAvatar(avatarForm(await photoWithGps()))
-    const url = new URL((await getMe()).avatarUrl ?? '')
-
-    const res = await ctx.request(url.pathname)
+    const res = await openImage((await getMe()).avatarUrl ?? '')
 
     expect(res.headers.get('x-content-type-options')).toBe('nosniff')
     expect(res.headers.get('content-security-policy')).toBe("default-src 'none'; sandbox")
   })
 
   it('only serves files that exist, under a strict name', async () => {
-    const traversal = await ctx.request('/media/avatars/..%2F..%2Fetc%2Fpasswd')
-    const unknown = await ctx.request('/media/avatars/00000000-0000-4000-8000-000000000000.webp')
+    const traversal = await ctx.request('/media/avatars/..%2F..%2Fetc%2Fpasswd', {
+      headers: { cookie },
+    })
+    const unknown = await ctx.request('/media/avatars/00000000-0000-4000-8000-000000000000.webp', {
+      headers: { cookie },
+    })
 
     expect(traversal.status).toBe(404)
     expect(unknown.status).toBe(404)

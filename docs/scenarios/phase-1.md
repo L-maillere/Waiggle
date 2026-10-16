@@ -159,6 +159,51 @@ Règles détaillées :
 - **Réalisation en deux étapes** : 3a pour le projet lui-même, 3b pour les visuels, la page d'un
   membre et les étiquettes.
 
+### Précisions (tranche 3b-1, les visuels) — validées le 16/10/2026
+
+Décisions de Louis du 16/10/2026 : photos d'abord (la vidéo aura sa propre tranche), une
+couverture verticale pour le téléphone, et des médias visibles des seuls membres. La 3b est
+découpée en deux : 3b-1 pour les visuels, 3b-2 pour la page d'un membre et les étiquettes.
+
+**Ajouter des photos à son projet**
+- Étant donné l'auteur d'un projet
+- Quand il ajoute des photos (6 au plus) et choisit leur ordre
+- Alors la première sert de couverture, et les autres se parcourent sur la page du projet
+- Et la lumière d'ambiance prend la couleur de la photo affichée
+
+**Donner une couverture verticale pour le téléphone**
+- Étant donné l'auteur d'un projet
+- Quand il choisit une couverture verticale (plus haute que large)
+- Alors, sur téléphone, le projet s'affiche avec elle ; sur ordinateur, avec la première photo
+- Et sans couverture verticale, le téléphone recadre la première photo au centre
+
+**Des médias réservés aux membres**
+- Étant donné une photo d'un projet privé, dont quelqu'un a gardé l'adresse
+- Quand un autre membre, ou une personne sans compte, ouvre cette adresse
+- Alors la réponse est « introuvable »
+- Et il en va de même pour les avatars ouverts sans compte
+
+Règles détaillées :
+- **Galerie** : de 0 à 6 photos. **Couverture verticale** : une seule, facultative, plus haute que
+  large (sinon refusée). Elle ne compte pas dans les 6.
+- **Qui voit quoi** : une photo n'est visible que par un membre connecté qui voit le projet ; un
+  avatar, par tout membre connecté. Pour les autres : « introuvable », sans plus de détail.
+  **Ceci change la tranche 2**, où un avatar restait visible par quiconque avait son adresse.
+- **Côté serveur**, mêmes refus que pour l'avatar : plus de 4 096 × 4 096 pixels, plus de 4 fois
+  plus larges que hautes (ou l'inverse), 16 bits par couleur. Même file d'attente : au-delà de
+  2 images en traitement et 8 en attente, « Réessaie dans un instant ». Une 7e photo est refusée
+  (« Six photos au plus »).
+- **Sur l'appareil** : pas de recadrage imposé pour la galerie ; recadrage proposé en vertical pour
+  la couverture verticale. L'image est réduite à 2 048 px avant l'envoi, puis le serveur la
+  ré-encode en WebP de 1 600 px au plus, sans métadonnées, et en calcule le résumé flou
+  (ThumbHash) pour la lumière d'ambiance.
+- **Ordre** : des boutons « Mettre en couverture », « Avancer », « Reculer », « Retirer »
+  (utilisables au clavier et au lecteur d'écran), plutôt qu'un glisser-déposer.
+- **À la création d'un projet**, les photos choisies partent juste après la publication. Si l'une
+  échoue, le projet est quand même publié, et la page de modification le signale.
+- **Suppression** : retirer une photo, supprimer le projet ou le compte efface les fichiers.
+- **Plus tard** : la vidéo, avec sa propre tranche et une décision sur son hébergement.
+
 ## Design Miel — Apparence et accessibilité
 
 Statut : **validé par Louis** le 12/10/2026.
